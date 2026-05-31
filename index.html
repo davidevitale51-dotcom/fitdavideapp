@@ -809,8 +809,7 @@ function renderAddBody(){
   const body=document.getElementById('sheetBody');
   const dietNote = dietActiveLabel();
   const chips=`<div class="addStick"><input id="addSearch" placeholder="Vyhledej potravinu, jídlo nebo recept…" value="${addQuery.replace(/"/g,'&quot;')}">
-    <div class="chips">${FILTERS.map(([k,l])=>`<button class="chip ${addFilters.has(k)?'on':''}" data-f="${k}">${l}</button>`).join('')}
-      ${dietNote?`<button class="chip ${showUnsuitable?'on':''}" data-f="__unsuit">👁 nevhodné</button>`:''}</div>
+    <div class="chips">${FILTERS.map(([k,l])=>`<button class="chip ${addFilters.has(k)?'on':''}" data-f="${k}">${l}</button>`).join('')}</div>
     ${dietNote?`<div class="muted" style="font-size:.74rem;margin:2px 0 4px">Filtruje dle profilu: ${dietNote}</div>`:''}</div>
     <div id="addList"></div>`;
   body.innerHTML=chips;
@@ -822,8 +821,7 @@ function renderAddBody(){
 }
 function fillAddList(){
   const q=norm(addQuery); const list=document.getElementById('addList'); let h=''; let hidden=0;
-  // při vyhledávání (q) zobraz i nevhodné (s označením); při procházení je skryj
-  const gate=(viol,build)=>{ if(viol&&!showUnsuitable&&!q){hidden++;return'';} return build(viol); };
+  const gate=(viol,build)=>{ if(viol&&!showUnsuitable){hidden++;return'';} return build(viol); };
   if(addTab==='potraviny'){
     const items=FOODS.filter(f=>(!q||norm(f.n).includes(q))&&foodMatchesFilter(f)).slice(0,120);
     h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
@@ -842,7 +840,9 @@ function fillAddList(){
     else h=favs.map(nm=>{const viol=dietViolation(nm);return gate(viol,()=>{const f=findFood(nm);if(f){const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(nm,q0,u);return rowHTML('★ '+nm,`${q0} ${u} · ${round(m.k)} kcal`,[],`addFoodChecked('${esc(nm)}',${q0},'${u}')`,null,viol);}
       const p=PREP.find(x=>x.n===nm);if(p){const idx=PREP.indexOf(p);const t=sumItems(p.items);return rowHTML('★ '+p.ic+' '+p.n,`${round(t.k)} kcal`,[],`addPrep(${idx})`,null,viol);}return'';});}).join('');
   }
-  if(hidden>0) h+=`<p class="muted" style="padding:10px 0;font-size:.78rem">${hidden} položek skryto dle dietního profilu. Klepni na „👁 nevhodné" pro zobrazení.</p>`;
+  if(hidden>0) h+=`<div style="padding:10px 0"><div class="muted" style="font-size:.78rem;margin-bottom:6px">${hidden} ${hidden===1?'položka neodpovídá':(hidden<5?'položky neodpovídají':'položek neodpovídá')} tvému dietnímu profilu.</div>
+    <button class="btn sec block" onclick="showUnsuitable=true;fillAddList()">👁 Zobrazit i nevhodné (${hidden})</button></div>`;
+  if(showUnsuitable) h+=`<button class="btn ghost block" style="margin-top:10px" onclick="showUnsuitable=false;fillAddList()">Skrýt nevhodné</button>`;
   list.innerHTML=h||'<p class="muted" style="padding:14px 0">Nic nenalezeno.</p>';
 }
 const esc=s=>s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
