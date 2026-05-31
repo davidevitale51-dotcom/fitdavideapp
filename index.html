@@ -205,6 +205,11 @@
   <div class="topbar"><span class="title">📈 Progres</span></div>
   <div class="card"><div class="card-h"><h3>Hmotnost</h3><button class="linkbtn" id="weightEdit2">+ záznam</button></div>
     <canvas id="wChart" height="150"></canvas><div id="wList" style="margin-top:8px"></div></div>
+  <div class="card"><h3 style="margin-bottom:8px">Kalorie – posledních 7 dní</h3>
+    <canvas id="kcalChart" height="160"></canvas>
+    <div class="muted center" style="font-size:.74rem;margin-top:4px">Zelená čára = denní cíl</div></div>
+  <div class="card"><h3 style="margin-bottom:10px">Bílkoviny – posledních 7 dní</h3>
+    <canvas id="protChart" height="130"></canvas></div>
   <div class="card"><h3 style="margin-bottom:10px">Týdenní průměr (7 dní)</h3><div id="weekStats"></div></div>
 </div></section>
 
@@ -243,6 +248,8 @@
       <div><label>Sacharidy (g)</label><input type="number" id="tCarb"></div>
       <div><label>Tuky (g)</label><input type="number" id="tFat"></div>
       <div><label>Vláknina (g)</label><input type="number" id="tFib"></div>
+      <div><label>Cukry max (g)</label><input type="number" id="tSugar"></div>
+      <div><label>Sůl max (g)</label><input type="number" step="0.1" id="tSalt"></div>
       <div><label>Voda (l)</label><input type="number" step="0.1" id="tWater"></div>
       <div><label>Cílová hmotnost (kg)</label><input type="number" step="0.1" id="tWeight"></div>
     </div>
@@ -579,6 +586,10 @@ const FIB={"Ovesné vločky":10,"Čočka (vařená)":8,"Cizrna (vařená)":8,"Fa
  "Kváskový chléb (domácí)":4,"Chléb celozrnný":7,"Chléb žitný":6,"Jablko":2.4,"Hruška":3,"Banán (1 ks ~120 g)":2.6,"Maliny":6.5,"Ostružiny":5,
  "Borůvky":2.4,"Mrkev":2.8,"Mandle":12,"Vlašské ořechy":7,"Chia semínka":34,"Lněné semínko":27,"Avokádo":7,"Edamame (vařené)":5,"Tempeh":9,
  "Cuketa":1,"Rajče":1.2,"Špenát":2.2,"Paprika červená":2,"Těstoviny celozrnné (suché)":10,"Hummus":6,"Sójové boby (vařené)":6};
+/* cukry (g/100g) – anotace */
+const SUG={"Jablko":10,"Hruška":10,"Banán (1 ks ~120 g)":12,"Pomeranč":9,"Mandarinka":11,"Jahody":5,"Maliny":4,"Borůvky":10,"Hroznové víno":16,"Kiwi":9,"Mango":14,"Ananas":10,"Meloun vodní":6,"Meloun cukrový":8,"Broskev":8,"Meruňka":9,"Švestka":10,"Třešně":13,"Datle (sušené)":63,"Rozinky":59,"Med":82,"Javorový sirup":60,"Agávový sirup":68,"Marmeláda / džem":50,"Hořká čokoláda 70 %":24,"Müsli s ořechy":20,"Granola":25,"Kečup":22,"Ovesné sušenky":28,"Lískooříšková pomazánka (Nutella typ)":56,"Cola":11,"Pomerančový džus":8,"Jablečný džus":10,"Sójový nápoj":2.5,"Ovesný nápoj":4,"Kokosový jogurt":6,"Sójový jogurt bílý":4,"Sójový jogurt natural":4,"Bílý jogurt 3%":5,"Mléko polotučné":4.8,"Müsli tyčinka":30,"Proteinová tyčinka (1 ks ~60 g)":20};
+/* sůl (g/100g) – anotace */
+const SALT={"Kváskový chléb (domácí)":1.2,"Chléb žitný":1.3,"Chléb celozrnný":1.2,"Toustový chléb":1.2,"Bageta bílá":1.4,"Žitný kvasový chléb (kupovaný)":1.3,"Bílý rohlík (1 ks ~43 g)":1.3,"Šunka kuřecí/krůtí":2,"Tuňák ve vlastní šťávě":0.8,"Tuňák v oleji (plechovka)":0.9,"Sardinky v oleji (scezené)":1.2,"Makrela v tomatě (konzerva)":0.9,"Hummus":1.1,"Olivy":3.3,"Sójová omáčka":16,"Tamari (bezlepková sójovka)":16,"Kečup":2,"Hořčice":5,"Eidam 30%":1.8,"Parmazán":1.6,"Mozzarella":1.4,"Cottage cheese":1,"Knäckebrot (křehký chléb)":1,"Kukuřičné lupínky (cornflakes)":0.7,"Fazole v tomatě (konzerva)":0.5,"Hrášek (konzerva)":0.4};
 
 /* ====== HOTOVÁ JÍDLA (recepty složené z potravin výše) ====== */
 const PREP=[
@@ -622,7 +633,8 @@ let acts   = DB.load('kt_acts', {});       // {date:[{n,min,kcal}]}
 let weights= DB.load('kc_weights', []);    // [{d,v}]
 let favs   = DB.load('kt_favs', []);       // [name]
 let myMeals= DB.load('kc_meals', []);      // [{n,items:[[n,q,u]]}]
-let target = DB.load('kt_target', {kcal:1800,prot:160,carb:165,fat:60,fib:30,water:3.5,weight:95});
+let target = DB.load('kt_target', {kcal:1800,prot:160,carb:165,fat:60,fib:30,sugar:90,salt:6,water:3.5,weight:95});
+if(target.sugar==null)target.sugar=90; if(target.salt==null)target.salt=6;
 
 /* ====== DIETNÍ PROFIL ====== */
 let diet = DB.load('kt_diet', {dairyFree:true,cowMilkFree:true,lactoseFree:true,vegetarian:false,vegan:false,glutenFree:false,lowCarb:false,highProtein:false,noPork:false,noFish:false,noNuts:false,noEgg:false,excl:[]});
@@ -667,14 +679,17 @@ const iso=d=>d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
 const todayISO=iso(new Date());
 let selDate=todayISO;
 const findFood=n=>FOODS.find(f=>f.n===n);
-function macroOne(n,q,u){const f=findFood(n);if(!f)return{k:0,p:0,c:0,f:0,fib:0};
+function macroOne(n,q,u){const f=findFood(n);if(!f)return{k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};
   let b;if(f.unit)b=1;else if(u==='ks'&&f.g)b=f.g/100;else b=1/100;
-  const fib=(FIB[n]||f.fib||0);const fibBase=f.unit?(fib*(f.g||100)/100):(u==='ks'&&f.g?fib*f.g/100:fib/100);
-  return{k:f.k*b*q,p:f.p*b*q,c:f.c*b*q,f:f.f*b*q,fib:fibBase*q};}
-function sumItems(items){let o={k:0,p:0,c:0,f:0,fib:0};(items||[]).forEach(it=>{const m=macroOne(it.n!=null?it.n:it[0], it.q!=null?it.q:it[1], it.u!=null?it.u:it[2]);o.k+=m.k;o.p+=m.p;o.c+=m.c;o.f+=m.f;o.fib+=m.fib;});return o;}
+  const per100=f.unit?((f.g||100)/100):(u==='ks'&&f.g?f.g/100:1/100); // přepočet hodnot z 100 g na 1 zobraz. jednotku
+  const fib=(FIB[n]!=null?FIB[n]:(f.fib||0))*per100*q;
+  const sug=(SUG[n]!=null?SUG[n]:(f.sug||0))*per100*q;
+  const salt=(SALT[n]!=null?SALT[n]:(f.salt||0))*per100*q;
+  return{k:f.k*b*q,p:f.p*b*q,c:f.c*b*q,f:f.f*b*q,fib,sug,salt};}
+function sumItems(items){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};(items||[]).forEach(it=>{const m=macroOne(it.n!=null?it.n:it[0], it.q!=null?it.q:it[1], it.u!=null?it.u:it[2]);o.k+=m.k;o.p+=m.p;o.c+=m.c;o.f+=m.f;o.fib+=m.fib;o.sug+=m.sug;o.salt+=m.salt;});return o;}
 function dayObj(date){ if(!days[date]) days[date]={}; return days[date]; }
 function slotItems(date,slot){ const d=days[date]||{}; return d[slot]||[]; }
-function dayTotals(date){let o={k:0,p:0,c:0,f:0,fib:0};SLOTS.forEach(s=>{const t=sumItems(slotItems(date,s.k));o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
+function dayTotals(date){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};SLOTS.forEach(s=>{const t=sumItems(slotItems(date,s.k));o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;o.sug+=t.sug;o.salt+=t.salt;});return o;}
 function actKcal(date){return (acts[date]||[]).reduce((a,x)=>a+x.kcal,0);}
 function dayState(date){ if(date>todayISO)return'future'; if(date<todayISO)return'past'; return'today'; }
 const round=x=>Math.round(x);
@@ -721,12 +736,14 @@ function renderDash(){
     `<div class="ctr"><div class="big">${round(tot.k)}</div><div class="sub">/ ${goal} kcal</div>
       <div class="pct">${remain>=0?('zbývá '+round(remain)):('+'+round(-remain)+' kcal')}</div></div>`;
   // nutrients
-  const N=[['Bílkoviny',tot.p,target.prot,'var(--prot)','g'],['Sacharidy',tot.c,target.carb,'var(--carb)','g'],
-    ['Tuky',tot.f,target.fat,'var(--fat)','g'],['Vláknina',tot.fib,target.fib,'var(--fib)','g']];
-  document.getElementById('nutGrid').innerHTML=N.map(([nm,v,g,col])=>{
-    const p=v/g; return `<div class="nut"><div class="ring">${ringSVG(p,col,74,8)}
-      <div class="v"><b>${round(v)}g</b><small>${round(p*100)}%</small></div></div>
-      <div class="nm">${nm}</div><div class="goal">cíl ${g} g</div></div>`;}).join('');
+  const N=[['Bílkoviny',tot.p,target.prot,'var(--prot)',0],['Sacharidy',tot.c,target.carb,'var(--carb)',0],
+    ['Tuky',tot.f,target.fat,'var(--fat)',0],['Vláknina',tot.fib,target.fib,'var(--fib)',0],
+    ['Cukry',tot.sug,target.sugar,'var(--sug)',1],['Sůl',tot.salt,target.salt,'var(--salt)',1]];
+  document.getElementById('nutGrid').innerHTML=N.map(([nm,v,g,col,isMax])=>{
+    const p=v/g; const dec=g<10?1:0;
+    return `<div class="nut"><div class="ring">${ringSVG(p,col,74,8)}
+      <div class="v"><b>${v.toFixed(dec)}g</b><small>${round(p*100)}%</small></div></div>
+      <div class="nm">${nm}</div><div class="goal">${isMax?'max':'cíl'} ${g} g</div></div>`;}).join('');
   // meals
   document.getElementById('mealsWrap').innerHTML=SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
@@ -1244,8 +1261,8 @@ document.getElementById('nutToggle').onclick=function(){const g=document.getElem
 
 /* cíle */
 const gv=id=>document.getElementById(id);
-function loadTargets(){gv('tKcal').value=target.kcal;gv('tProt').value=target.prot;gv('tCarb').value=target.carb;gv('tFat').value=target.fat;gv('tFib').value=target.fib;gv('tWater').value=target.water;gv('tWeight').value=target.weight;}
-document.getElementById('saveTargets').onclick=()=>{target={kcal:+gv('tKcal').value||1800,prot:+gv('tProt').value||160,carb:+gv('tCarb').value||165,fat:+gv('tFat').value||60,fib:+gv('tFib').value||30,water:+gv('tWater').value||3.5,weight:+gv('tWeight').value||95};DB.save('kt_target',target);renderDash();toast('Cíle uloženy');};
+function loadTargets(){gv('tKcal').value=target.kcal;gv('tProt').value=target.prot;gv('tCarb').value=target.carb;gv('tFat').value=target.fat;gv('tFib').value=target.fib;gv('tSugar').value=target.sugar;gv('tSalt').value=target.salt;gv('tWater').value=target.water;gv('tWeight').value=target.weight;}
+document.getElementById('saveTargets').onclick=()=>{target={kcal:+gv('tKcal').value||1800,prot:+gv('tProt').value||160,carb:+gv('tCarb').value||165,fat:+gv('tFat').value||60,fib:+gv('tFib').value||30,sugar:+gv('tSugar').value||90,salt:+gv('tSalt').value||6,water:+gv('tWater').value||3.5,weight:+gv('tWeight').value||95};DB.save('kt_target',target);renderDash();toast('Cíle uloženy');};
 
 /* dietní nastavení */
 const DIET_OPTS=[['dairyFree','Bez mléčných výrobků'],['lactoseFree','Bez laktózy'],['vegetarian','Vegetariánské'],['vegan','Veganské'],['glutenFree','Bez lepku'],['lowCarb','Nízkosacharidové'],['highProtein','Vysokoproteinové'],['noPork','Bez vepřového'],['noFish','Bez ryb'],['noNuts','Bez ořechů'],['noEgg','Bez vajec']];
