@@ -262,6 +262,10 @@
     <input type="text" id="dietExcl" placeholder="např. cibule, houby">
     <button class="btn block" id="saveDiet" style="margin-top:12px">Uložit dietní profil</button>
   </div>
+  <div class="card"><h3 style="margin-bottom:8px">Aktualizace</h3>
+    <button class="btn block" id="forceUpd">🔄 Vynutit aktualizaci appky</button>
+    <p class="muted" style="font-size:.76rem;margin-top:8px">Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
+  </div>
   <div class="card"><h3 style="margin-bottom:8px">Data</h3>
     <button class="btn ghost block" id="exportData" style="margin-bottom:8px">⬇️ Export dat (záloha)</button>
     <button class="btn ghost block" id="importData">⬆️ Import dat</button>
@@ -1232,18 +1236,34 @@ function renderNakup(){
      ${done?`<button class="chip" onclick="shopClearDone()">Vyčistit koupené</button>`:''}`;
   const list=document.getElementById('shopList');
   if(!shopState.length){list.innerHTML='<p class="muted" style="padding:14px 0">Seznam je prázdný. Vytvoř ho v záložce Plán → „Vytvořit nákupní seznam", nebo přidej položku ručně.</p>';return;}
-  const cats={};shopState.forEach((it,i)=>{if(shopHideDone&&it.done)return;(cats[it.cat]=cats[it.cat]||[]).push(i);});
+  // řádek nekoupené položky (s checkboxem a menu)
+  const rowOpen=i=>{const it=shopState[i];const viol=dietViolation(it.n);
+    return `<div class="shopit">
+      <input type="checkbox" onchange="shopToggle(${i})">
+      <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</div>
+        ${(it.q!==''&&it.q!=null)?`<div class="q">${fmtQ(it.q,it.u)}</div>`:''}</div>
+      <button class="menu" onclick="shopMenu(${i})">⋯</button></div>
+      ${shopMenuIdx===i?`<div class="shopacts"><button class="btn sec" onclick="shopEdit(${i})">Upravit</button><button class="btn ghost" onclick="shopDel(${i})">Smazat</button></div>`:''}`;};
+  // řádek koupené položky (přeškrtnutá, s křížkem na smazání vpravo)
+  const rowDone=i=>{const it=shopState[i];
+    return `<div class="shopit done">
+      <input type="checkbox" checked onchange="shopToggle(${i})">
+      <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')}</div>
+        ${(it.q!==''&&it.q!=null)?`<div class="q">${fmtQ(it.q,it.u)}</div>`:''}</div>
+      <button class="menu" style="color:#c0392b;font-size:1.15rem" onclick="shopDel(${i})">✕</button></div>`;};
+  // NEKOUPENÉ – seskupené dle kategorií
+  const cats={};shopState.forEach((it,i)=>{if(it.done)return;(cats[it.cat]=cats[it.cat]||[]).push(i);});
   const order=CAT_ORDER_SHOP.filter(c=>cats[c]).concat(Object.keys(cats).filter(c=>!CAT_ORDER_SHOP.includes(c)));
   let h='';
-  order.forEach(c=>{ if(!cats[c]||!cats[c].length)return; h+=`<div class="shopcat">${c}</div>`;
-    cats[c].forEach(i=>{const it=shopState[i];const viol=dietViolation(it.n);
-      h+=`<div class="shopit ${it.done?'done':''}">
-        <input type="checkbox" ${it.done?'checked':''} onchange="shopToggle(${i})">
-        <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</div>
-          ${(it.q!==''&&it.q!=null)?`<div class="q">${fmtQ(it.q,it.u)}</div>`:''}</div>
-        <button class="menu" onclick="shopMenu(${i})">⋯</button></div>
-        ${shopMenuIdx===i?`<div class="shopacts"><button class="btn sec" onclick="shopEdit(${i})">Upravit</button><button class="btn ghost" onclick="shopDel(${i})">Smazat</button></div>`:''}`;});});
-  list.innerHTML=h||'<p class="muted" style="padding:14px 0">Vše koupeno 🎉</p>';
+  order.forEach(c=>{ if(!cats[c]||!cats[c].length)return; h+=`<div class="shopcat">${c}</div>`; cats[c].forEach(i=>h+=rowOpen(i)); });
+  if(!Object.keys(cats).length) h+='<p class="muted" style="padding:14px 0">Vše koupeno 🎉</p>';
+  // KOUPENÉ – dole pod čarou (pokud nejsou skryté)
+  const doneIdx=shopState.map((it,i)=>it.done?i:-1).filter(i=>i>=0);
+  if(doneIdx.length && !shopHideDone){
+    h+=`<div class="shopcat" style="color:var(--muted);margin-top:16px">✓ Koupeno (${doneIdx.length})</div>`;
+    doneIdx.forEach(i=>h+=rowDone(i));
+  }
+  list.innerHTML=h;
 }
 window.shopToggle=i=>{shopState[i].done=!shopState[i].done;saveShop();renderNakup();};
 window.shopMenu=i=>{shopMenuIdx=shopMenuIdx===i?-1:i;renderNakup();};
@@ -1295,6 +1315,13 @@ document.getElementById('saveDiet').onclick=()=>{
 };
 
 /* export / import */
+document.getElementById('forceUpd').onclick=async()=>{
+  toast('Aktualizuji…');
+  try{ if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));}
+    if(navigator.serviceWorker){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}
+  }catch(e){}
+  location.reload();
+};
 document.getElementById('exportData').onclick=()=>{const data={days,water,acts,weights,favs,myMeals,target,diet,shop:shopState,eanfoods:DB.load('kt_eanfoods',[])};
   const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kalorie-zaloha.json';a.click();};
 document.getElementById('importData').onclick=()=>document.getElementById('importFile').click();
