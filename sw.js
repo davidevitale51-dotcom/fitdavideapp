@@ -1,5 +1,7 @@
-/* Service worker – offline cache pro Kalorický Tracker */
-const CACHE = 'kalorie-v1';
+/* Service worker – Kalorický Tracker
+   index.html: network-first (online vždy nejnovější verze, offline z cache)
+   ikony/manifest: cache-first */
+const CACHE = 'kalorie-v2';
 const ASSETS = [
   './', './index.html', './manifest.webmanifest',
   './icon-180.png', './icon-192.png', './icon-512.png'
@@ -17,14 +19,28 @@ self.addEventListener('activate', e => {
 });
 
 self.addEventListener('fetch', e => {
-  const url = new URL(e.request.url);
-  // jen vlastní soubory cachujeme; cizí (např. Open Food Facts EAN) necháme projít
-  if (url.origin !== location.origin) return;
-  e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(e.request, copy));
-      return res;
-    }).catch(() => caches.match('./index.html')))
-  );
+  const req = e.request;
+  const url = new URL(req.url);
+  if (url.origin !== location.origin) return; // cizí (Open Food Facts) necháme projít
+
+  const isDoc = req.mode === 'navigate' || req.destination === 'document' || url.pathname.endsWith('index.html');
+  if (isDoc) {
+    // NETWORK-FIRST: zkus stáhnout nejnovější, jinak z cache
+    e.respondWith(
+      fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put('./index.html', copy));
+        return res;
+      }).catch(() => caches.match('./index.html').then(r => r || caches.match('./')))
+    );
+  } else {
+    // CACHE-FIRST pro statické soubory (ikony, manifest)
+    e.respondWith(
+      caches.match(req).then(r => r || fetch(req).then(res => {
+        const copy = res.clone();
+        caches.open(CACHE).then(c => c.put(req, copy));
+        return res;
+      }))
+    );
+  }
 });
