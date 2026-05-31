@@ -1059,8 +1059,23 @@ function drawWChart(){
   ctx.fillStyle='#e0a14e';weights.forEach((w,i)=>{ctx.beginPath();ctx.arc(X(i),Y(w.v),4,0,7);ctx.fill();});
   ctx.fillStyle='#8a958d';ctx.font='11px sans-serif';ctx.fillText(mx.toFixed(1),2,pad);ctx.fillText(mn.toFixed(1),2,H-pad+4);
 }
+function last7(){const arr=[];const base=new Date(todayISO);for(let i=6;i>=0;i--){const d=new Date(base);d.setDate(base.getDate()-i);const di=iso(d);arr.push({di,d,t:dayTotals(di)});}return arr;}
+function drawBars(canvasId,getVal,goal,color){
+  const cv=document.getElementById(canvasId);if(!cv)return;const ctx=cv.getContext('2d');
+  const W=cv.width=cv.offsetWidth||340,H=cv.height;ctx.clearRect(0,0,W,H);
+  const data=last7();const vals=data.map(getVal);const maxV=Math.max(goal||0,...vals,1)*1.15;
+  const pad=22,bw=(W-pad*2)/7*0.6,gap=(W-pad*2)/7;
+  data.forEach((d,i)=>{const x=pad+gap*i+(gap-bw)/2;const v=vals[i];const h=(H-pad-14)*(v/maxV);
+    ctx.fillStyle=v>(goal||1e9)?'#e8804f':color;ctx.beginPath();
+    const y=H-14-h,r=Math.min(6,bw/2);ctx.moveTo(x,H-14);ctx.lineTo(x,y+r);ctx.arcTo(x,y,x+r,y,r);ctx.lineTo(x+bw-r,y);ctx.arcTo(x+bw,y,x+bw,y+r,r);ctx.lineTo(x+bw,H-14);ctx.closePath();ctx.fill();
+    ctx.fillStyle='#8a958d';ctx.font='10px sans-serif';ctx.textAlign='center';ctx.fillText(d.d.getDate(),x+bw/2,H-2);
+    if(v>0){ctx.fillStyle='#5a6660';ctx.font='9px sans-serif';ctx.fillText(round(v),x+bw/2,y-3);}});
+  if(goal){const gy=H-14-(H-pad-14)*(goal/maxV);ctx.strokeStyle='#36b06a';ctx.setLineDash([4,4]);ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(pad,gy);ctx.lineTo(W-pad,gy);ctx.stroke();ctx.setLineDash([]);}
+}
 function renderProgres(){
   drawWChart();
+  drawBars('kcalChart',d=>round(d.t.k),target.kcal,'#9bd6b0');
+  drawBars('protChart',d=>round(d.t.p),target.prot,'#cdb6ff');
   // týdenní průměry
   let dk=0,dp=0,dw=0,n=0,act=0;const base=new Date(todayISO);
   for(let i=0;i<7;i++){const d=new Date(base);d.setDate(base.getDate()-i);const di=iso(d);const t=dayTotals(di);if(t.k>0){dk+=t.k;dp+=t.p;n++;}dw+=(water[di]||0);act+=actKcal(di);}
