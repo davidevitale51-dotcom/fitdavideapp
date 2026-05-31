@@ -117,7 +117,8 @@
   /* modal */
   .ovl{position:fixed;inset:0;background:rgba(20,40,28,.4);z-index:60;display:none;align-items:flex-end}
   .ovl.show{display:flex}
-  .sheet{background:var(--bg);width:100%;max-width:480px;margin:0 auto;max-height:92vh;border-radius:22px 22px 0 0;overflow:hidden;display:flex;flex-direction:column}
+  .sheet{background:var(--bg);width:100%;max-width:480px;margin:0 auto;height:90vh;max-height:90vh;border-radius:22px 22px 0 0;overflow:hidden;display:flex;flex-direction:column}
+  .addStick{position:sticky;top:0;background:var(--bg);z-index:3;padding:2px 0 6px}
   .sheet-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;background:var(--card);border-bottom:1px solid var(--line)}
   .sheet-h h3{font-size:1.05rem}
   .sheet-b{overflow-y:auto;padding:14px 16px;flex:1}
@@ -807,10 +808,10 @@ function prepMatchesFilter(p){
 function renderAddBody(){
   const body=document.getElementById('sheetBody');
   const dietNote = dietActiveLabel();
-  const chips=`<input id="addSearch" placeholder="Vyhledej potravinu, jídlo nebo recept…" value="${addQuery.replace(/"/g,'&quot;')}">
+  const chips=`<div class="addStick"><input id="addSearch" placeholder="Vyhledej potravinu, jídlo nebo recept…" value="${addQuery.replace(/"/g,'&quot;')}">
     <div class="chips">${FILTERS.map(([k,l])=>`<button class="chip ${addFilters.has(k)?'on':''}" data-f="${k}">${l}</button>`).join('')}
       ${dietNote?`<button class="chip ${showUnsuitable?'on':''}" data-f="__unsuit">👁 nevhodné</button>`:''}</div>
-    ${dietNote?`<div class="muted" style="font-size:.74rem;margin:2px 0 6px">Filtruje dle profilu: ${dietNote}</div>`:''}
+    ${dietNote?`<div class="muted" style="font-size:.74rem;margin:2px 0 4px">Filtruje dle profilu: ${dietNote}</div>`:''}</div>
     <div id="addList"></div>`;
   body.innerHTML=chips;
   const si=document.getElementById('addSearch'); si.oninput=()=>{addQuery=si.value;fillAddList();};
