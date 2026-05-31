@@ -564,7 +564,7 @@ FOODS.push(
   {n:"Kokosový jogurt", k:90, p:1, c:8, f:5, cat:"🌱 Bílkoviny – rostlinné"},
   {n:"Sójový jogurt bílý", k:50, p:4, c:4, f:2, cat:"🌱 Bílkoviny – rostlinné"},
   {n:"Müsli tyčinka", k:400, p:6, c:65, f:12, unit:"ks", cat:"🍫 Sladké & pochutiny"},
-  {n:"Lískooříšková pomazánka (Nutella typ)", k:539, p:6, c:57, f:31, cat:"🍫 Sladké & pochutiny"},
+  {n:"Lískooříšková pomazánka (Nutella typ)", k:539, p:6, c:57, f:31, aller:["en:milk"], cat:"🍫 Sladké & pochutiny"},
   {n:"Rýžové wafle", k:387, p:8, c:81, f:3, cat:"🍞 Sacharidy & pečivo"},
   {n:"Bageta bílá", k:270, p:9, c:52, f:2, cat:"🍞 Sacharidy & pečivo"},
   {n:"Žitný kvasový chléb (kupovaný)", k:240, p:8, c:45, f:1.5, cat:"🍞 Sacharidy & pečivo"},
@@ -646,7 +646,7 @@ let diet = DB.load('kt_diet', {dairyFree:true,cowMilkFree:true,lactoseFree:true,
 let showUnsuitable=false; // dočasné vypnutí filtru v okně přidání
 const _n=t=>(t||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase();
 const RE={
-  dairy:/(mleko|mlec|jogurt|syr|tvaroh|maslo|smetan|mozzarell|cottage|whey|syrovatk|kasein|casein|laktoz|parmazan|cedar|eidam|ricotta|feta|mascarpone|zerve|kefir|podmasli|gauda)/,
+  dairy:/(mleko|mlec|jogurt|skyr|syr|tvaroh|maslo|smetan|mozzarell|cottage|whey|syrovatk|kasein|casein|laktoz|parmazan|cedar|eidam|ricotta|feta|mascarpone|zerve|kefir|podmasli|gauda)/,
   plant:/(kokosov|sojov|mandlov|ovesn|ryzov|rostlinn|arasidov|burakov|orisk|vegan|bez mleka)/,
   meatfish:/(kurec|krut|hovez|vepr|sunka|salam|klobas|slanin|kachn|jatra|ryb|losos|tunak|tresk|makrel|sardin|sled|pstruh|krevet|kalamar|musle|stika|pollock|insalat)/,
   fish:/(ryb|losos|tunak|tresk|makrel|sardin|sled|pstruh|krevet|kalamar|musle|stika|pollock|insalat)/,
@@ -822,7 +822,8 @@ function renderAddBody(){
 }
 function fillAddList(){
   const q=norm(addQuery); const list=document.getElementById('addList'); let h=''; let hidden=0;
-  const gate=(viol,build)=>{ if(viol&&!showUnsuitable){hidden++;return'';} return build(viol); };
+  // při vyhledávání (q) zobraz i nevhodné (s označením); při procházení je skryj
+  const gate=(viol,build)=>{ if(viol&&!showUnsuitable&&!q){hidden++;return'';} return build(viol); };
   if(addTab==='potraviny'){
     const items=FOODS.filter(f=>(!q||norm(f.n).includes(q))&&foodMatchesFilter(f)).slice(0,120);
     h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
@@ -979,7 +980,8 @@ function compressImage(file,cb){const r=new FileReader();r.onload=()=>{const img
   const max=900;let w=img.width,h=img.height;if(w>h&&w>max){h=Math.round(h*max/w);w=max;}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max;}
   const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
   try{cb(c.toDataURL('image/jpeg',0.6));}catch(e){cb(r.result);}};img.src=r.result;};r.readAsDataURL(file);}
-let cfImgN=null,cfImgP=null;
+let cfImgN=null,cfImgP=null,cfAller=new Set();
+const ALLERG=[['en:milk','mléko'],['en:gluten','lepek'],['en:nuts','ořechy'],['en:eggs','vejce'],['en:fish','ryby'],['en:soybeans','sója']];
 function customFoodForm(prefill){
   stopScanner();cfImgN=null;cfImgP=null;
   openSheet('Nová potravina + foto');document.getElementById('sheetTabs').innerHTML='';
@@ -995,6 +997,10 @@ function customFoodForm(prefill){
       <div><label>Sůl (g)</label><input type="number" step="0.01" id="cfSalt"></div>
       <div><label>Obvyklý kus (g) — volit.</label><input type="number" id="cfG"></div>
     </div>
+    <label style="margin-top:10px">Obsahuje (kvůli dietnímu profilu)</label>
+    <div class="chips" id="cfAllerChips" style="flex-wrap:wrap"></div>
+    <label style="margin-top:8px">Složení (volitelné — pro automatickou kontrolu)</label>
+    <textarea id="cfIngr" rows="2" placeholder="opiš složení z obalu…"></textarea>
     <label style="margin-top:10px">📷 Nutriční tabulka</label>
     <input type="file" accept="image/*" capture="environment" id="cfFileN">
     <img id="cfPrevN" style="display:none;width:100%;border-radius:10px;margin-top:6px">
@@ -1002,6 +1008,9 @@ function customFoodForm(prefill){
     <input type="file" accept="image/*" capture="environment" id="cfFileP">
     <img id="cfPrevP" style="display:none;width:100%;border-radius:10px;margin-top:6px">
     <button class="btn block" id="cfSave" style="margin-top:14px">💾 Uložit potravinu</button>`;
+  const ac=document.getElementById('cfAllerChips');
+  ac.innerHTML=ALLERG.map(([k,l])=>`<button class="chip" data-a="${k}">${l}</button>`).join('');
+  ac.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const k=c.dataset.a;cfAller.has(k)?cfAller.delete(k):cfAller.add(k);c.classList.toggle('on');});
   document.getElementById('cfFileN').onchange=e=>{const f=e.target.files[0];if(!f)return;compressImage(f,d=>{cfImgN=d;const im=document.getElementById('cfPrevN');im.src=d;im.style.display='block';});};
   document.getElementById('cfFileP').onchange=e=>{const f=e.target.files[0];if(!f)return;compressImage(f,d=>{cfImgP=d;const im=document.getElementById('cfPrevP');im.src=d;im.style.display='block';});};
   document.getElementById('cfSave').onclick=()=>{
@@ -1010,6 +1019,7 @@ function customFoodForm(prefill){
     if(findFood(nm)){toast('Potravina „'+nm+'" už existuje');return;}
     const food={n:nm,k:Math.round(num('cfK')),p:num('cfP'),c:num('cfC'),f:num('cfF'),fib:num('cfFib'),sug:num('cfSug'),salt:num('cfSalt'),cat:"⭐ Moje potraviny"};
     const g=num('cfG');if(g>0)food.g=g; if(cfImgN)food.imgN=cfImgN; if(cfImgP)food.imgP=cfImgP;
+    if(cfAller.size)food.aller=[...cfAller]; const ingrv=document.getElementById('cfIngr').value.trim(); if(ingrv)food.ingr=ingrv;
     FOODS.push(food);const cust=DB.load('kt_eanfoods',[]);cust.push(food);DB.save('kt_eanfoods',cust);
     toast('✅ Uloženo do „Moje potraviny"');addWithQty(nm);
   };
@@ -1174,11 +1184,15 @@ function mealBuilder(editIdx){
   document.getElementById('sheetBody').innerHTML=
    `<label>Název</label><input type="text" id="mbName" value="${editIdx!=null?myMeals[editIdx].n.replace(/"/g,'&quot;'):''}" placeholder="např. Nutty puding">
     <div style="display:flex;gap:8px;align-items:flex-end;margin-top:8px">
-      <div style="flex:2"><label>Surovina</label><select id="mbFood">${FOODS.map(f=>f.n).sort((a,b)=>a.localeCompare(b,'cs')).map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join('')}</select></div>
+      <div style="flex:2"><label>Surovina</label><input type="text" id="mbSearch" placeholder="🔍 hledat surovinu…" style="margin-bottom:4px"><select id="mbFood"></select></div>
       <div style="flex:1"><label>Množ.</label><div style="display:flex;gap:4px"><input type="number" id="mbQty" value="100" style="flex:1"><select id="mbUnit" style="width:62px"></select></div></div>
       <button class="btn" id="mbAdd">+</button></div>
     <div id="mbList" style="margin-top:8px"></div><div class="center muted" id="mbTot" style="margin:6px 0"></div>
     <button class="btn block" id="mbSave">💾 Uložit jídlo</button>`;
+  const fillMb=q=>{const qq=_n(q||'');const names=FOODS.map(f=>f.n).filter(n=>!qq||_n(n).includes(qq)).sort((a,b)=>a.localeCompare(b,'cs')).slice(0,200);
+    document.getElementById('mbFood').innerHTML=names.length?names.map(n=>`<option value="${n.replace(/"/g,'&quot;')}">${n}</option>`).join(''):'<option value="">— nic nenalezeno —</option>';};
+  fillMb('');
+  document.getElementById('mbSearch').oninput=e=>{fillMb(e.target.value);setU();};
   const f0=()=>findFood(document.getElementById('mbFood').value);
   const setU=()=>{const f=f0();const o=f.unit?[f.unit]:(f.g?['ks','g']:['g']);const u=document.getElementById('mbUnit');u.innerHTML=o.map(x=>`<option>${x}</option>`).join('');u.value=o[0];document.getElementById('mbQty').value=o[0]==='g'?100:1;};
   document.getElementById('mbFood').onchange=setU;setU();
