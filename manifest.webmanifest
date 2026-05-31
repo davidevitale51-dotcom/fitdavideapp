@@ -1,0 +1,17 @@
+{
+  "name": "Kalorický Tracker",
+  "short_name": "Kalorie",
+  "description": "Osobní bezmléčný kalorický tracker a plánovač jídel",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#fef6ff",
+  "theme_color": "#a55eea",
+  "lang": "cs",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

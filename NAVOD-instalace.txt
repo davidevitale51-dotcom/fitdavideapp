@@ -1,0 +1,36 @@
+JAK DOSTAT APPKU NA PLOCHU IPHONU (zdarma, bez Xcode)
+=====================================================
+
+Tahle složka je hotová PWA (instalovatelná webová aplikace). Aby se dala
+otevřít z plochy iPhonu jako appka s ikonou, musí být soubory dostupné přes
+internetovou adresu (https). Nejjednodušší zdarma:
+
+KROK 1 – Nahraj složku na web (vyber jednu možnost)
+---------------------------------------------------
+A) Netlify Drop (nejrychlejší, bez registrace pro první nahrání)
+   1. Na počítači otevři: https://app.netlify.com/drop
+   2. Přetáhni tam CELOU tuto složku (iphone-app).
+   3. Dostaneš adresu typu https://nazev-xyz.netlify.app
+   (Chceš-li, aby zůstala napořád, založ si zdarma účet a deploy si „uložíš".)
+
+B) GitHub Pages (když máš GitHub účet)
+   1. Vytvoř repozitář, nahraj obsah složky.
+   2. Settings → Pages → zapni Pages z větve main.
+   3. Dostaneš adresu https://uzivatel.github.io/repo/
+
+C) Cloudflare Pages – obdoba, zdarma, vyžaduje účet.
+
+KROK 2 – Přidej na plochu iPhonu
+--------------------------------
+1. Na iPhonu otevři tu adresu v prohlížeči SAFARI (důležité – ne Chrome).
+2. Klepni na ikonu Sdílet (čtvereček se šipkou nahoru).
+3. Vyber „Přidat na plochu".
+4. Potvrď název „Kalorie" → Přidat.
+
+Hotovo. Na ploše máš ikonu, appka se otevírá na celou obrazovku bez
+prohlížeče a po prvním načtení funguje i offline (data se ukládají v
+zařízení). Vyhledávání podle EAN potřebuje internet.
+
+POZNÁMKA: Data (deník, váha, plán) jsou uložená lokálně v appce na telefonu.
+Když appku smažeš, smažou se i data. Stejnou adresu můžeš otevřít i na
+počítači – tam ale máš samostatná data (nesynchronizují se mezi zařízeními).
