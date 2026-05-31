@@ -1169,12 +1169,29 @@ function renderPlanOut(){
         return `<div class="meal" style="padding:8px 2px"><div class="mi">${sl.ic}</div><div class="body"><div class="t"><span style="font-size:.82rem${p?'':';color:var(--muted)'}">${sl.l}: ${p?p.n:'— bez vhodného návrhu —'}</span></div></div>
         <button class="plus" onclick="swapMeal(${di},'${s}')">🔄</button></div>`;}).join('')}
       ${warn}
-      <button class="btn sec block" style="margin-top:8px" onclick="acceptDay(${di})">✓ Přijmout celý den</button></div>`;}).join('')+
+      ${planDayChanged(di)?`<div class="muted" style="font-size:.74rem;color:#c9534a;margin-top:4px">Návrh upraven — potvrď tlačítkem, ať se propíše do přehledu.</div>`:''}
+      <button class="btn sec block" style="margin-top:8px" onclick="acceptDay(${di})">✓ Potvrdit a zapsat do přehledu</button>
+      <div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px">
+        <div class="muted" style="font-size:.74rem;margin-bottom:2px">✓ V přehledu (${day.date}):</div>
+        ${dayContentHTML(day.date)}
+      </div></div>`;}).join('')+
     `<button class="btn block" id="mkShop" style="margin-bottom:20px">🛒 Vytvořit nákupní seznam</button>`;
   document.getElementById('mkShop').onclick=()=>setShopFromPlan();
 }
+function dayContentHTML(date){
+  let h='',any=false;
+  SLOTS.forEach(s=>{const items=slotItems(date,s.k);if(!items.length)return;any=true;
+    h+=`<div style="font-size:.8rem;padding:2px 0"><b>${s.l}:</b> ${items.map(it=>it.n.replace(/ \(.*?\)/,'')).join(', ')}</div>`;});
+  return any?h:'<div class="muted" style="font-size:.8rem">Zatím nepřidáno do přehledu</div>';
+}
+/* porovná návrh dne s tím, co je reálně v přehledu */
+function planDayChanged(di){const day=lastPlan.days[di];
+  const sugg=PLAN_SLOTS.map(s=>day.slots[s]!=null?PREP[day.slots[s]].items.map(it=>it[0]).join(','):'').join('|');
+  const real=PLAN_SLOTS.map(s=>(slotItems(day.date,s).map(it=>it.n).join(','))).join('|');
+  return sugg!==real;
+}
 function swapMeal(di,slot){const used=new Set(Object.values(lastPlan.days[di].slots));const idx=pickPrep(slot,used);if(idx>=0)lastPlan.days[di].slots[slot]=idx;renderPlanOut();}
-function acceptDay(di){const day=lastPlan.days[di];const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=p.items.map(it=>({n:it[0],q:it[1],u:it[2]}));});DB.save('kt_days',days);toast('Den '+(di+1)+' uložen do '+day.date);}
+function acceptDay(di){const day=lastPlan.days[di];const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=p.items.map(it=>({n:it[0],q:it[1],u:it[2]}));});DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
 
 /* ====== NÁKUPNÍ SEZNAM (samostatná záložka, perzistentní) ====== */
 let shopState=DB.load('kt_shop',[]);     // [{n,u,q,done,cat,range?}]
@@ -1287,7 +1304,7 @@ function fallbackCopyModal(t){
 document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.bnav button').forEach(x=>x.classList.toggle('active',x===b));
   const scr=b.dataset.scr;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-'+scr));
-  if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();}if(scr==='nakup'){refreshNakupChips();renderNakup();}
+  if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}
 });
 document.getElementById('genPlan').onclick=genPlan;
 document.getElementById('datePick').onclick=function(){this.showPicker&&this.showPicker();};
