@@ -826,7 +826,7 @@ function fillAddList(){
   if(addTab==='potraviny'){
     const items=FOODS.filter(f=>(!q||norm(f.n).includes(q))&&foodMatchesFilter(f)).slice(0,120);
     h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
-      return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFood('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol, f.n);});}).join('');
+      return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFoodChecked('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol, f.n);});}).join('');
   } else if(addTab==='hotova'){
     const items=PREP.filter(p=>(!q||norm(p.n).includes(q))&&prepMatchesFilter(p));
     h=items.map((p)=>{const viol=mealViolation(p.items);return gate(viol,()=>{const t=sumItems(p.items);const idx=PREP.indexOf(p);
@@ -838,7 +838,7 @@ function fillAddList(){
       return rowHTML('🍲 '+m.n,`${round(t.k)} kcal · B ${round(t.p)} g`,[],`addMyMeal(${i})`,null,viol);});}).join(''):'<p class="muted" style="padding:14px 0">Zatím žádné vlastní jídlo. Vytvoř ho v záložce Jídla.</p>';
   } else if(addTab==='oblibene'){
     if(!favs.length){h='<p class="muted" style="padding:14px 0">Zatím žádné oblíbené. U potraviny/jídla klikni na ★.</p>';}
-    else h=favs.map(nm=>{const viol=dietViolation(nm);return gate(viol,()=>{const f=findFood(nm);if(f){const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(nm,q0,u);return rowHTML('★ '+nm,`${q0} ${u} · ${round(m.k)} kcal`,[],`addFood('${esc(nm)}',${q0},'${u}')`,null,viol);}
+    else h=favs.map(nm=>{const viol=dietViolation(nm);return gate(viol,()=>{const f=findFood(nm);if(f){const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(nm,q0,u);return rowHTML('★ '+nm,`${q0} ${u} · ${round(m.k)} kcal`,[],`addFoodChecked('${esc(nm)}',${q0},'${u}')`,null,viol);}
       const p=PREP.find(x=>x.n===nm);if(p){const idx=PREP.indexOf(p);const t=sumItems(p.items);return rowHTML('★ '+p.ic+' '+p.n,`${round(t.k)} kcal`,[],`addPrep(${idx})`,null,viol);}return'';});}).join('');
   }
   if(hidden>0) h+=`<p class="muted" style="padding:10px 0;font-size:.78rem">${hidden} položek skryto dle dietního profilu. Klepni na „👁 nevhodné" pro zobrazení.</p>`;
@@ -857,6 +857,19 @@ function rowHTML(name,meta,tags,addFn,clickFn,warn,favName){
 }
 function dietActiveLabel(){const a=[];if(dairyActive())a.push('bez mléka');if(diet.vegan)a.push('vegan');else if(diet.vegetarian)a.push('vegetariánské');if(diet.glutenFree)a.push('bez lepku');if(diet.noPork)a.push('bez vepřového');if(diet.noFish)a.push('bez ryb');if(diet.noNuts)a.push('bez ořechů');if(diet.noEgg)a.push('bez vajec');if((diet.excl||[]).length)a.push('vlastní');return a.join(', ');}
 function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
+/* kontrola dietního profilu – při porušení vyskočí pop-up s vykřičníkem */
+function confirmViol(n,q,u,viol,closeAfter){
+  const alt=altFor(n);
+  openSheet('⚠ Upozornění');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="card" style="background:#fde6e3"><div style="font-weight:800;color:#c0392b;font-size:1.1rem">⚠ ${viol}</div>
+     <div class="muted" style="margin-top:4px"><b>${n.replace(/ \(.*?\)/,'')}</b> neodpovídá tvému dietnímu profilu (${dietActiveLabel()}).</div>
+     ${alt?`<div style="margin-top:6px;color:var(--green-d)">Tip: zkus ${alt}</div>`:''}</div>
+   <div style="display:flex;gap:8px;margin-top:12px">
+     <button class="btn ghost block" onclick="closeSheet()">Zrušit</button>
+     <button class="btn block" style="background:#c0392b" onclick="addFood('${esc(n)}',${q},'${u}');closeSheet();">Přidat i přesto</button></div>`;
+}
+function addFoodChecked(n,q,u){ const v=dietViolation(n); if(v){confirmViol(n,q,u,v);return;} addFood(n,q,u); }
 function addPrep(idx){ const p=PREP[idx]; const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; p.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]})); DB.save('kt_days',days); toast('Přidáno: '+p.n); renderDash(); }
 function addMyMeal(i){ const m=myMeals[i]; const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; m.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]})); DB.save('kt_days',days); toast('Přidáno: '+m.n); renderDash(); }
 function prepDetail(idx){const p=PREP[idx];const t=sumItems(p.items);
@@ -951,7 +964,55 @@ function addWithQty(name){
   const prev=()=>{const m=macroOne(name,+qa.value||0,ua.value);document.getElementById('awPrev').innerHTML=`<div style="font-size:1.3rem;font-weight:850">${round(m.k)} kcal</div><div class="muted">B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)} g</div>`;};
   ua.onchange=()=>{qa.value=ua.value==='g'?100:1;prev();}; qa.oninput=prev; prev();
   document.getElementById('awAdd').onclick=()=>{const q=+qa.value;if(!(q>0)){toast('Zadej množství');return;}
-    addSlot=document.getElementById('awSlot').value; addFood(name,q,ua.value); closeSheet();};
+    addSlot=document.getElementById('awSlot').value;
+    const v=dietViolation(name); if(v){confirmViol(name,q,ua.value,v);return;}
+    addFood(name,q,ua.value); closeSheet();};
+  // fotky obalu / tabulky (pokud u potraviny jsou)
+  if(f.imgN||f.imgP){const p=document.getElementById('awPrev');
+    p.innerHTML+=`<div style="display:flex;gap:8px;margin-top:8px">${f.imgN?`<img src="${f.imgN}" onclick="zoomImg('${'imgN'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}${f.imgP?`<img src="${f.imgP}" onclick="zoomImg('${'imgP'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}</div>`;}
+}
+function zoomImg(which,name){const f=findFood(name);if(!f)return;const src=f[which];if(!src)return;
+  openSheet(which==='imgN'?'Nutriční tabulka':'Obal');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=`<img src="${src}" style="width:100%;border-radius:12px">`;}
+/* zmenší foto na rozumnou velikost pro uložení */
+function compressImage(file,cb){const r=new FileReader();r.onload=()=>{const img=new Image();img.onload=()=>{
+  const max=900;let w=img.width,h=img.height;if(w>h&&w>max){h=Math.round(h*max/w);w=max;}else if(h>=w&&h>max){w=Math.round(w*max/h);h=max;}
+  const c=document.createElement('canvas');c.width=w;c.height=h;c.getContext('2d').drawImage(img,0,0,w,h);
+  try{cb(c.toDataURL('image/jpeg',0.6));}catch(e){cb(r.result);}};img.src=r.result;};r.readAsDataURL(file);}
+let cfImgN=null,cfImgP=null;
+function customFoodForm(prefill){
+  stopScanner();cfImgN=null;cfImgP=null;
+  openSheet('Nová potravina + foto');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<label>Název</label><input type="text" id="cfName" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="např. Müsli XY 250 g">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
+      <div><label>kcal / 100 g</label><input type="number" id="cfK"></div>
+      <div><label>Bílkoviny (g)</label><input type="number" id="cfP"></div>
+      <div><label>Sacharidy (g)</label><input type="number" id="cfC"></div>
+      <div><label>Tuky (g)</label><input type="number" id="cfF"></div>
+      <div><label>Vláknina (g)</label><input type="number" id="cfFib"></div>
+      <div><label>Cukry (g)</label><input type="number" id="cfSug"></div>
+      <div><label>Sůl (g)</label><input type="number" step="0.01" id="cfSalt"></div>
+      <div><label>Obvyklý kus (g) — volit.</label><input type="number" id="cfG"></div>
+    </div>
+    <label style="margin-top:10px">📷 Nutriční tabulka</label>
+    <input type="file" accept="image/*" capture="environment" id="cfFileN">
+    <img id="cfPrevN" style="display:none;width:100%;border-radius:10px;margin-top:6px">
+    <label style="margin-top:10px">📷 Obal výrobku</label>
+    <input type="file" accept="image/*" capture="environment" id="cfFileP">
+    <img id="cfPrevP" style="display:none;width:100%;border-radius:10px;margin-top:6px">
+    <button class="btn block" id="cfSave" style="margin-top:14px">💾 Uložit potravinu</button>`;
+  document.getElementById('cfFileN').onchange=e=>{const f=e.target.files[0];if(!f)return;compressImage(f,d=>{cfImgN=d;const im=document.getElementById('cfPrevN');im.src=d;im.style.display='block';});};
+  document.getElementById('cfFileP').onchange=e=>{const f=e.target.files[0];if(!f)return;compressImage(f,d=>{cfImgP=d;const im=document.getElementById('cfPrevP');im.src=d;im.style.display='block';});};
+  document.getElementById('cfSave').onclick=()=>{
+    const nm=document.getElementById('cfName').value.trim();if(!nm){toast('Zadej název');return;}
+    const num=id=>{const v=parseFloat(document.getElementById(id).value);return isNaN(v)?0:v;};
+    if(findFood(nm)){toast('Potravina „'+nm+'" už existuje');return;}
+    const food={n:nm,k:Math.round(num('cfK')),p:num('cfP'),c:num('cfC'),f:num('cfF'),fib:num('cfFib'),sug:num('cfSug'),salt:num('cfSalt'),cat:"⭐ Moje potraviny"};
+    const g=num('cfG');if(g>0)food.g=g; if(cfImgN)food.imgN=cfImgN; if(cfImgP)food.imgP=cfImgP;
+    FOODS.push(food);const cust=DB.load('kt_eanfoods',[]);cust.push(food);DB.save('kt_eanfoods',cust);
+    toast('✅ Uloženo do „Moje potraviny"');addWithQty(nm);
+  };
 }
 function stopScanner(){ if(scanner){ try{scanner.stop().then(()=>scanner.clear()).catch(()=>{});}catch(e){} scanner=null; } }
 function eanFlow(){
@@ -961,10 +1022,15 @@ function eanFlow(){
     <div id="scanArea" style="margin-top:10px;border-radius:14px;overflow:hidden"></div>
     <div class="muted" style="font-size:.84rem;margin:12px 0 6px">…nebo zadej číslo ručně:</div>
     <div style="display:flex;gap:8px"><input id="eanIn" inputmode="numeric" placeholder="např. 8076809513388" style="flex:1"><button class="btn" id="eanGo">Najít</button></div>
-    <div class="muted" id="eanMsg" style="margin-top:10px;font-size:.84rem"></div>`;
+    <div class="muted" id="eanMsg" style="margin-top:10px;font-size:.84rem"></div>
+    <div style="border-top:1px dashed var(--line);margin-top:14px;padding-top:12px">
+      <div class="muted" style="font-size:.82rem;margin-bottom:6px">Produkt není v databázi nebo nemá kód?</div>
+      <button class="btn sec block" id="manualPhoto">📷 Zadat ručně + vyfotit obal a tabulku</button>
+    </div>`;
   const msg=document.getElementById('eanMsg');
   document.getElementById('eanGo').onclick=()=>lookupEan(document.getElementById('eanIn').value,msg);
   document.getElementById('scanBtn').onclick=()=>startScan(msg);
+  document.getElementById('manualPhoto').onclick=()=>customFoodForm('');
 }
 function startScan(msg){
   msg.textContent='Spouštím kameru…';
