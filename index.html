@@ -1033,13 +1033,19 @@ function buildShop(agg){
   shopState=items;renderShop();
 }
 function fmtQ(q,u){if(u==='g')return q>=1000?(q/1000).toFixed(q%1000?1:0)+' kg':round(q)+' g';return q+' '+u;}
+function shopBullets(){
+  const cats={};shopState.forEach(it=>{(cats[it.cat]=cats[it.cat]||[]).push(it);});
+  return Object.keys(cats).sort().map(c=>
+    c+'\n'+cats[c].map(it=>'- '+it.n.replace(/ \(.*?\)/,'')+(it.q!==''&&it.q!=null?(' – '+fmtQ(it.q,it.u)):'')).join('\n')
+  ).join('\n\n');
+}
 function renderShop(){
   openSheet('🛒 Nákupní seznam');document.getElementById('sheetTabs').innerHTML='';
   const cats={};shopState.forEach((it,i)=>{(cats[it.cat]=cats[it.cat]||[]).push(i);});
   let h='';Object.keys(cats).sort().forEach(c=>{h+=`<div class="shopcat">${c}</div>`;cats[c].forEach(i=>{const it=shopState[i];const viol=dietViolation(it.n);
     h+=`<div class="shopit ${it.done?'done':''}"><input type="checkbox" ${it.done?'checked':''} onchange="shopToggle(${i})"><span class="nm">${it.n.replace(/ \(.*?\)/,'')}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</span><b>${fmtQ(it.q,it.u)}</b><span class="x" style="color:#c9534a;cursor:pointer;padding:0 4px" onclick="shopDel(${i})">✕</span></div>`;});});
   h+=`<div style="display:flex;gap:8px;margin-top:8px"><input id="shopAdd" placeholder="Přidat položku…" style="flex:1"><button class="btn" onclick="shopAddItem()">+</button></div>
-    <textarea id="shopTxt" readonly rows="3" style="margin-top:10px">${shopState.map(it=>it.n.replace(/ \(.*?\)/,'')+' – '+fmtQ(it.q,it.u)).join('\n')}</textarea>
+    <textarea id="shopTxt" readonly rows="7" style="margin-top:10px">${shopBullets()}</textarea>
     <div style="display:flex;gap:8px;margin-top:8px"><button class="btn block" onclick="shopShare()">📤 Odeslat do Any.do</button><button class="btn ghost" onclick="shopCopy()">📋</button></div>`;
   document.getElementById('sheetBody').innerHTML=h;
 }
