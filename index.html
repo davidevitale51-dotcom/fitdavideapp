@@ -520,6 +520,59 @@ FOODS.push(
   {n:"Hovězí maso libové (vařené)", k:187, p:26, c:0, f:9, cat:"🍗 Bílkoviny – maso & ryby"},
   {n:"Šunka kuřecí/krůtí", k:110, p:18, c:1, f:4, cat:"🍗 Bílkoviny – maso & ryby"}
 );
+/* ===== ROZŠÍŘENÍ DATABÁZE – čerstvé i kupované ===== */
+FOODS.push(
+  // čerstvé maso, ryby, vejce
+  {n:"Kuřecí mleté maso 90/10", k:143, p:17, c:0, f:8, cat:"🍗 Bílkoviny – maso & ryby"},
+  {n:"Kuřecí špíz / kousky", k:165, p:31, c:0, f:3.6, cat:"🍗 Bílkoviny – maso & ryby"},
+  {n:"Candát (filé)", k:83, p:19, c:0, f:1, cat:"🍗 Bílkoviny – maso & ryby"},
+  {n:"Pangasius (filé)", k:90, p:15, c:0, f:3, cat:"🍗 Bílkoviny – maso & ryby"},
+  {n:"Žloutek (1 ks)", k:55, p:2.7, c:0.6, f:4.5, unit:"ks", cat:"🍗 Bílkoviny – maso & ryby"},
+  // čerstvá zelenina
+  {n:"Cherry rajčata", k:18, p:0.9, c:3.9, f:0.2, g:15, cat:"🥦 Zelenina"},
+  {n:"Paprika žlutá", k:27, p:1, c:6, f:0.2, g:150, cat:"🥦 Zelenina"},
+  {n:"Dýně Hokaido", k:63, p:1.4, c:15, f:0.1, cat:"🥦 Zelenina"},
+  {n:"Růžičková kapusta", k:43, p:3.4, c:9, f:0.3, cat:"🥦 Zelenina"},
+  {n:"Hlíva ústřičná", k:33, p:3.3, c:4, f:0.4, cat:"🥦 Zelenina"},
+  {n:"Batáty (syrové)", k:86, p:1.6, c:20, f:0.1, cat:"🥦 Zelenina"},
+  {n:"Květák (růžičky)", k:25, p:1.9, c:5, f:0.3, cat:"🥦 Zelenina"},
+  // čerstvé ovoce
+  {n:"Citron", k:29, p:1.1, c:9, f:0.3, g:90, cat:"🍓 Ovoce"},
+  {n:"Limetka", k:30, p:0.7, c:11, f:0.2, g:65, cat:"🍓 Ovoce"},
+  {n:"Brusinky", k:46, p:0.4, c:12, f:0.1, cat:"🍓 Ovoce"},
+  {n:"Rybíz", k:56, p:1.4, c:14, f:0.2, cat:"🍓 Ovoce"},
+  {n:"Nektarinka", k:44, p:1.1, c:11, f:0.3, g:140, cat:"🍓 Ovoce"},
+  {n:"Avokádo Hass", k:160, p:2, c:9, f:15, g:150, cat:"🍓 Ovoce"},
+  // kupované / trvanlivé
+  {n:"Tuňák v oleji (plechovka)", k:190, p:25, c:0, f:10, cat:"🍗 Bílkoviny – maso & ryby"},
+  {n:"Makrela v tomatě (konzerva)", k:180, p:16, c:3, f:11, cat:"🍗 Bílkoviny – maso & ryby"},
+  {n:"Fazole v tomatě (konzerva)", k:94, p:5, c:15, f:0.5, cat:"🌱 Bílkoviny – rostlinné"},
+  {n:"Hrášek (konzerva)", k:80, p:5, c:11, f:0.5, cat:"🌱 Bílkoviny – rostlinné"},
+  {n:"Červené fazole (konzerva)", k:127, p:9, c:23, f:0.5, cat:"🌱 Bílkoviny – rostlinné"},
+  {n:"Kokosový jogurt", k:90, p:1, c:8, f:5, cat:"🌱 Bílkoviny – rostlinné"},
+  {n:"Sójový jogurt bílý", k:50, p:4, c:4, f:2, cat:"🌱 Bílkoviny – rostlinné"},
+  {n:"Müsli tyčinka", k:400, p:6, c:65, f:12, unit:"ks", cat:"🍫 Sladké & pochutiny"},
+  {n:"Lískooříšková pomazánka (Nutella typ)", k:539, p:6, c:57, f:31, cat:"🍫 Sladké & pochutiny"},
+  {n:"Rýžové wafle", k:387, p:8, c:81, f:3, cat:"🍞 Sacharidy & pečivo"},
+  {n:"Bageta bílá", k:270, p:9, c:52, f:2, cat:"🍞 Sacharidy & pečivo"},
+  {n:"Žitný kvasový chléb (kupovaný)", k:240, p:8, c:45, f:1.5, cat:"🍞 Sacharidy & pečivo"},
+  {n:"Ovesné vločky jemné", k:370, p:13, c:60, f:7, cat:"🍞 Sacharidy & pečivo"},
+  {n:"Arašídové máslo (křupavé)", k:600, p:25, c:14, f:50, cat:"🥑 Tuky & ořechy"},
+  // mléčné výrobky (pro úplnost – u bezmléčného profilu se skryjí)
+  {n:"Bílý jogurt 3%", k:61, p:4.3, c:5, f:3.3, cat:"🥛 Mléčné výrobky"},
+  {n:"Řecký jogurt 0%", k:59, p:10, c:4, f:0, cat:"🥛 Mléčné výrobky"},
+  {n:"Skyr bílý", k:63, p:11, c:4, f:0.2, cat:"🥛 Mléčné výrobky"},
+  {n:"Tvaroh polotučný", k:120, p:18, c:4, f:4, cat:"🥛 Mléčné výrobky"},
+  {n:"Cottage cheese", k:98, p:11, c:3, f:4, cat:"🥛 Mléčné výrobky"},
+  {n:"Mozzarella", k:280, p:18, c:2, f:22, cat:"🥛 Mléčné výrobky"},
+  {n:"Eidam 30%", k:280, p:26, c:1, f:18, cat:"🥛 Mléčné výrobky"},
+  {n:"Parmazán", k:392, p:36, c:4, f:25, cat:"🥛 Mléčné výrobky"},
+  {n:"Máslo", k:717, p:0.8, c:0.6, f:81, cat:"🥛 Mléčné výrobky"},
+  {n:"Smetana ke šlehání 33%", k:337, p:2.2, c:3, f:35, cat:"🥛 Mléčné výrobky"},
+  {n:"Zakysaná smetana 15%", k:160, p:2.8, c:3.5, f:15, cat:"🥛 Mléčné výrobky"},
+  {n:"Mléko polotučné", k:47, p:3.4, c:4.8, f:1.5, cat:"🥛 Mléčné výrobky"},
+  {n:"Syrovátkový protein (whey)", k:380, p:80, c:8, f:6, cat:"🥛 Mléčné výrobky"}
+);
 /* vláknina (g/100g) – anotace pro výpočet, ne nová databáze */
 const FIB={"Ovesné vločky":10,"Čočka (vařená)":8,"Cizrna (vařená)":8,"Fazole červené (vařené)":7,"Fazole bílé (vařené)":7,"Fazole černé (vařené)":8,
  "Brokolice":3,"Hrášek zelený (vařený)":5,"Quinoa (vařená)":2.8,"Batáty (pečené)":3,"Brambory (vařené)":2,"Brambory pečené":2,
@@ -586,6 +639,8 @@ const RE={
   pork:/(vepr|slanin|salam|klobas|sunka veprov)/
 };
 function dietViolation(name){
+  const f=findFood(name);
+  if(f&&(f.aller||f.ingr)){const cv=compositionViolation(f);if(cv)return cv;}
   const x=_n(name);
   if((diet.dairyFree||diet.cowMilkFree||diet.lactoseFree||diet.vegan)&&RE.dairy.test(x)&&!RE.plant.test(x))return'Obsahuje mléčný výrobek';
   if(diet.vegan&&(RE.meatfish.test(x)||RE.egg.test(x)||/\bmed\b/.test(x)))return'Není veganské';
@@ -749,12 +804,12 @@ function fillAddList(){
   if(addTab==='potraviny'){
     const items=FOODS.filter(f=>(!q||norm(f.n).includes(q))&&foodMatchesFilter(f)).slice(0,120);
     h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
-      return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFood('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol);});}).join('');
+      return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFood('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol, f.n);});}).join('');
   } else if(addTab==='hotova'){
     const items=PREP.filter(p=>(!q||norm(p.n).includes(q))&&prepMatchesFilter(p));
     h=items.map((p)=>{const viol=mealViolation(p.items);return gate(viol,()=>{const t=sumItems(p.items);const idx=PREP.indexOf(p);
       const tg=(!viol&&dairyActive())?p.tags.concat(['bez mléka']):p.tags;
-      return rowHTML((p.ic+' '+p.n),`${round(t.k)} kcal · B ${round(t.p)} S ${round(t.c)} T ${round(t.f)}`,tg,`addPrep(${idx})`,`prepDetail(${idx})`,viol);});}).join('');
+      return rowHTML((p.ic+' '+p.n),`${round(t.k)} kcal · B ${round(t.p)} S ${round(t.c)} T ${round(t.f)}`,tg,`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n);});}).join('');
   } else if(addTab==='recepty'){
     const items=myMeals.filter(m=>!q||norm(m.n).includes(q));
     h=items.length?items.map((m,i)=>{const viol=mealViolation(m.items);return gate(viol,()=>{const t=sumItems(m.items.map(x=>({n:x[0],q:x[1],u:x[2]})));
@@ -768,13 +823,15 @@ function fillAddList(){
   list.innerHTML=h||'<p class="muted" style="padding:14px 0">Nic nenalezeno.</p>';
 }
 const esc=s=>s.replace(/'/g,"\\'").replace(/"/g,'&quot;');
-function rowHTML(name,meta,tags,addFn,clickFn,warn){
+function rowHTML(name,meta,tags,addFn,clickFn,warn,favName){
   const alt=warn?altFor(name):null;
+  const isFav=favName&&favs.includes(favName);
+  const star=favName?`<button class="add" onclick="toggleFav('${esc(favName)}')" style="background:${isFav?'#f0a83c':'#eef0ee'};color:${isFav?'#fff':'#b9c4bc'};font-size:1rem">★</button>`:'';
   return `<div class="row" style="${warn?'opacity:.7':''}"><div class="info" ${clickFn&&!warn?`onclick="${clickFn}"`:''} style="${clickFn&&!warn?'cursor:pointer':''}">
     <div class="n">${name}</div><div class="m">${meta}</div>
     ${warn?`<div class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${warn}</div>${alt?`<span class="m" style="color:var(--green-d)"> → zkus: ${alt}</span>`:''}`:''}
     ${!warn&&tags&&tags.length?`<div>${tags.slice(0,3).map(t=>`<span class="tg">${t}</span>`).join('')}</div>`:''}
-    </div><button class="add" onclick="${addFn}" ${warn?'style="background:#c0392b"':''}>＋</button></div>`;
+    </div><div style="display:flex;gap:6px;align-items:center;flex:0 0 auto">${star}<button class="add" onclick="${addFn}" ${warn?'style="background:#c0392b"':''}>＋</button></div></div>`;
 }
 function dietActiveLabel(){const a=[];if(dairyActive())a.push('bez mléka');if(diet.vegan)a.push('vegan');else if(diet.vegetarian)a.push('vegetariánské');if(diet.glutenFree)a.push('bez lepku');if(diet.noPork)a.push('bez vepřového');if(diet.noFish)a.push('bez ryb');if(diet.noNuts)a.push('bez ořechů');if(diet.noEgg)a.push('bez vajec');if((diet.excl||[]).length)a.push('vlastní');return a.join(', ');}
 function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
@@ -791,7 +848,7 @@ function prepDetail(idx){const p=PREP[idx];const t=sumItems(p.items);
       <button class="btn block" onclick="addPrep(${idx});closeSheet()">Přidat do dne</button>
       <button class="btn ghost" onclick="toggleFav('${esc(p.n)}')">★</button></div>`;
 }
-function toggleFav(n){const i=favs.indexOf(n);if(i>=0)favs.splice(i,1);else favs.push(n);DB.save('kt_favs',favs);toast(i>=0?'Odebráno z oblíbených':'Přidáno do oblíbených');}
+function toggleFav(n){const i=favs.indexOf(n);if(i>=0)favs.splice(i,1);else favs.push(n);DB.save('kt_favs',favs);toast(i>=0?'Odebráno z oblíbených ☆':'Přidáno do oblíbených ★');if(document.getElementById('addList'))fillAddList();}
 
 /* action bar */
 document.getElementById('aAdd').onclick=()=>pickSlotThen(openAdd);
@@ -810,16 +867,50 @@ async function lookupEan(ean,msg){
   ean=(''+ean).trim();
   if(!/^[0-9]{6,14}$/.test(ean)){if(msg)msg.textContent='Zadej platný EAN.';return;}
   if(msg)msg.textContent='Hledám produkt…';
-  try{const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=product_name,brands,nutriments,serving_quantity`);
+  try{const r=await fetch(`https://world.openfoodfacts.org/api/v2/product/${ean}.json?fields=product_name,brands,nutriments,serving_quantity,allergens_tags,allergens,ingredients_text_cs,ingredients_text`);
     const j=await r.json();if(j.status!==1||!j.product){if(msg)msg.textContent='Produkt nenalezen. Přidej ručně.';return;}
     const p=j.product,nu=p.nutriments||{};let kcal=nu['energy-kcal_100g'];if(kcal==null&&nu['energy_100g']!=null)kcal=Math.round(nu['energy_100g']/4.184);
     if(kcal==null){if(msg)msg.textContent='Produkt nemá kalorické údaje.';return;}
     let nm=(((p.brands?p.brands.split(',')[0].trim()+' ':'')+(p.product_name||('EAN '+ean))).trim()).slice(0,60);
-    if(!findFood(nm)){FOODS.push({n:nm,k:Math.round(kcal),p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),fib:+(+nu.fiber_100g||0).toFixed(1),cat:"⭐ Moje potraviny"});
-      const cust=DB.load('kt_eanfoods',[]);cust.push(FOODS[FOODS.length-1]);DB.save('kt_eanfoods',cust);}
+    const aller=(p.allergens_tags||[]).concat((p.allergens||'').split(',')).filter(Boolean);
+    const ingr=(p.ingredients_text_cs||p.ingredients_text||'').slice(0,400);
+    let food=findFood(nm);
+    if(!food){food={n:nm,k:Math.round(kcal),p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),fib:+(+nu.fiber_100g||0).toFixed(1),aller,ingr,cat:"⭐ Moje potraviny"};
+      FOODS.push(food);const cust=DB.load('kt_eanfoods',[]);cust.push(food);DB.save('kt_eanfoods',cust);}
     if(msg)msg.innerHTML=`✅ <b>${nm}</b> nalezeno`;
+    // kontrola složení vůči dietnímu profilu
+    const viol=compositionViolation(food)||dietViolation(nm);
+    if(viol){ warnComposition(nm,viol,ingr,aller); return; }
     addWithQty(nm);
   }catch(e){if(msg)msg.textContent='Bez internetu to nejde. Přidej ručně.';}
+}
+function compositionViolation(food){
+  const allerStr=((food.aller||[]).join(' ')).toLowerCase();
+  let ing=(food.ingr||'').toLowerCase();
+  if(!allerStr.trim() && !ing.trim()) return null;
+  // odstraň rostlinné fráze (kokosové mléko, sójový nápoj, kakaové/arašídové máslo…), ať nedělají falešný poplach
+  ing=ing.replace(/(kokos|sój|soj|mandl|almond|oat|oves|rýž|ryz|rice|rostlinn|kakao|kakaov|burák|burak|arašíd|arasid|bambuck|oříšk|orisk)[^\s,]*\s+(mléko|mleko|máslo|maslo|milk|butter|drink|nápoj|napoj)/g,' ');
+  const has=re=>re.test(ing);
+  const aHas=re=>re.test(allerStr);
+  if(dairyActive() && (aHas(/milk|lait|leche|latte/) || has(/(mléko|mleko|mléč|mlec|laktóz|laktoz|lactose|whey|syrovátk|syrovatk|casein|kasein|jogurt|yogurt|sýr|\bsyr\b|cheese|smetan|cream|tvaroh|máslo|maslo)/))) return 'Obsahuje mléko / mléčnou složku';
+  if(diet.glutenFree && (aHas(/gluten/)||has(/(pšenic|psenic|wheat|barley|ječmen|jecmen|žito|\bzito|\brye\b|lepek|špald|spald)/))) return 'Obsahuje lepek';
+  if(diet.noNuts && (aHas(/nut/)||has(/(ořech|orech|orisk|arašíd|arasid|peanut|almond|mandl|hazelnut|lísk|lisk|pistác|kešu|cashew)/))) return 'Obsahuje ořechy';
+  if(diet.noEgg && (aHas(/egg/)||has(/(vejce|vaječ|vajec|\begg\b)/))) return 'Obsahuje vejce';
+  if(diet.noFish && (aHas(/fish/)||has(/(\bryb|tuňák|tunak|losos|salmon|\btuna)/))) return 'Obsahuje rybu';
+  if(diet.vegan && (aHas(/milk|egg/)||has(/(mléko|mleko|vejce|maso|\bmeat|honey|\bmed\b|gelatin|želatin|zelatin)/))) return 'Není veganské';
+  return null;
+}
+function warnComposition(nm,viol,ingr,aller){
+  openSheet('⚠ Upozornění – složení');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="card" style="background:#fde6e3"><div style="font-weight:800;color:#c0392b;font-size:1.05rem">${viol}</div>
+     <div class="muted" style="margin-top:4px">Produkt <b>${nm}</b> neodpovídá tvému dietnímu profilu.</div></div>
+   ${aller&&aller.length?`<div style="margin:4px 0"><b>Alergeny:</b> <span class="muted">${aller.map(a=>a.replace(/^en:/,'')).join(', ')}</span></div>`:''}
+   ${ingr?`<div style="margin:6px 0"><b>Složení:</b> <span class="muted" style="font-size:.82rem">${ingr.replace(/</g,'&lt;')}</span></div>`:''}
+   <div style="display:flex;gap:8px;margin-top:12px">
+     <button class="btn ghost block" onclick="closeSheet()">Zrušit</button>
+     <button class="btn block" style="background:#c0392b" onclick="addWithQty('${esc(nm)}')">Přidat i přesto</button>
+   </div>`;
 }
 function addWithQty(name){
   const f=findFood(name); if(!f){toast('Potravina nenalezena');return;}
