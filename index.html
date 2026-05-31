@@ -12,6 +12,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Kalorie">
 <link rel="apple-touch-icon" href="icon-180.png">
+<script>/* nastav režim co nejdřív, ať to nebliká */try{var _t=JSON.parse(localStorage.getItem('kc_theme'))||((window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');document.documentElement.setAttribute('data-theme',_t);}catch(e){}</script>
 <style>
   :root{
     --bg1:#fef6ff; --bg2:#eef9ff;
@@ -21,6 +22,27 @@
     --ink:#2d2a4a; --muted:#8b88a8; --line:#efe9f7;
     --shadow:0 8px 24px rgba(150,110,200,.12);
   }
+  html[data-theme="dark"]{
+    --bg1:#191622; --bg2:#110f18; --card:#221d30;
+    --ink:#ece9f5; --muted:#a8a3bd; --line:#36314b;
+    --shadow:0 8px 24px rgba(0,0,0,.45);
+  }
+  html[data-theme="dark"] select,
+  html[data-theme="dark"] input[type=number],
+  html[data-theme="dark"] input[type=text],
+  html[data-theme="dark"] input[type=date]{ background:#2c2740; color:var(--ink); }
+  html[data-theme="dark"] .bar{ background:#332d47; }
+  html[data-theme="dark"] .pill{ background:#2c2740; }
+  html[data-theme="dark"] details,
+  html[data-theme="dark"] .portions,
+  html[data-theme="dark"] .cathead,
+  html[data-theme="dark"] .fooditem{ background:#2a2540; color:var(--ink); }
+  html[data-theme="dark"] .fooditem:hover{ background:#352f50; }
+  html[data-theme="dark"] .cat.open .cathead{ background:linear-gradient(120deg,#36305a,#26354f); }
+  html[data-theme="dark"] .chosen{ background:#1f3326; }
+  html[data-theme="dark"] .swap{ background:#33291a !important; }
+  html[data-theme="dark"] .tag{ background:#173a2b; color:#5ee0a8; }
+  html[data-theme="dark"] a{ color:#8fb8ff; }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
@@ -29,10 +51,17 @@
     min-height:100vh;line-height:1.5;padding-bottom:60px;
   }
   header{
+    position:relative;
     background:linear-gradient(120deg,var(--pink),var(--purple) 55%,var(--blue));
     color:#fff;padding:calc(22px + env(safe-area-inset-top)) 18px 26px;text-align:center;
     border-radius:0 0 28px 28px;box-shadow:var(--shadow);
   }
+  #themeBtn{
+    position:absolute;top:calc(env(safe-area-inset-top) + 14px);right:16px;
+    width:40px;height:40px;border:none;border-radius:50%;cursor:pointer;
+    background:rgba(255,255,255,.22);color:#fff;font-size:1.15rem;line-height:1;
+  }
+  #themeBtn:active{transform:scale(.92)}
   header h1{font-size:1.5rem;font-weight:800;letter-spacing:.3px}
   header p{opacity:.92;font-size:.85rem;margin-top:4px}
   .wrap{max-width:760px;margin:0 auto;padding:16px}
@@ -138,6 +167,7 @@
 </head>
 <body>
 <header>
+  <button id="themeBtn" aria-label="Přepnout světlý/tmavý režim">🌙</button>
   <h1>🥗 Můj Kalorický Tracker</h1>
   <p>Bezmléčný plán • cíl <b id="hdrKcal">1800</b> kcal • <b>160 g</b> bílkovin/den</p>
 </header>
@@ -1207,6 +1237,13 @@ document.getElementById('addWholeDay').onclick=()=>{
 document.getElementById('logDate').value=today();
 document.getElementById('wDate').value=today();
 document.getElementById('logDate').onchange=render;
+/* tmavý / světlý režim */
+function applyTheme(t){ document.documentElement.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent = t==='dark'?'☀️':'🌙'; }
+let theme = DB.load('kc_theme', (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches)?'dark':'light');
+applyTheme(theme);
+document.getElementById('themeBtn').onclick=()=>{ theme = theme==='dark'?'light':'dark'; DB.save('kc_theme',theme); applyTheme(theme); };
+
 fillSelect(); fillActSelect(); render(); drawChart(); renderPlan(); renderPlanner();
 
 /* registrace service workeru (offline režim PWA) */
