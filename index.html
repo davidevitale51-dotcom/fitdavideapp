@@ -601,18 +601,122 @@ const SUG={"Jablko":10,"Hruška":10,"Banán (1 ks ~120 g)":12,"Pomeranč":9,"Man
 const SALT={"Kváskový chléb (domácí)":1.2,"Chléb žitný":1.3,"Chléb celozrnný":1.2,"Toustový chléb":1.2,"Bageta bílá":1.4,"Žitný kvasový chléb (kupovaný)":1.3,"Bílý rohlík (1 ks ~43 g)":1.3,"Šunka kuřecí/krůtí":2,"Tuňák ve vlastní šťávě":0.8,"Tuňák v oleji (plechovka)":0.9,"Sardinky v oleji (scezené)":1.2,"Makrela v tomatě (konzerva)":0.9,"Hummus":1.1,"Olivy":3.3,"Sójová omáčka":16,"Tamari (bezlepková sójovka)":16,"Kečup":2,"Hořčice":5,"Eidam 30%":1.8,"Parmazán":1.6,"Mozzarella":1.4,"Cottage cheese":1,"Knäckebrot (křehký chléb)":1,"Kukuřičné lupínky (cornflakes)":0.7,"Fazole v tomatě (konzerva)":0.5,"Hrášek (konzerva)":0.4};
 
 /* ====== HOTOVÁ JÍDLA (recepty složené z potravin výše) ====== */
+/* Hotová jídla – přímé odhady nutrice NA PORCI (k,p,c,f,fib,sug,salt), srvG=odhad váhy porce.
+   cd=obsahuje mléko, gl=obsahuje lepek. ingr=hrubý seznam pro nákup. conf='estimated'. */
+const M=(n,ic,cat,slots,tags,srvG,k,p,c,f,fib,sug,salt,cd,gl,ingr)=>({n,ic,cat,slots,tags,srvG,k,p,c,f,fib,sug,salt,cd,gl,ingr,conf:'estimated'});
 const PREP=[
- {n:"Kuřecí bowl s rýží a zeleninou",ic:"🍚",slots:["obed","vecere"],tags:["high protein","rodinné","bez mléka"],items:[["Kuřecí prsa (vařená/grilovaná)",150,"g"],["Rýže basmati (vařená)",200,"g"],["Brokolice",150,"g"],["Olivový olej (1 lžíce ~14 g)",1,"lžíce"]]},
- {n:"Tuňákový salát s bramborami",ic:"🥗",slots:["obed"],tags:["high protein","rychlé","bez mléka"],items:[["Tuňák ve vlastní šťávě",120,"g"],["Brambory (vařené)",200,"g"],["Salátový mix",100,"g"],["Olivový olej (1 lžíce ~14 g)",1,"lžíce"]]},
- {n:"Hovězí ragú s rýží",ic:"🍲",slots:["obed","vecere"],tags:["high protein","rodinné"],items:[["Hovězí maso libové (vařené)",150,"g"],["Rýže basmati (vařená)",200,"g"],["Mrkev",80,"g"],["Rajčatový protlak / passata",60,"g"]]},
- {n:"Ovesná kaše s proteinem",ic:"🥣",slots:["snidane"],tags:["high protein","rychlé","bez mléka"],items:[["Ovesné vločky",60,"g"],["Proteinový prášek vegan (odměrka ~30 g)",1,"odměrka"],["Sójový nápoj",250,"g"],["Banán (1 ks ~120 g)",1,"ks"]]},
- {n:"Tortilla s krůtím masem",ic:"🌯",slots:["svacina1","obed","svacina2"],tags:["rychlé","rodinné"],items:[["Tortilla pšeničná (1 ks ~60 g)",1,"ks"],["Krůtí prsa",100,"g"],["Salátový mix",50,"g"],["Rajče",1,"ks"]]},
- {n:"Vejce, šunka, zelenina a pečivo",ic:"🍳",slots:["snidane"],tags:["high protein","rodinné"],items:[["Vejce (1 ks ~60 g)",2,"ks"],["Šunka kuřecí/krůtí",60,"g"],["Rajče",1,"ks"],["Kváskový chléb (domácí)",60,"g"]]},
- {n:"Losos s bramborami a zeleninou",ic:"🐟",slots:["vecere","obed"],tags:["high protein","bez mléka","rodinné"],items:[["Losos",150,"g"],["Brambory (vařené)",250,"g"],["Brokolice",150,"g"]]},
- {n:"Těstovinový salát s tuňákem",ic:"🍝",slots:["obed","svacina2"],tags:["high protein","meal prep","bez mléka"],items:[["Těstoviny celozrnné (suché)",60,"g"],["Tuňák ve vlastní šťávě",100,"g"],["Rajče",100,"g"],["Olivový olej (1 lžíce ~14 g)",1,"lžíce"]]},
- {n:"Boloňská omáčka s těstovinami",ic:"🍝",slots:["obed","vecere"],tags:["rodinné","děti"],items:[["Hovězí maso libové (vařené)",120,"g"],["Těstoviny celozrnné (suché)",70,"g"],["Rajčatový protlak / passata",80,"g"]]},
- {n:"Bramborovo-mrkvová kaše s kuřetem",ic:"🥕",slots:["obed","vecere"],tags:["rodinné","děti","bez mléka"],items:[["Brambory (vařené)",200,"g"],["Mrkev",100,"g"],["Kuřecí prsa (vařená/grilovaná)",120,"g"]]},
- {n:"Nutty puding",ic:"🍮",slots:["svacina1","svacina2"],tags:["high protein","bez mléka","rychlé"],items:[["Proteinový prášek vegan (odměrka ~30 g)",1,"odměrka"],["Sójový nápoj",250,"g"],["Mleté oříšky (lžička ~5 g)",2,"lžička"],["Kakao (lžička ~5 g)",1,"lžička"],["Borůvky",80,"g"],["Hořká čokoláda 70 %",10,"g"]]}
+ // ===== HOVĚZÍ =====
+ M("Grilované hovězí maso","🥩","Hovězí",["obed","vecere"],["high protein","bez mléka"],150,330,46,0,16,0,0,0.4,false,false,[["hovězí steak",170,"g"],["olej",1,"lžíce"],["sůl, pepř","","",]]),
+ M("Hovězí steak","🥩","Hovězí",["obed","vecere"],["high protein","bez mléka"],180,400,52,0,21,0,0,0.5,false,false,[["hovězí steak",200,"g"],["máslo/olej",1,"lžíce"]]),
+ M("Hovězí roastbeef","🥩","Hovězí",["obed","vecere","svacina2"],["high protein","bez mléka"],120,260,38,0,12,0,0,0.6,false,false,[["hovězí zadní",140,"g"]]),
+ M("Hovězí ragú","🍲","Hovězí",["obed","vecere"],["high protein","bez mléka","rodinné"],250,380,34,18,18,3,5,0.9,false,false,[["hovězí maso",150,"g"],["mrkev",60,"g"],["cibule",50,"g"],["rajčatový protlak",40,"g"]]),
+ M("Hovězí guláš","🍲","Hovězí",["obed","vecere"],["high protein","bez mléka","česká","rodinné"],300,430,38,16,24,2,4,1.4,false,false,[["hovězí maso",180,"g"],["cibule",100,"g"],["paprika, kmín","","",]]),
+ M("Hovězí na houbách","🍲","Hovězí",["obed","vecere"],["high protein","bez mléka"],280,360,34,10,20,2,3,1,false,false,[["hovězí maso",160,"g"],["houby",120,"g"],["cibule",60,"g"]]),
+ M("Hovězí na zelenině","🍲","Hovězí",["obed","vecere"],["high protein","bez mléka"],300,330,33,14,15,4,7,0.8,false,false,[["hovězí maso",150,"g"],["mrkev, paprika, cuketa",250,"g"]]),
+ M("Hovězí vývar s masem a zeleninou","🍜","Polévky",["obed","vecere"],["bez mléka","polévka","česká"],350,160,16,8,6,2,4,1.2,false,false,[["hovězí maso s kostí",120,"g"],["mrkev, celer, petržel",150,"g"]]),
+ M("Hovězí maso s rýží","🍚","Hovězí",["obed","vecere"],["high protein","bez mléka","rodinné"],380,520,40,55,14,2,3,0.9,false,false,[["hovězí maso",150,"g"],["rýže (suchá)",70,"g"]]),
+ M("Hovězí bowl s rýží a zeleninou","🍚","Bowls",["obed","vecere"],["high protein","bez mléka","bowl","meal prep"],450,560,42,58,16,5,6,0.9,false,false,[["hovězí maso",150,"g"],["rýže (suchá)",70,"g"],["brokolice, mrkev",200,"g"],["olej",1,"lžíce"]]),
+ M("Hovězí burger bez housky","🍔","Hovězí",["obed","vecere"],["high protein","bez mléka"],200,360,34,4,24,1,2,1,false,false,[["mleté hovězí",180,"g"],["cibule",30,"g"]]),
+ M("Hovězí chilli con carne","🍲","Hovězí",["obed","vecere"],["high protein","bez mléka","rodinné"],350,450,34,38,18,11,8,1.3,false,false,[["mleté hovězí",150,"g"],["fazole",120,"g"],["rajčata",120,"g"],["cibule, paprika","","",]]),
+ // ===== KUŘECÍ & KRŮTÍ =====
+ M("Grilované kuřecí prso","🍗","Kuřecí & krůtí",["obed","vecere","svacina2"],["high protein","bez mléka","rychlé"],150,250,46,0,7,0,0,0.4,false,false,[["kuřecí prsa",170,"g"],["olej, koření","","",]]),
+ M("Pečené kuřecí stehno","🍗","Kuřecí & krůtí",["obed","vecere"],["high protein","bez mléka"],180,330,33,0,22,0,0,0.5,false,false,[["kuřecí stehno",200,"g"]]),
+ M("Kuře na paprice (tradiční)","🌶️","Kuřecí & krůtí",["obed","vecere"],["česká","rodinné"],300,430,32,14,28,2,5,1.1,true,false,[["kuřecí maso",160,"g"],["paprika",60,"g"],["smetana",80,"g"],["cibule","","",]]),
+ M("Kuře na paprice bez mléka","🌶️","Kuřecí & krůtí",["obed","vecere"],["česká","rodinné","bez mléka"],300,360,33,15,18,3,6,1,false,false,[["kuřecí maso",160,"g"],["paprika",80,"g"],["kokosové mléko",80,"g"],["cibule","","",]]),
+ M("Kuřecí kari","🍛","Kuřecí & krůtí",["obed","vecere"],["high protein","bez mléka","rodinné"],350,470,38,30,20,4,8,1,false,false,[["kuřecí maso",160,"g"],["kokosové mléko",100,"g"],["kari koření","","",],["rýže (suchá)",40,"g"]]),
+ M("Kuřecí rizoto","🍚","Rizota",["obed","vecere"],["rodinné","děti"],380,520,32,62,16,2,3,1.1,true,false,[["kuřecí maso",130,"g"],["rýže (suchá)",80,"g"],["parmazán",20,"g"],["cibule","","",]]),
+ M("Kuřecí bowl s rýží","🍚","Bowls",["obed","vecere"],["high protein","bez mléka","bowl","meal prep"],450,540,46,56,14,5,5,0.8,false,false,[["kuřecí prsa",150,"g"],["rýže (suchá)",70,"g"],["brokolice, mrkev",200,"g"],["olej",1,"lžíce"]]),
+ M("Kuřecí fajitas","🌯","Kuřecí & krůtí",["obed","vecere"],["rodinné"],350,520,38,52,16,5,6,1.3,false,true,[["kuřecí maso",150,"g"],["tortilla",2,"ks"],["paprika, cibule",150,"g"]]),
+ M("Kuřecí maso se zeleninou","🍗","Kuřecí & krůtí",["obed","vecere"],["high protein","bez mléka","rychlé"],320,330,42,12,12,4,7,0.7,false,false,[["kuřecí prsa",170,"g"],["zelenina mix",250,"g"],["olej",1,"lžíce"]]),
+ M("Kuřecí vývar","🍜","Polévky",["obed","vecere"],["bez mléka","polévka","česká"],350,120,12,8,4,1,3,1,false,false,[["kuřecí maso s kostí",120,"g"],["mrkev, celer, petržel",150,"g"]]),
+ M("Krůtí kousky se zeleninou","🦃","Kuřecí & krůtí",["obed","vecere"],["high protein","bez mléka","rychlé"],320,320,40,12,11,4,6,0.7,false,false,[["krůtí maso",170,"g"],["zelenina",250,"g"]]),
+ M("Krůtí maso s bramborami","🦃","Kuřecí & krůtí",["obed","vecere"],["high protein","bez mléka","rodinné"],400,470,42,48,12,4,3,0.8,false,false,[["krůtí maso",160,"g"],["brambory",250,"g"]]),
+ M("Krůtí ragú","🍲","Kuřecí & krůtí",["obed","vecere"],["high protein","bez mléka"],280,350,36,16,14,3,5,0.9,false,false,[["krůtí maso",160,"g"],["mrkev, cibule",120,"g"],["rajčatový protlak",40,"g"]]),
+ M("Trhané kuřecí maso","🍗","Kuřecí & krůtí",["obed","svacina2","vecere"],["high protein","bez mléka","meal prep"],150,230,40,3,7,0,2,0.8,false,false,[["kuřecí prsa",170,"g"],["koření, marináda","","",]]),
+ M("Kuřecí salát","🥗","Saláty",["obed","svacina2"],["high protein","bez mléka","salát"],300,330,34,12,16,4,6,0.8,false,false,[["kuřecí prsa",130,"g"],["salát, rajče, okurka",200,"g"],["olej",1,"lžíce"]]),
+ // ===== VEPŘOVÉ =====
+ M("Vepřové na kmíně","🐷","Vepřové",["obed","vecere"],["česká","rodinné"],250,420,32,2,32,0,1,1,false,false,[["vepřové maso",180,"g"],["kmín, česnek","","",]]),
+ M("Vepřové na houbách","🐷","Vepřové",["obed","vecere"],["bez mléka"],280,400,32,8,28,2,3,1,false,false,[["vepřové maso",170,"g"],["houby",120,"g"]]),
+ M("Pečené vepřové maso","🐷","Vepřové",["obed","vecere"],["česká"],180,420,34,1,32,0,0,0.9,false,false,[["vepřová pečeně",200,"g"]]),
+ M("Vepřová panenka","🐷","Vepřové",["obed","vecere"],["high protein","bez mléka"],150,250,38,1,10,0,0,0.5,false,false,[["vepřová panenka",170,"g"]]),
+ M("Vepřové maso s bramborami","🐷","Vepřové",["obed","vecere"],["rodinné","česká"],400,560,36,46,26,4,3,1,false,false,[["vepřové maso",170,"g"],["brambory",250,"g"]]),
+ M("Vepřový guláš","🍲","Vepřové",["obed","vecere"],["česká","rodinné"],300,450,34,16,28,2,4,1.4,false,false,[["vepřové maso",180,"g"],["cibule",100,"g"]]),
+ // ===== RYBÍ =====
+ M("Losos pečený","🐟","Rybí",["obed","vecere"],["high protein","bez mléka"],150,310,30,0,20,0,0,0.4,false,false,[["losos",170,"g"],["citron, koření","","",]]),
+ M("Losos s bramborami","🐟","Rybí",["obed","vecere"],["high protein","bez mléka","rodinné"],400,540,38,45,22,4,3,0.7,false,false,[["losos",150,"g"],["brambory",250,"g"],["zelenina",100,"g"]]),
+ M("Tuňákový salát","🥗","Saláty",["obed","svacina2"],["high protein","bez mléka","salát","rychlé"],300,300,28,14,15,4,6,1,false,false,[["tuňák konzerva",1,"ks"],["salát, rajče, okurka",200,"g"],["olej",1,"lžíce"]]),
+ M("Tuňák s rýží","🍚","Rybí",["obed","vecere"],["high protein","bez mléka","rychlé","meal prep"],350,450,34,52,9,2,2,0.9,false,false,[["tuňák konzerva",1,"ks"],["rýže (suchá)",70,"g"],["zelenina",100,"g"]]),
+ M("Treska pečená","🐟","Rybí",["obed","vecere"],["high protein","bez mléka"],150,140,30,0,2,0,0,0.4,false,false,[["treska filé",180,"g"]]),
+ M("Rybí filet s bramborami","🐟","Rybí",["obed","vecere"],["bez mléka","rodinné"],380,420,34,42,12,3,2,0.8,false,false,[["bílá ryba filé",170,"g"],["brambory",230,"g"]]),
+ M("Sardinky s pečivem","🐟","Svačiny",["svacina1","svacina2","snidane"],["high protein","rychlé"],150,330,22,24,16,2,2,1.4,false,true,[["sardinky konzerva",1,"ks"],["chléb",80,"g"]]),
+ M("Krevety s rýží","🍤","Rybí",["obed","vecere"],["high protein","bez mléka"],350,400,30,55,6,2,2,1.2,false,false,[["krevety",150,"g"],["rýže (suchá)",70,"g"]]),
+ // ===== OMÁČKY (samotné) + jídla s přílohou =====
+ M("Svíčková omáčka (tradiční)","🥘","Omáčky",["obed"],["česká"],150,210,3,18,13,2,8,0.8,true,false,[["kořenová zelenina",150,"g"],["smetana",60,"g"],["cibule","","",]]),
+ M("Svíčková omáčka bez mléka","🥘","Omáčky",["obed"],["česká","bez mléka"],150,150,3,16,7,3,8,0.7,false,false,[["mrkev, celer, petržel",150,"g"],["rostlinná smetana",50,"g"],["cibule","","",]]),
+ M("Svíčková s hovězím a knedlíkem (tradiční)","🥘","Hovězí",["obed"],["česká","rodinné"],450,720,40,78,28,5,12,1.4,true,true,[["hovězí maso",150,"g"],["kořenová zelenina",150,"g"],["smetana",60,"g"],["knedlík",120,"g"]]),
+ M("Svíčková s hovězím a knedlíkem bez mléka","🥘","Hovězí",["obed"],["česká","rodinné","bez mléka"],450,690,42,78,22,7,12,1.3,false,true,[["hovězí maso",150,"g"],["kořenová zelenina",150,"g"],["rostlinná smetana",50,"g"],["knedlík",120,"g"]]),
+ M("Koprová omáčka (tradiční)","🥘","Omáčky",["obed"],["česká"],150,180,4,14,11,1,5,0.8,true,false,[["kopr","","",],["smetana",80,"g"],["mouka","","",]]),
+ M("Koprová omáčka bez mléka","🥘","Omáčky",["obed"],["česká","bez mléka"],150,120,3,12,6,1,4,0.7,false,false,[["kopr","","",],["rostlinná smetana",60,"g"]]),
+ M("Rajská omáčka","🥘","Omáčky",["obed"],["česká","rodinné","bez mléka","děti"],150,130,3,22,3,3,12,0.8,false,false,[["rajčatový protlak",120,"g"],["cibule","","",],["cukr","","",]]),
+ M("Rajská s hovězím a těstovinami","🍝","Těstoviny",["obed"],["česká","rodinné","děti"],420,640,38,82,16,6,16,1.2,false,true,[["hovězí maso",140,"g"],["rajčatový protlak",120,"g"],["těstoviny (suché)",80,"g"]]),
+ M("Houbová omáčka","🥘","Omáčky",["obed"],["bez mléka"],150,140,4,12,8,2,3,0.8,false,false,[["houby",150,"g"],["cibule","","",],["rostlinná smetana",40,"g"]]),
+ M("Papriková omáčka","🥘","Omáčky",["obed"],["bez mléka"],150,150,3,14,9,2,6,0.9,false,false,[["paprika",120,"g"],["rajčatový protlak",40,"g"]]),
+ M("Boloňská omáčka (samotná)","🥫","Omáčky",["obed","vecere"],["bez mléka","rodinné"],200,260,20,12,14,3,6,0.9,false,false,[["mleté maso",150,"g"],["rajčatový protlak",100,"g"],["cibule, mrkev","","",]]),
+ M("Těstoviny s boloňskou omáčkou","🍝","Těstoviny",["obed","vecere"],["rodinné","děti"],400,600,34,72,16,6,8,1.1,false,true,[["mleté maso",130,"g"],["rajčatový protlak",100,"g"],["těstoviny (suché)",80,"g"]]),
+ M("Kari omáčka se zeleninou","🍛","Omáčky",["obed","vecere"],["bez mléka","veganské"],250,260,6,24,15,5,9,1,false,false,[["kokosové mléko",120,"g"],["zelenina",200,"g"],["kari","","",]]),
+ // ===== POLÉVKY =====
+ M("Zeleninová polévka","🥣","Polévky",["obed","vecere"],["bez mléka","polévka","rodinné","děti"],350,110,4,18,2,4,6,1,false,false,[["mrkev, celer, brambory",250,"g"],["zeleninový vývar","","",]]),
+ M("Bramboračka","🥣","Polévky",["obed","vecere"],["polévka","česká","rodinné"],350,220,6,32,7,4,3,1.3,false,false,[["brambory",200,"g"],["houby, mrkev",100,"g"],["majoránka","","",]]),
+ M("Čočková polévka","🥣","Polévky",["obed","vecere"],["bez mléka","polévka","high protein","rodinné"],350,240,15,34,4,8,4,1.2,false,false,[["čočka",80,"g"],["mrkev, cibule",100,"g"]]),
+ M("Fazolová polévka","🥣","Polévky",["obed","vecere"],["bez mléka","polévka"],350,250,14,36,5,9,5,1.3,false,false,[["fazole",90,"g"],["zelenina",100,"g"]]),
+ M("Rajčatová polévka","🥣","Polévky",["obed","vecere"],["bez mléka","polévka","děti"],350,150,4,24,4,3,12,1.1,false,false,[["rajčata/protlak",250,"g"],["cibule","","",]]),
+ M("Dýňová polévka","🥣","Polévky",["obed","vecere"],["bez mléka","polévka"],350,160,3,20,8,3,9,1,false,false,[["dýně",300,"g"],["kokosové mléko",60,"g"]]),
+ M("Brokolicová polévka","🥣","Polévky",["obed","vecere"],["bez mléka","polévka"],350,140,6,14,7,4,5,1,false,false,[["brokolice",250,"g"],["brambory",80,"g"]]),
+ M("Gulášová polévka","🥣","Polévky",["obed","vecere"],["polévka","česká","high protein"],350,280,18,24,12,3,4,1.5,false,false,[["hovězí maso",100,"g"],["brambory",120,"g"],["paprika","","",]]),
+ M("Minestrone","🥣","Polévky",["obed","vecere"],["bez mléka","polévka"],350,210,9,32,4,6,7,1.2,false,true,[["fazole, zelenina",200,"g"],["těstoviny (suché)",30,"g"]]),
+ // ===== TĚSTOVINY & RIZOTA =====
+ M("Těstoviny s rajčatovou omáčkou","🍝","Těstoviny",["obed","vecere"],["bez mléka","rodinné","děti","veganské"],380,520,16,92,9,7,12,1.1,false,true,[["těstoviny (suché)",90,"g"],["rajčatový protlak",120,"g"]]),
+ M("Těstoviny s tuňákem","🍝","Těstoviny",["obed","vecere"],["high protein","bez mléka","rychlé"],380,560,32,72,14,6,6,1,false,true,[["těstoviny (suché)",80,"g"],["tuňák konzerva",1,"ks"],["rajčata",100,"g"]]),
+ M("Těstoviny s kuřetem","🍝","Těstoviny",["obed","vecere"],["high protein","rodinné"],400,620,40,74,16,5,6,1,false,true,[["těstoviny (suché)",80,"g"],["kuřecí maso",130,"g"],["smetana/omáčka","","",]]),
+ M("Rizoto se zeleninou","🍚","Rizota",["obed","vecere"],["bez mléka","veganské"],380,440,9,78,10,4,5,1,false,false,[["rýže (suchá)",80,"g"],["zelenina",200,"g"]]),
+ M("Rizoto s houbami","🍚","Rizota",["obed","vecere"],["bez mléka"],380,450,11,78,11,4,4,1.1,false,false,[["rýže (suchá)",80,"g"],["houby",150,"g"]]),
+ M("Rizoto s hovězím masem","🍚","Rizota",["obed","vecere"],["high protein","rodinné"],400,580,34,72,16,3,4,1.1,false,false,[["rýže (suchá)",80,"g"],["hovězí maso",130,"g"]]),
+ // ===== BEZMASÁ =====
+ M("Zeleninové kari","🍛","Bezmasé",["obed","vecere"],["bez mléka","veganské","rodinné"],350,380,9,42,18,7,10,1,false,false,[["zelenina mix",250,"g"],["kokosové mléko",100,"g"],["rýže (suchá)",30,"g"]]),
+ M("Čočkový dhal","🍛","Bezmasé",["obed","vecere"],["bez mléka","veganské","high protein"],350,420,20,52,12,9,6,1.1,false,false,[["červená čočka",90,"g"],["kokosové mléko",80,"g"],["koření","","",]]),
+ M("Fazolové chilli","🍲","Bezmasé",["obed","vecere"],["bez mléka","veganské","high protein","rodinné"],350,360,18,52,6,13,9,1.2,false,false,[["fazole",150,"g"],["rajčata",120,"g"],["kukuřice, paprika","","",]]),
+ M("Tofu se zeleninou","🍳","Bezmasé",["obed","vecere"],["bez mléka","veganské","high protein","rychlé"],320,330,22,16,18,5,7,1,false,false,[["tofu",180,"g"],["zelenina",200,"g"],["sójová omáčka","","",]]),
+ M("Tofu bowl","🥗","Bowls",["obed","vecere"],["bez mléka","veganské","bowl","meal prep","high protein"],450,520,26,58,18,8,7,1.1,false,false,[["tofu",150,"g"],["rýže (suchá)",70,"g"],["zelenina, edamame",200,"g"]]),
+ M("Pečená zelenina s bramborami","🥔","Bezmasé",["obed","vecere"],["bez mléka","veganské"],400,360,8,52,13,8,8,0.8,false,false,[["brambory",250,"g"],["zelenina mix",250,"g"],["olej",1,"lžíce"]]),
+ M("Luštěninový salát","🥗","Saláty",["obed","svacina2"],["bez mléka","veganské","salát","high protein"],300,330,16,40,10,10,5,0.8,false,false,[["cizrna/fazole",150,"g"],["zelenina",150,"g"],["olej",1,"lžíce"]]),
+ // ===== SALÁTY & BOWLS =====
+ M("Hovězí salát","🥗","Saláty",["obed","svacina2"],["high protein","bez mléka","salát"],320,360,34,12,18,4,6,0.9,false,false,[["hovězí maso",130,"g"],["salát, rajče",200,"g"]]),
+ M("Lososový salát","🥗","Saláty",["obed","svacina2"],["high protein","bez mléka","salát"],320,360,28,10,22,4,5,0.8,false,false,[["losos",120,"g"],["salát, avokádo",180,"g"]]),
+ M("Zeleninový salát s vejcem","🥗","Saláty",["obed","svacina2","snidane"],["bez mléka","salát","rychlé"],300,260,16,12,16,4,6,0.8,false,false,[["vejce",2,"ks"],["salát, rajče, okurka",220,"g"],["olej",1,"lžíce"]]),
+ M("Rýžový bowl s lososem","🍚","Bowls",["obed","vecere"],["high protein","bez mléka","bowl","meal prep"],450,560,34,60,20,5,5,0.9,false,false,[["losos",130,"g"],["rýže (suchá)",70,"g"],["zelenina, avokádo",200,"g"]]),
+ M("Kuskusový salát","🥗","Saláty",["obed","svacina2"],["bez mléka","salát","veganské"],300,360,10,56,10,6,6,0.8,false,true,[["kuskus (suchý)",70,"g"],["zelenina",150,"g"],["olej",1,"lžíce"]]),
+ M("Bramborový salát bez majonézy","🥗","Saláty",["obed","svacina2"],["bez mléka","salát","česká"],300,300,6,44,11,4,4,0.9,false,false,[["brambory",250,"g"],["okurka, cibule",80,"g"],["olej",1,"lžíce"]]),
+ // ===== SNÍDANĚ & SVAČINY =====
+ M("Ovesná kaše bez mléka","🥣","Snídaně",["snidane"],["bez mléka","snídaně","rychlé","veganské"],350,380,12,58,11,8,16,0.1,false,true,[["ovesné vločky",60,"g"],["rostlinný nápoj",250,"g"],["banán",1,"ks"]]),
+ M("Ovesná kaše s proteinem bez mléka","🥣","Snídaně",["snidane"],["bez mléka","snídaně","high protein","rychlé"],400,450,36,52,10,8,18,0.2,false,true,[["ovesné vločky",60,"g"],["vegan protein",1,"odměrka"],["rostlinný nápoj",250,"g"],["banán",1,"ks"]]),
+ M("Míchaná vejce","🍳","Snídaně",["snidane"],["high protein","bez mléka","rychlé"],150,230,16,2,18,0,1,0.6,false,false,[["vejce",3,"ks"],["olej","","",]]),
+ M("Vejce se šunkou a zeleninou","🍳","Snídaně",["snidane"],["high protein","rodinné"],250,330,26,6,22,2,3,1.3,false,false,[["vejce",3,"ks"],["šunka",50,"g"],["rajče, paprika",120,"g"]]),
+ M("Vařená vejce s pečivem","🥚","Snídaně",["snidane"],["high protein"],200,330,18,30,16,3,3,1.2,false,true,[["vejce",2,"ks"],["chléb",80,"g"]]),
+ M("Pečivo s avokádem","🥑","Snídaně",["snidane","svacina1"],["bez mléka","snídaně","veganské"],200,360,9,40,18,8,3,1,false,true,[["chléb",80,"g"],["avokádo",100,"g"]]),
+ M("Tortilla s kuřetem","🌯","Svačiny",["svacina1","obed","svacina2"],["high protein","rychlé"],220,420,32,40,14,4,3,1.2,false,true,[["tortilla",1,"ks"],["kuřecí maso",120,"g"],["salát, rajče","","",]]),
+ M("Tortilla s tuňákem","🌯","Svačiny",["svacina1","obed","svacina2"],["high protein","rychlé"],220,400,28,40,14,4,3,1.2,false,true,[["tortilla",1,"ks"],["tuňák konzerva",1,"ks"]]),
+ M("Rýžové chlebíčky s tuňákem","🍘","Svačiny",["svacina1","svacina2"],["high protein","bez mléka","rychlé"],120,210,22,18,6,1,1,0.8,false,false,[["rýžové chlebíčky",3,"ks"],["tuňák konzerva",1,"ks"]]),
+ M("Smoothie bez mléka","🥤","Snídaně",["snidane","svacina1"],["bez mléka","snídaně","veganské","rychlé"],350,250,6,48,4,6,32,0.1,false,false,[["ovoce",200,"g"],["rostlinný nápoj",200,"g"]]),
+ M("Ovoce s ořechy","🍎","Svačiny",["svacina1","svacina2"],["bez mléka","rychlé","veganské"],150,230,6,24,13,5,18,0,false,false,[["ovoce",150,"g"],["ořechy",25,"g"]]),
+ M("Proteinový nápoj bez mléka","🥤","Svačiny",["svacina1","svacina2"],["high protein","bez mléka","rychlé"],300,180,28,8,3,1,5,0.3,false,false,[["vegan protein",1,"odměrka"],["rostlinný nápoj",250,"g"]]),
+ // ===== DEZERTY =====
+ M("Nutty puding","🍮","Dezerty",["svacina1","svacina2"],["high protein","bez mléka","dezert"],300,396,37,30,17,5,18,0.3,false,false,[["vegan protein",1,"odměrka"],["sójový nápoj",250,"g"],["oříšky, kakao, borůvky","","",]]),
+ M("Chia puding bez mléka","🍮","Dezerty",["svacina1","svacina2","snidane"],["bez mléka","dezert","veganské"],250,280,9,28,15,11,14,0.1,false,false,[["chia semínka",30,"g"],["rostlinný nápoj",200,"g"],["ovoce",80,"g"]]),
+ // ===== RODINNÁ =====
+ M("Kuřecí s bramborovou kaší bez mléka","🍗","Rodinné",["obed","vecere"],["rodinné","děti","bez mléka","high protein"],420,520,42,52,14,4,4,0.9,false,false,[["kuřecí prsa",150,"g"],["brambory",250,"g"],["rostlinný nápoj",50,"g"]]),
+ M("Masové kuličky v rajčatové omáčce","🍝","Rodinné",["obed","vecere"],["rodinné","děti"],380,520,34,44,20,5,9,1.2,false,true,[["mleté maso",150,"g"],["rajčatový protlak",120,"g"],["těstoviny/příloha",70,"g"]]),
+ M("Pečená zelenina s masem","🍗","Rodinné",["obed","vecere"],["bez mléka","rodinné","high protein"],400,440,36,24,22,7,9,0.9,false,false,[["maso (kuřecí/krůtí)",150,"g"],["zelenina mix",250,"g"],["olej",1,"lžíce"]]),
+ M("Trhané kuřecí s rýží","🍚","Rodinné",["obed","vecere"],["high protein","bez mléka","meal prep","rodinné"],400,520,42,56,12,3,4,1,false,false,[["kuřecí prsa",150,"g"],["rýže (suchá)",70,"g"]])
 ];
 
 /* ====== SLOTY JÍDEL ====== */
@@ -695,7 +799,20 @@ function macroOne(n,q,u){const f=findFood(n);if(!f)return{k:0,p:0,c:0,f:0,fib:0,
   const sug=(SUG[n]!=null?SUG[n]:(f.sug||0))*per100*q;
   const salt=(SALT[n]!=null?SALT[n]:(f.salt||0))*per100*q;
   return{k:f.k*b*q,p:f.p*b*q,c:f.c*b*q,f:f.f*b*q,fib,sug,salt};}
-function sumItems(items){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};(items||[]).forEach(it=>{const m=macroOne(it.n!=null?it.n:it[0], it.q!=null?it.q:it[1], it.u!=null?it.u:it[2]);o.k+=m.k;o.p+=m.p;o.c+=m.c;o.f+=m.f;o.fib+=m.fib;o.sug+=m.sug;o.salt+=m.salt;});return o;}
+/* macra jedné položky deníku – hotové jídlo (meal) má hodnoty na 1 porci × počet porcí */
+function itemMacro(it){
+  if(it&&it.meal){const q=it.q||1;return{k:(it.k||0)*q,p:(it.p||0)*q,c:(it.c||0)*q,f:(it.f||0)*q,fib:(it.fib||0)*q,sug:(it.sug||0)*q,salt:(it.salt||0)*q};}
+  return macroOne(it.n!=null?it.n:it[0], it.q!=null?it.q:it[1], it.u!=null?it.u:it[2]);
+}
+function sumItems(items){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};(items||[]).forEach(it=>{const m=itemMacro(it);o.k+=m.k;o.p+=m.p;o.c+=m.c;o.f+=m.f;o.fib+=m.fib;o.sug+=m.sug;o.salt+=m.salt;});return o;}
+/* hotová jídla – pomocné funkce */
+function mealMac(p,factor){const q=factor||1;return{k:p.k*q,p:p.p*q,c:p.c*q,f:p.f*q,fib:p.fib*q,sug:p.sug*q,salt:p.salt*q};}
+function mealViol(p){
+  if(p.cd && dairyActive()) return 'Obsahuje mléčný výrobek';
+  if(p.gl && diet.glutenFree) return 'Obsahuje lepek';
+  for(const it of (p.ingr||[])){const v=dietViolation(it[0]); if(v && v!=='Obsahuje mléčný výrobek') return v;}
+  return null;
+}
 function dayObj(date){ if(!days[date]) days[date]={}; return days[date]; }
 function slotItems(date,slot){ const d=days[date]||{}; return d[slot]||[]; }
 function dayTotals(date){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};SLOTS.forEach(s=>{const t=sumItems(slotItems(date,s.k));o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;o.sug+=t.sug;o.salt+=t.salt;});return o;}
@@ -756,7 +873,7 @@ function renderDash(){
   // meals
   document.getElementById('mealsWrap').innerHTML=SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
-    const lis=items.map((it,i)=>`<div class="li"><span>${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}</span><span><b>${round(macroOne(it.n,it.q,it.u).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
+    const lis=items.map((it,i)=>`<div class="li"><span>${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
     return `<div class="meal"><div class="mi">${s.ic}</div><div class="body">
       <div class="t"><span>${s.l}</span><span class="kc">${items.length?round(t.k)+' kcal':''}</span></div>
       ${items.length?`<div class="items">${lis}</div><div class="macs">B ${round(t.p)} g · S ${round(t.c)} g · T ${round(t.f)} g</div>`:`<div class="empty-h">Zatím prázdné — přidej jídlo</div>`}
@@ -781,13 +898,14 @@ document.getElementById('sheetClose').onclick=closeSheet;
 ovl.onclick=e=>{if(e.target===ovl)closeSheet();};
 
 /* ====== PŘIDAT JÍDLO ====== */
-let addSlot='snidane', addTab='potraviny', addQuery='', addFilters=new Set();
-function openAdd(slot){ addSlot=slot; addTab='potraviny'; addQuery=''; addFilters.clear();
+let addSlot='snidane', addTab='potraviny', addQuery='', addFilters=new Set(), hotovaCat='';
+const MEAL_CATS=['Hovězí','Kuřecí & krůtí','Vepřové','Rybí','Bezmasé','Omáčky','Polévky','Saláty','Bowls','Těstoviny','Rizota','Snídaně','Svačiny','Dezerty','Rodinné'];
+function openAdd(slot){ addSlot=slot; addTab='potraviny'; addQuery=''; addFilters.clear(); hotovaCat=''; showUnsuitable=false;
   const sl=SLOTS.find(s=>s.k===slot);
   openSheet('Přidat do: '+(sl?sl.l:'jídlo'));
   document.getElementById('sheetTabs').innerHTML=
     `<div class="tabs" id="addTabs">
-      ${[['potraviny','Potraviny'],['hotova','Hotová jídla'],['recepty','Moje jídla'],['oblibene','Oblíbené']].map(([k,l])=>`<button class="tab ${k==='potraviny'?'active':''}" data-t="${k}">${l}</button>`).join('')}
+      ${[['potraviny','Potraviny'],['hotova','Hotová jídla'],['znacky','Značky'],['recepty','Moje jídla'],['oblibene','Oblíbené']].map(([k,l])=>`<button class="tab ${k==='potraviny'?'active':''}" data-t="${k}">${l}</button>`).join('')}
     </div>`;
   document.querySelectorAll('#addTabs .tab').forEach(b=>b.onclick=()=>{addTab=b.dataset.t;document.querySelectorAll('#addTabs .tab').forEach(x=>x.classList.toggle('active',x===b));renderAddBody();});
   renderAddBody();
@@ -812,12 +930,15 @@ function prepMatchesFilter(p){
 function renderAddBody(){
   const body=document.getElementById('sheetBody');
   const dietNote = dietActiveLabel();
+  const catSel = addTab==='hotova'?`<select id="hotovaCat" style="margin-top:6px"><option value="">Všechny kategorie</option>${MEAL_CATS.map(c=>`<option value="${c}"${c===hotovaCat?' selected':''}>${c}</option>`).join('')}</select>`:'';
   const chips=`<div class="addStick"><input id="addSearch" placeholder="Vyhledej potravinu, jídlo nebo recept…" value="${addQuery.replace(/"/g,'&quot;')}">
     <div class="chips">${FILTERS.map(([k,l])=>`<button class="chip ${addFilters.has(k)?'on':''}" data-f="${k}">${l}</button>`).join('')}</div>
+    ${catSel}
     ${dietNote?`<div class="muted" style="font-size:.74rem;margin:2px 0 4px">Filtruje dle profilu: ${dietNote}</div>`:''}</div>
     <div id="addList"></div>`;
   body.innerHTML=chips;
   const si=document.getElementById('addSearch'); si.oninput=()=>{addQuery=si.value;fillAddList();};
+  const cs=document.getElementById('hotovaCat'); if(cs) cs.onchange=()=>{hotovaCat=cs.value;fillAddList();};
   body.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const k=c.dataset.f;
     if(k==='__unsuit'){showUnsuitable=!showUnsuitable;c.classList.toggle('on');fillAddList();return;}
     addFilters.has(k)?addFilters.delete(k):addFilters.add(k);c.classList.toggle('on');fillAddList();});
@@ -831,10 +952,16 @@ function fillAddList(){
     h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
       return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFoodChecked('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol, f.n);});}).join('');
   } else if(addTab==='hotova'){
-    const items=PREP.filter(p=>(!q||norm(p.n).includes(q))&&prepMatchesFilter(p));
-    h=items.map((p)=>{const viol=mealViolation(p.items);return gate(viol,()=>{const t=sumItems(p.items);const idx=PREP.indexOf(p);
-      const tg=(!viol&&dairyActive())?p.tags.concat(['bez mléka']):p.tags;
-      return rowHTML((p.ic+' '+p.n),`${round(t.k)} kcal · B ${round(t.p)} S ${round(t.c)} T ${round(t.f)}`,tg,`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n);});}).join('');
+    let items=PREP.filter(p=>(!q||norm(p.n).includes(q))&&prepMatchesFilter(p));
+    if(hotovaCat) items=items.filter(p=>p.cat===hotovaCat);
+    h=items.map((p)=>{const viol=mealViol(p);return gate(viol,()=>{const idx=PREP.indexOf(p);
+      const tg=(!viol&&dairyActive()&&!p.cd)?['bez mléka'].concat(p.tags.filter(t=>t!=='bez mléka')):p.tags;
+      const note=p.conf==='estimated'?' · orientační':'';
+      return rowHTML((p.ic+' '+p.n),`${p.cat}${note} · ${round(p.k)} kcal · B ${round(p.p)} S ${round(p.c)} T ${round(p.f)}`,tg.slice(0,3),`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n);});}).join('');
+  } else if(addTab==='znacky'){
+    const items=FOODS.filter(f=>(f.source==='open_food_facts'||f.barcode)&&(!q||norm(f.n).includes(q))).slice(0,120);
+    h=items.length?items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
+      return rowHTML(f.n,`${f.brand?f.brand+' · ':''}${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`,[],`addFoodChecked('${esc(f.n)}',${q0},'${u}')`,`addWithQty('${esc(f.n)}')`,viol,f.n);});}).join(''):'<p class="muted" style="padding:14px 0">Žádné značkové produkty. Naimportuj je ve Více → 📦 Import produktů.</p>';
   } else if(addTab==='recepty'){
     const items=myMeals.filter(m=>!q||norm(m.n).includes(q));
     h=items.length?items.map((m,i)=>{const viol=mealViolation(m.items);return gate(viol,()=>{const t=sumItems(m.items.map(x=>({n:x[0],q:x[1],u:x[2]})));
@@ -842,7 +969,7 @@ function fillAddList(){
   } else if(addTab==='oblibene'){
     if(!favs.length){h='<p class="muted" style="padding:14px 0">Zatím žádné oblíbené. U potraviny/jídla klikni na ★.</p>';}
     else h=favs.map(nm=>{const viol=dietViolation(nm);return gate(viol,()=>{const f=findFood(nm);if(f){const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(nm,q0,u);return rowHTML('★ '+nm,`${q0} ${u} · ${round(m.k)} kcal`,[],`addFoodChecked('${esc(nm)}',${q0},'${u}')`,null,viol);}
-      const p=PREP.find(x=>x.n===nm);if(p){const idx=PREP.indexOf(p);const t=sumItems(p.items);return rowHTML('★ '+p.ic+' '+p.n,`${round(t.k)} kcal`,[],`addPrep(${idx})`,null,viol);}return'';});}).join('');
+      const p=PREP.find(x=>x.n===nm);if(p){const idx=PREP.indexOf(p);return rowHTML('★ '+p.ic+' '+p.n,`${round(p.k)} kcal`,[],`addPrep(${idx})`,null,mealViol(p));}return'';});}).join('');
   }
   if(hidden>0) h+=`<div style="padding:10px 0"><div class="muted" style="font-size:.78rem;margin-bottom:6px">${hidden} ${hidden===1?'položka neodpovídá':(hidden<5?'položky neodpovídají':'položek neodpovídá')} tvému dietnímu profilu.</div>
     <button class="btn sec block" onclick="showUnsuitable=true;fillAddList()">👁 Zobrazit i nevhodné (${hidden})</button></div>`;
@@ -875,17 +1002,43 @@ function confirmViol(n,q,u,viol,closeAfter){
      <button class="btn block" style="background:#c0392b" onclick="addFood('${esc(n)}',${q},'${u}');closeSheet();">Přidat i přesto</button></div>`;
 }
 function addFoodChecked(n,q,u){ const v=dietViolation(n); if(v){confirmViol(n,q,u,v);return;} addFood(n,q,u); }
-function addPrep(idx){ const p=PREP[idx]; const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; p.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]})); DB.save('kt_days',days); toast('Přidáno: '+p.n); renderDash(); }
+function addPrep(idx){ const p=PREP[idx]; const v=mealViol(p);
+  if(v){ openSheet('⚠ Upozornění');document.getElementById('sheetTabs').innerHTML='';
+    document.getElementById('sheetBody').innerHTML=`<div class="card" style="background:#fde6e3"><div style="font-weight:800;color:#c0392b;font-size:1.05rem">⚠ ${v}</div><div class="muted" style="margin-top:4px"><b>${p.n}</b> neodpovídá tvému profilu (${dietActiveLabel()}).</div></div>
+      <div style="display:flex;gap:8px;margin-top:12px"><button class="btn ghost block" onclick="closeSheet()">Zrušit</button><button class="btn block" style="background:#c0392b" onclick="prepPortion(${idx})">Přidat i přesto</button></div>`;
+    return; }
+  prepPortion(idx);
+}
+function prepPortion(idx){const p=PREP[idx];
+  openSheet('Porce: '+p.n);document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="card"><div class="big" style="font-size:1.5rem;font-weight:850">${round(p.k)} kcal <span class="muted" style="font-size:.8rem">/ 1 porce ~${p.srvG} g</span></div>
+     <div class="muted">B ${round(p.p)} · S ${round(p.c)} · T ${round(p.f)} · vláknina ${round(p.fib)} g</div>
+     ${p.conf==='estimated'?'<div class="muted" style="font-size:.74rem;margin-top:4px">Nutriční hodnoty jsou orientační.</div>':''}</div>
+    <label>Do jídla</label><select id="pmSlot">${SLOTS.map(s=>`<option value="${s.k}"${s.k===addSlot?' selected':''}>${s.ic} ${s.l}</option>`).join('')}</select>
+    <label style="margin-top:10px">Porce</label>
+    <div class="seg">${[0.5,1,1.5,2].map(x=>`<button onclick="addMealToDay(${idx},${x})">${x}×</button>`).join('')}</div>
+    <div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><label>Vlastní gramáž (g)</label><input type="number" id="pmG" placeholder="${p.srvG}"></div>
+      <button class="btn" onclick="(function(){var g=parseFloat(document.getElementById('pmG').value);if(g>0)addMealToDay(${idx},g/${p.srvG});})()">Přidat</button></div>`;
+}
+function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=slEl?slEl.value:addSlot;
+  const d=dayObj(selDate); if(!d[slot])d[slot]=[];
+  d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
+  DB.save('kt_days',days);toast('Přidáno: '+p.n);renderDash();closeSheet();
+}
 function addMyMeal(i){ const m=myMeals[i]; const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; m.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]})); DB.save('kt_days',days); toast('Přidáno: '+m.n); renderDash(); }
-function prepDetail(idx){const p=PREP[idx];const t=sumItems(p.items);
+function prepDetail(idx){const p=PREP[idx];const viol=mealViol(p);
   openSheet(p.ic+' '+p.n);document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
-   `<div class="card"><div class="big" style="font-size:1.6rem;font-weight:850">${round(t.k)} kcal</div>
-     <div class="muted">B ${round(t.p)} g · S ${round(t.c)} g · T ${round(t.f)} g · vláknina ${round(t.fib)} g</div></div>
-    <h4 style="margin:6px 0">Ingredience</h4>
-    ${p.items.map(it=>`<div class="row"><div class="info"><div class="n">${it[0].replace(/ \(.*?\)/,'')}</div><div class="m">${it[1]} ${it[2]}</div></div></div>`).join('')}
+   `<div class="muted" style="font-size:.82rem;margin-bottom:6px">${p.cat} · ${p.tags.filter(t=>t!=='bez mléka').slice(0,2).join(' · ')||'hotové jídlo'} · 1 porce ~${p.srvG} g</div>
+    <div class="card"><div class="big" style="font-size:1.6rem;font-weight:850">${round(p.k)} kcal</div>
+     <div class="muted">B ${round(p.p)} g · S ${round(p.c)} g · T ${round(p.f)} g · vláknina ${round(p.fib)} g</div>
+     ${viol?`<div class="tg" style="background:#fde6e3;color:#c0392b;margin-top:6px">⚠ ${viol}</div>`:(dairyActive()&&!p.cd?'<div class="tg" style="margin-top:6px">bez mléka</div>':'')}
+     ${p.conf==='estimated'?'<div class="muted" style="font-size:.74rem;margin-top:4px">Nutriční hodnoty jsou orientační.</div>':''}</div>
+    <h4 style="margin:6px 0">Ingredience (pro nákup)</h4>
+    ${p.ingr.map(it=>`<div class="row"><div class="info"><div class="n">${(it[0]||'').replace(/ \(.*?\)/,'')}</div>${it[1]?`<div class="m">${it[1]} ${it[2]||''}</div>`:''}</div></div>`).join('')}
     <div style="margin-top:12px;display:flex;gap:8px">
-      <button class="btn block" onclick="addPrep(${idx});closeSheet()">Přidat do dne</button>
+      <button class="btn block" onclick="prepPortion(${idx})">Přidat do dne (zvol porci)</button>
       <button class="btn ghost" onclick="toggleFav('${esc(p.n)}')">★</button></div>`;
 }
 function toggleFav(n){const i=favs.indexOf(n);if(i>=0)favs.splice(i,1);else favs.push(n);DB.save('kt_favs',favs);toast(i>=0?'Odebráno z oblíbených ☆':'Přidáno do oblíbených ★');if(document.getElementById('addList'))fillAddList();}
@@ -1322,7 +1475,7 @@ function initPlanScreen(){
 }
 function pickPrep(slot,usedIdx){
   // TVRDÉ pravidlo: jen jídla vhodná dle dietního profilu uživatele
-  const suitable=PREP.filter(p=>!mealViolation(p.items));
+  const suitable=PREP.filter(p=>!mealViol(p));
   let pool=suitable.filter(p=>p.slots.includes(slot));
   const pref=[...planPrefSet].filter(pr=>pr!=='bez mléka');
   const withPref=pool.filter(p=>pref.every(pr=>p.tags.includes(pr)));
@@ -1343,7 +1496,7 @@ function genPlan(){
     const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrep(s,used);if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});out.push({date,slots});}
   lastPlan={from,days:out};renderPlanOut();
 }
-function planDayMacros(day){let o={k:0,p:0,c:0,f:0,fib:0};Object.values(day.slots).forEach(idx=>{const t=sumItems(PREP[idx].items);o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
+function planDayMacros(day){let o={k:0,p:0,c:0,f:0,fib:0};Object.values(day.slots).forEach(idx=>{const t=mealMac(PREP[idx],1);o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
 function renderPlanOut(){
   const wrap=document.getElementById('planOut');if(!lastPlan){wrap.innerHTML='';return;}
   wrap.innerHTML=lastPlan.days.map((day,di)=>{const t=planDayMacros(day);
@@ -1371,12 +1524,12 @@ function dayContentHTML(date){
 }
 /* porovná návrh dne s tím, co je reálně v přehledu */
 function planDayChanged(di){const day=lastPlan.days[di];
-  const sugg=PLAN_SLOTS.map(s=>day.slots[s]!=null?PREP[day.slots[s]].items.map(it=>it[0]).join(','):'').join('|');
+  const sugg=PLAN_SLOTS.map(s=>day.slots[s]!=null?PREP[day.slots[s]].n:'').join('|');
   const real=PLAN_SLOTS.map(s=>(slotItems(day.date,s).map(it=>it.n).join(','))).join('|');
   return sugg!==real;
 }
 function swapMeal(di,slot){const used=new Set(Object.values(lastPlan.days[di].slots));const idx=pickPrep(slot,used);if(idx>=0)lastPlan.days[di].slots[slot]=idx;renderPlanOut();}
-function acceptDay(di){const day=lastPlan.days[di];const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=p.items.map(it=>({n:it[0],q:it[1],u:it[2]}));});DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
+function acceptDay(di){const day=lastPlan.days[di];const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
 
 /* ====== NÁKUPNÍ SEZNAM (samostatná záložka, perzistentní) ====== */
 let shopState=DB.load('kt_shop',[]);     // [{n,u,q,done,cat,range?}]
@@ -1396,12 +1549,15 @@ function mergeAgg(agg){
 }
 function setShopFromPlan(){
   const agg={};
-  lastPlan.days.forEach(day=>Object.values(day.slots).forEach(idx=>PREP[idx].items.forEach(([n,q,u])=>{const key=n+'|'+u;agg[key]=(agg[key]||0)+q;})));
+  lastPlan.days.forEach(day=>Object.values(day.slots).forEach(idx=>(PREP[idx].ingr||[]).forEach(([n,q,u])=>{if(!n)return;const key=n+'|'+(u||'');agg[key]=(agg[key]||0)+(parseFloat(q)||0);})));
   shopState=mergeAgg(agg);
   shopRange=lastPlan.days.length>1?(lastPlan.days[0].date+' – '+lastPlan.days[lastPlan.days.length-1].date):lastPlan.days[0].date;
   saveShop();gotoNakup();
 }
-function shoppingFromDay(date){const agg={};SLOTS.forEach(s=>slotItems(date,s.k).forEach(it=>{const k=it.n+'|'+it.u;agg[k]=(agg[k]||0)+it.q;}));if(!Object.keys(agg).length){toast('Den je prázdný');return;}shopState=mergeAgg(agg);shopRange=date;saveShop();gotoNakup();}
+function shoppingFromDay(date){const agg={};SLOTS.forEach(s=>slotItems(date,s.k).forEach(it=>{
+    if(it.meal){(it.ingr||[]).forEach(([n,q,u])=>{if(!n)return;const k=n+'|'+(u||'');agg[k]=(agg[k]||0)+(parseFloat(q)||0)*(it.q||1);});}
+    else {const k=it.n+'|'+it.u;agg[k]=(agg[k]||0)+(parseFloat(it.q)||0);}
+  }));if(!Object.keys(agg).length){toast('Den je prázdný');return;}shopState=mergeAgg(agg);shopRange=date;saveShop();gotoNakup();}
 function gotoNakup(){document.querySelectorAll('.bnav button').forEach(x=>x.classList.toggle('active',x.dataset.scr==='nakup'));document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-nakup'));renderNakup();}
 
 /* ====== EXPORT PRO ANY.DO (s odrážkami) ====== */
