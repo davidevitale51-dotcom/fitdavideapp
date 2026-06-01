@@ -818,6 +818,17 @@ function slotItems(date,slot){ const d=days[date]||{}; return d[slot]||[]; }
 function dayTotals(date){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};SLOTS.forEach(s=>{const t=sumItems(slotItems(date,s.k));o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;o.sug+=t.sug;o.salt+=t.salt;});return o;}
 function actKcal(date){return (acts[date]||[]).reduce((a,x)=>a+x.kcal,0);}
 function dayState(date){ if(date>todayISO)return'future'; if(date<todayISO)return'past'; return'today'; }
+/* kolik do cíle chybí + návrh hotových jídel na doplnění */
+function dayRemain(date){const t=dayTotals(date);return {k:target.kcal-t.k,p:target.prot-t.p,c:target.carb-t.c,f:target.fat-t.f,fib:target.fib-t.fib};}
+function suggestMeals(slot){
+  const r=dayRemain(selDate); let key,label;
+  if(r.p>=20){key='p';label='bílkoviny';} else if(r.fib>=8){key='fib';label='vlákninu';} else if(r.k>=300){key='k';label='energii';}
+  if(!key) return null;
+  let pool=PREP.filter(p=>!mealViol(p)&&(!slot||p.slots.includes(slot)));
+  if(!pool.length)pool=PREP.filter(p=>!mealViol(p)&&!mealViol(p));
+  pool=pool.slice().sort((a,b)=>(b[key]||0)-(a[key]||0)).slice(0,3);
+  return pool.length?{label,key,r,meals:pool}:null;
+}
 const round=x=>Math.round(x);
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),1800);}
 
@@ -888,7 +899,10 @@ function renderDash(){
   document.getElementById('weightV').textContent=lastW!=null?lastW:'—';
   document.getElementById('weightGoal').textContent=target.weight+' kg';
 }
-function rmItem(slot,i){const d=dayObj(selDate);d[slot].splice(i,1);if(!d[slot].length)delete d[slot];DB.save('kt_days',days);renderDash();}
+function rmItem(slot,i){const d=dayObj(selDate);d[slot].splice(i,1);if(!d[slot].length)delete d[slot];DB.save('kt_days',days);renderDash();
+  if(dayState(selDate)!=='past'){const r=dayRemain(selDate);
+    if(r.p>=25) toast('Chybí ti '+round(r.p)+' g bílkovin — koukni do Hotová jídla na návrh 💡');
+    else if(r.fib>=10) toast('Málo vlákniny — v Hotová jídla najdeš návrh 💡');}}
 
 /* ====== SHEET (modal) ====== */
 const ovl=document.getElementById('ovl');
@@ -958,6 +972,12 @@ function fillAddList(){
       const tg=(!viol&&dairyActive()&&!p.cd)?['bez mléka'].concat(p.tags.filter(t=>t!=='bez mléka')):p.tags;
       const note=p.conf==='estimated'?' · orientační':'';
       return rowHTML((p.ic+' '+p.n),`${p.cat}${note} · ${round(p.k)} kcal · B ${round(p.p)} S ${round(p.c)} T ${round(p.f)}`,tg.slice(0,3),`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n);});}).join('');
+    if(!q&&!hotovaCat){const sug=suggestMeals(addSlot);if(sug){const sl=SLOTS.find(s=>s.k===addSlot);
+      const sh=`<div class="card" style="background:var(--green-soft);padding:12px;margin-bottom:6px"><b>💡 Doplň ${sug.label}</b>
+        <div class="muted" style="font-size:.78rem">Do denního cíle ${sug.key==='p'?'bílkovin':sug.key==='fib'?'vlákniny':'kalorií'} chybí ${round(sug.key==='p'?sug.r.p:sug.key==='fib'?sug.r.fib:sug.r.k)} ${sug.key==='k'?'kcal':'g'}${sl?' · vhodné na '+sl.l.toLowerCase():''}. Doporučená hotová jídla:</div>
+        ${sug.meals.map(p=>{const idx=PREP.indexOf(p);const v=sug.key==='p'?p.p+' g B':sug.key==='fib'?p.fib+' g vlákniny':p.k+' kcal';
+          return `<div class="row"><div class="info"><div class="n">${p.ic} ${p.n}</div><div class="m">+${v} · ${round(p.k)} kcal</div></div><button class="add" onclick="addPrep(${idx})">＋</button></div>`;}).join('')}</div>`;
+      h=sh+h;}}
   } else if(addTab==='znacky'){
     const items=FOODS.filter(f=>(f.source==='open_food_facts'||f.barcode)&&(!q||norm(f.n).includes(q))).slice(0,120);
     h=items.length?items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
