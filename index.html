@@ -909,14 +909,15 @@ function renderDash(){
   ring.innerHTML=ringSVG(pct,'var(--green)',170,16)+
     `<div class="ctr"><div class="big">${round(tot.k)}</div><div class="sub">/ ${goal} kcal</div>
       <div class="pct">${remain>=0?('zbývá '+round(remain)):('+'+round(-remain)+' kcal')}</div></div>`;
+  ring.style.cursor='pointer'; ring.onclick=()=>nutrientBreakdown('k','Energie','kcal');
   // nutrients
-  const N=[['Bílkoviny',tot.p,target.prot,'var(--prot)',0],['Sacharidy',tot.c,target.carb,'var(--carb)',0],
-    ['Tuky',tot.f,target.fat,'var(--fat)',0],['Vláknina',tot.fib,target.fib,'var(--fib)',0],
-    ['Cukry',tot.sug,target.sugar,'var(--sug)',1],['Sůl',tot.salt,target.salt,'var(--salt)',1]];
-  document.getElementById('nutGrid').innerHTML=N.map(([nm,v,g,col,isMax])=>{
+  const N=[['Bílkoviny',tot.p,target.prot,'var(--prot)',0,'p'],['Sacharidy',tot.c,target.carb,'var(--carb)',0,'c'],
+    ['Tuky',tot.f,target.fat,'var(--fat)',0,'f'],['Vláknina',tot.fib,target.fib,'var(--fib)',0,'fib'],
+    ['Cukry',tot.sug,target.sugar,'var(--sug)',1,'sug'],['Sůl',tot.salt,target.salt,'var(--salt)',1,'salt']];
+  document.getElementById('nutGrid').innerHTML=N.map(([nm,v,g,col,isMax,key])=>{
     const p=v/g; const dec=g<10?1:0;
     const band = p<=0.8?'#f0b400' : p<=1.2?'#36b06a' : '#e0533f'; // 0–80 % žlutá · 81–120 % zelená · 121 %+ červená
-    return `<div class="nut"><div class="ring">${ringSVG(Math.min(p,1),band,74,8)}
+    return `<div class="nut" onclick="nutrientBreakdown('${key}','${nm}','${isMax?'g':'g'}')" style="cursor:pointer"><div class="ring">${ringSVG(Math.min(p,1),band,74,8)}
       <div class="v"><b>${v.toFixed(dec)}g</b><small style="color:${band}">${round(p*100)}%</small></div></div>
       <div class="nm">${nm}</div><div class="goal">${isMax?'max':'cíl'} ${g} g</div></div>`;}).join('');
   // meals
@@ -946,6 +947,24 @@ function rmItem(slot,i){const d=dayObj(selDate);d[slot].splice(i,1);if(!d[slot].
   if(dayState(selDate)!=='past'){const r=dayRemain(selDate);
     if(r.p>=25) toast('Chybí ti '+round(r.p)+' g bílkovin — koukni do Hotová jídla na návrh 💡');
     else if(r.fib>=10) toast('Málo vlákniny — v Hotová jídla najdeš návrh 💡');}}
+/* po klepnutí na kroužek nutrientu – seznam položek dne, které do dané kategorie přispěly */
+function nutrientBreakdown(key,label,unit){
+  const rows=[];
+  SLOTS.forEach(s=>{const sl=SLOTS.find(x=>x.k===s.k);slotItems(selDate,s.k).forEach((it,i)=>{
+    const m=itemMacro(it);const val=m[key]||0;if(val<=0.05)return;
+    rows.push({slot:s.k,slotL:sl.l,ic:sl.ic,i,n:it.n.replace(/ \(.*?\)/,''),q:it.q,u:it.u,val});});});
+  rows.sort((a,b)=>b.val-a.val);
+  const total=rows.reduce((a,r)=>a+r.val,0);
+  const dec=unit==='kcal'?0:(total<10?1:0);
+  openSheet(label+' — co ho dnes tvoří');document.getElementById('sheetTabs').innerHTML='';
+  const body=rows.length
+   ? `<div class="card"><div class="big" style="font-size:1.4rem;font-weight:850">${total.toFixed(dec)} ${unit}</div><div class="muted">celkem za den · ${rows.length} ${rows.length===1?'položka':(rows.length<5?'položky':'položek')}</div></div>`
+     + rows.map(r=>`<div class="li" onclick="closeSheet();editItemAmt('${r.slot}',${r.i})" style="cursor:pointer">
+         <span style="color:var(--green-d)">${r.ic} ${r.n} <span class="muted" style="font-size:.74rem">· ${r.q} ${r.u} · ${r.slotL}</span></span>
+         <span><b>${r.val.toFixed(dec)}</b> ${unit} ›</span></div>`).join('')
+   : `<p class="muted" style="padding:14px 0">Dnes zatím nic do kategorie ${label} nepřispělo.</p>`;
+  document.getElementById('sheetBody').innerHTML=body;
+}
 /* úprava skutečně snědeného množství u jakékoli položky deníku */
 function editItemAmt(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
   openSheet('Kolik jsi snědl: '+it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
