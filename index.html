@@ -989,7 +989,7 @@ ovl.onclick=e=>{if(e.target===ovl)closeSheet();};
 /* ====== PŘIDAT JÍDLO ====== */
 let addSlot='snidane', addTab='potraviny', addQuery='', addFilters=new Set(), hotovaCat='';
 const MEAL_CATS=['Hovězí','Kuřecí & krůtí','Vepřové','Rybí','Bezmasé','Omáčky','Polévky','Saláty','Bowls','Těstoviny','Rizota','Snídaně','Svačiny','Dezerty','Rodinné'];
-function openAdd(slot){ addSlot=slot; addTab='potraviny'; addQuery=''; addFilters.clear(); hotovaCat=''; showUnsuitable=false;
+function openAdd(slot){ addSlot=slot||defaultSlotByTime(); addTab='potraviny'; addQuery=''; addFilters.clear(); hotovaCat=''; showUnsuitable=false;
   const sl=SLOTS.find(s=>s.k===slot);
   openSheet('Přidat do: '+(sl?sl.l:'jídlo'));
   document.getElementById('sheetTabs').innerHTML=
@@ -1182,10 +1182,10 @@ function prepDetail(idx){const p=PREP[idx];const viol=mealViol(p);
 function toggleFav(n){const i=favs.indexOf(n);if(i>=0)favs.splice(i,1);else favs.push(n);DB.save('kt_favs',favs);toast(i>=0?'Odebráno z oblíbených ☆':'Přidáno do oblíbených ★');if(document.getElementById('addList'))fillAddList();}
 
 /* action bar */
-document.getElementById('aAdd').onclick=()=>pickSlotThen(openAdd);
+document.getElementById('aAdd').onclick=()=>openAdd(defaultSlotByTime());
 document.getElementById('aBar').onclick=()=>eanFlow();
-document.getElementById('aMic').onclick=()=>{toast('Hlasové zadání chce nativní appku — přidej zatím ručně.');pickSlotThen(openAdd);};
-document.getElementById('aCam').onclick=()=>{toast('Foto-rozpoznání chce nativní appku — přidej zatím ručně.');pickSlotThen(openAdd);};
+document.getElementById('aMic').onclick=()=>{toast('Hlasové zadání chce nativní appku — přidej zatím ručně.');openAdd(defaultSlotByTime());};
+document.getElementById('aCam').onclick=()=>{toast('Foto-rozpoznání chce nativní appku — přidej zatím ručně.');openAdd(defaultSlotByTime());};
 document.getElementById('aAct').onclick=()=>actFlow();
 /* výchozí fáze dne podle aktuálního času telefonu */
 function defaultSlotByTime(){const h=new Date().getHours();
