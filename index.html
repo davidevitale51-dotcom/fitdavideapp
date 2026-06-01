@@ -759,7 +759,7 @@ let weights= DB.load('kc_weights', []);    // [{d,v}]
 let favs   = DB.load('kt_favs', []);       // [name]
 let freq   = DB.load('kt_freq', {});       // {name: počet přidání} – pro „Nejčastější"
 let slotCollapse = DB.load('kt_collapse', {}); // {"date|slot": bool} – sbaleno/rozbaleno
-function slotIsCollapsed(date,slotK){const key=date+'|'+slotK; if(key in slotCollapse) return slotCollapse[key]; return slotItems(date,slotK).length===0;}
+function slotIsCollapsed(date,slotK){const key=date+'|'+slotK; if(key in slotCollapse) return slotCollapse[key]; return true;}
 function toggleSlot(slotK){const key=selDate+'|'+slotK; slotCollapse[key]=!slotIsCollapsed(selDate,slotK); DB.save('kt_collapse',slotCollapse); renderDash();}
 function bumpFreq(n){ if(!n)return; freq[n]=(freq[n]||0)+1; DB.save('kt_freq',freq); }
 function topFreq(limit){ return Object.keys(freq).sort((a,b)=>freq[b]-freq[a]).slice(0,limit||8); }
