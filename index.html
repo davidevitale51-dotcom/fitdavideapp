@@ -162,7 +162,10 @@
 <section class="screen active" id="scr-prehled"><div class="wrap">
   <div class="topbar">
     <span class="title">🥗 Kalorie</span>
-    <input type="date" id="datePick" class="iconbtn" style="width:auto;padding:0 8px">
+    <div style="display:flex;gap:8px;align-items:center">
+      <button class="iconbtn" id="todayBtn" style="width:auto;padding:0 14px;font-weight:800;color:var(--green-d)">Dnes</button>
+      <input type="date" id="datePick" class="iconbtn" style="width:auto;padding:0 8px" title="Vybrat datum">
+    </div>
   </div>
   <div id="backupBar"></div>
   <div class="daysel" id="daysel"></div>
@@ -909,7 +912,9 @@ function renderDash(){
       <div class="v"><b>${v.toFixed(dec)}g</b><small>${round(p*100)}%</small></div></div>
       <div class="nm">${nm}</div><div class="goal">${isMax?'max':'cíl'} ${g} g</div></div>`;}).join('');
   // meals
-  document.getElementById('mealsWrap').innerHTML=SLOTS.map(s=>{
+  const dayEmpty=!SLOTS.some(s=>slotItems(selDate,s.k).length);
+  const cta=dayEmpty?`<button class="btn block" onclick="document.getElementById('autoPlanBtn').onclick()" style="margin-bottom:10px">✨ Naplánovat celý den automaticky</button>`:'';
+  document.getElementById('mealsWrap').innerHTML=cta+SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
     const lis=items.map((it,i)=>`<div class="li"><span ${it.meal?`onclick="mealItemDetail('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)"`:''}>${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}${it.meal?' ›':''}</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
     return `<div class="meal"><div class="mi">${s.ic}</div><div class="body">
@@ -1837,6 +1842,7 @@ document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
 document.getElementById('genPlan').onclick=genPlan;
 document.getElementById('datePick').onclick=function(){this.showPicker&&this.showPicker();};
 document.getElementById('datePick').onchange=function(){if(this.value){selDate=this.value;renderDash();}};
+document.getElementById('todayBtn').onclick=()=>{selDate=todayISO;document.getElementById('datePick').value=todayISO;renderDash();toast('Dnes');};
 document.getElementById('nutToggle').onclick=function(){const g=document.getElementById('nutGrid');const h=g.style.display==='none';g.style.display=h?'grid':'none';this.textContent=h?'skrýt':'zobrazit';};
 
 /* cíle */
