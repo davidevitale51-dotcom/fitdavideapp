@@ -761,6 +761,7 @@ let freq   = DB.load('kt_freq', {});       // {name: počet přidání} – pro 
 let slotCollapse = {}; // {"date|slot": bool} – jen v paměti, každý den/spuštění startuje sbaleně
 function slotIsCollapsed(date,slotK){const key=date+'|'+slotK; if(key in slotCollapse) return slotCollapse[key]; return true;}
 function toggleSlot(slotK){const key=selDate+'|'+slotK; slotCollapse[key]=!slotIsCollapsed(selDate,slotK); renderDash();}
+function expandSlot(date,slotK){slotCollapse[date+'|'+slotK]=false;}
 function bumpFreq(n){ if(!n)return; freq[n]=(freq[n]||0)+1; DB.save('kt_freq',freq); }
 function topFreq(limit){ return Object.keys(freq).sort((a,b)=>freq[b]-freq[a]).slice(0,limit||8); }
 let myMeals= DB.load('kc_meals', []);      // [{n,items:[[n,q,u]]}]
@@ -1103,7 +1104,7 @@ function rowHTML(name,meta,tags,addFn,clickFn,warn,favName){
     </div><div style="display:flex;gap:6px;align-items:center;flex:0 0 auto">${star}<button class="add" onclick="${addFn}" ${warn?'style="background:#c0392b"':''}>＋</button></div></div>`;
 }
 function dietActiveLabel(){const a=[];if(dairyActive())a.push('bez mléka');if(diet.vegan)a.push('vegan');else if(diet.vegetarian)a.push('vegetariánské');if(diet.glutenFree)a.push('bez lepku');if(diet.noPork)a.push('bez vepřového');if(diet.noFish)a.push('bez ryb');if(diet.noNuts)a.push('bez ořechů');if(diet.noEgg)a.push('bez vajec');if((diet.excl||[]).length)a.push('vlastní');return a.join(', ');}
-function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); bumpFreq(n); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
+function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); expandSlot(selDate,addSlot); bumpFreq(n); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
 /* kontrola dietního profilu – při porušení vyskočí pop-up s vykřičníkem */
 function confirmViol(n,q,u,viol,closeAfter){
   const alt=altFor(n);
@@ -1139,14 +1140,14 @@ function prepPortion(idx){const p=PREP[idx];
 function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;
   const d=dayObj(selDate); if(!d[slot])d[slot]=[];
   d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
-  DB.save('kt_days',days);bumpFreq(p.n);toast('Přidáno: '+p.n);renderDash();closeSheet();
+  DB.save('kt_days',days);expandSlot(selDate,slot);bumpFreq(p.n);toast('Přidáno: '+p.n);renderDash();closeSheet();
 }
 function myMealMac(m){return m.manual?{k:m.k||0,p:m.p||0,c:m.c||0,f:m.f||0,fib:m.fib||0,sug:m.sug||0,salt:m.salt||0}:sumItems((m.items||[]).map(x=>({n:x[0],q:x[1],u:x[2]})));}
 function addMyMeal(i){ const m=myMeals[i];
   if(m.manual){ myMealPortion(i); return; }
   const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[];
   m.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]}));
-  DB.save('kt_days',days); toast('Přidáno: '+m.n); renderDash(); }
+  DB.save('kt_days',days); expandSlot(selDate,addSlot); toast('Přidáno: '+m.n); renderDash(); }
 function myMealPortion(i){const m=myMeals[i];const unit=(m.raw&&m.raw.unit)||'porce';const servAmt=(m.raw&&m.raw.amt)||1;const gMode=(unit==='g'||unit==='ml');
   openSheet('Kolik jsi snědl: '+m.n);document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
@@ -1162,7 +1163,7 @@ function addMyMealAmt(i,amount){const m=myMeals[i];const unit=(m.raw&&m.raw.unit
   const pu=m.pu||{k:m.k/(gMode?servAmt:1),p:m.p/(gMode?servAmt:1),c:m.c/(gMode?servAmt:1),f:m.f/(gMode?servAmt:1),fib:m.fib/(gMode?servAmt:1),sug:m.sug/(gMode?servAmt:1),salt:m.salt/(gMode?servAmt:1)}; // makra na 1 jednotku
   const d=dayObj(selDate);const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;if(!d[slot])d[slot]=[];
   d[slot].push({n:m.n,q:+(+amount).toFixed(gMode?0:2),u:unit,meal:true,k:pu.k,p:pu.p,c:pu.c,f:pu.f,fib:pu.fib,sug:pu.sug,salt:pu.salt,ingr:[]});
-  DB.save('kt_days',days);renderDash();closeSheet();toast('Přidáno: '+m.n);
+  DB.save('kt_days',days);expandSlot(selDate,slot);renderDash();closeSheet();toast('Přidáno: '+m.n);
 }
 function prepDetail(idx){const p=PREP[idx];const viol=mealViol(p);
   openSheet(p.ic+' '+p.n);document.getElementById('sheetTabs').innerHTML='';
