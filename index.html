@@ -908,8 +908,9 @@ function renderDash(){
     ['Cukry',tot.sug,target.sugar,'var(--sug)',1],['Sůl',tot.salt,target.salt,'var(--salt)',1]];
   document.getElementById('nutGrid').innerHTML=N.map(([nm,v,g,col,isMax])=>{
     const p=v/g; const dec=g<10?1:0;
-    return `<div class="nut"><div class="ring">${ringSVG(p,col,74,8)}
-      <div class="v"><b>${v.toFixed(dec)}g</b><small>${round(p*100)}%</small></div></div>
+    const band = p<=0.8?'#f0b400' : p<=1.2?'#36b06a' : '#e0533f'; // 0–80 % žlutá · 81–120 % zelená · 121 %+ červená
+    return `<div class="nut"><div class="ring">${ringSVG(Math.min(p,1),band,74,8)}
+      <div class="v"><b>${v.toFixed(dec)}g</b><small style="color:${band}">${round(p*100)}%</small></div></div>
       <div class="nm">${nm}</div><div class="goal">${isMax?'max':'cíl'} ${g} g</div></div>`;}).join('');
   // meals
   const dayEmpty=!SLOTS.some(s=>slotItems(selDate,s.k).length);
