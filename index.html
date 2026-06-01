@@ -151,6 +151,8 @@
   .shopit .menu{flex:0 0 auto;background:none;border:none;color:var(--muted);font-size:1.25rem;cursor:pointer;padding:0 6px;line-height:1}
   .shopacts{display:flex;gap:8px;padding:4px 2px 12px 46px;border-bottom:1px solid var(--line)}
   .sumbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:.82rem;color:var(--muted);margin-bottom:6px}
+  .bkbar{display:flex;align-items:center;gap:8px;background:#fff4e0;border:1px solid #f0d9ad;border-radius:14px;padding:9px 12px;margin:4px 0 8px;font-size:.82rem}
+  .bkbar b{color:#a06a1b} .bkbar .sp{flex:1}
   .shopit .nm{flex:1}
 </style>
 </head>
@@ -162,6 +164,7 @@
     <span class="title">🥗 Kalorie</span>
     <input type="date" id="datePick" class="iconbtn" style="width:auto;padding:0 8px">
   </div>
+  <div id="backupBar"></div>
   <div class="daysel" id="daysel"></div>
 
   <div class="card">
@@ -185,7 +188,7 @@
   </div>
 
   <div class="card">
-    <div class="card-h"><h3>Jídelníček</h3><button class="linkbtn" id="analyzaBtn">Analýza</button></div>
+    <div class="card-h"><h3>Jídelníček</h3><div><button class="linkbtn" id="autoPlanBtn">✨ Naplánovat den</button> · <button class="linkbtn" id="analyzaBtn">Analýza</button></div></div>
     <div id="mealsWrap"></div>
   </div>
 
@@ -272,7 +275,8 @@
     <p class="muted" style="font-size:.76rem;margin-top:8px">Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
   </div>
   <div class="card"><h3 style="margin-bottom:8px">Data</h3>
-    <button class="btn ghost block" id="exportData" style="margin-bottom:8px">⬇️ Export dat (záloha)</button>
+    <button class="btn block" id="shareBackup" style="margin-bottom:8px">☁️ Záloha do iCloud / Soubory</button>
+    <button class="btn ghost block" id="exportData" style="margin-bottom:8px">⬇️ Stáhnout zálohu (soubor)</button>
     <button class="btn ghost block" id="importData">⬆️ Import dat</button>
     <input type="file" id="importFile" accept="application/json" style="display:none">
     <p class="muted" style="font-size:.78rem;margin-top:10px">Profil: muž, 34 let, 181 cm. Bezmléčný režim. Data jsou uložená jen v tomto zařízení.</p>
@@ -876,6 +880,7 @@ function renderDays(){
 /* ====== DASHBOARD ====== */
 function renderDash(){
   renderDays();
+  if(typeof renderBackupBar==='function')renderBackupBar();
   const tot=dayTotals(selDate), burned=actKcal(selDate);
   const goal=target.kcal+burned;
   const st=dayState(selDate);
@@ -1431,6 +1436,18 @@ function actFlow(){
 }
 
 /* ANALÝZA */
+function planSingleDay(date){
+  const used=new Set();const slots={};
+  PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2));if(idx>=0){slots[s]=idx;used.add(idx);}});
+  const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);
+  const d=dayObj(date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=[{n:p.n,q:day.factor,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
+  DB.save('kt_days',days);renderDash();const t=dayTotals(date);toast('✨ Naplánováno: '+round(t.k)+' kcal · '+round(t.p)+' g B');
+}
+document.getElementById('autoPlanBtn').onclick=()=>{
+  const has=SLOTS.some(s=>slotItems(selDate,s.k).length);
+  if(has && !confirm('Den už obsahuje jídla. Přepsat novým návrhem?'))return;
+  days[selDate]={}; planSingleDay(selDate);
+};
 document.getElementById('analyzaBtn').onclick=()=>{
   const t=dayTotals(selDate);const msgs=[];
   const dk=t.k-target.kcal;
@@ -1600,12 +1617,25 @@ function pickPrepB(slot,used,budget){
 /* faktor porcí, aby se celkové kcal blížilo dennímu cíli (±10 %), omezeno 0.8–1.3× */
 function recalcFactor(day){let base=0;Object.values(day.slots).forEach(i=>base+=PREP[i].k);if(base<=0)return 1;
   let f=target.kcal/base; f=Math.max(0.8,Math.min(1.3,f)); return Math.round(f*20)/20;}
+/* dorovná bílkoviny: vymění nejslabší slot za vysokoproteinové vhodné jídlo, kcal drží faktorem */
+function balanceDay(day){
+  for(let pass=0;pass<3;pass++){
+    const m=planDayMacros(day); if(m.p>=target.prot-12) break;
+    let worst=null,worstP=1e9;
+    PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const pp=PREP[idx].p;if(pp<worstP){worstP=pp;worst=s;}});
+    if(!worst)break;
+    const cand=PREP.filter(p=>!mealViol(p)&&p.slots.includes(worst)).sort((a,b)=>b.p-a.p);
+    const pick=cand.find(p=>PREP.indexOf(p)!==day.slots[worst]);
+    if(!pick||pick.p<=PREP[day.slots[worst]].p)break;
+    day.slots[worst]=PREP.indexOf(pick); day.factor=recalcFactor(day);
+  }
+}
 function genPlan(){
   const from=document.getElementById('planFrom').value||todayISO;
   const out=[];const used=new Set();
   for(let d=0;d<planDaysN;d++){const dt=new Date(from);dt.setDate(dt.getDate()+d);const date=iso(dt);
     const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2));if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});
-    const day={date,slots};day.factor=recalcFactor(day);out.push(day);}
+    const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);out.push(day);}
   lastPlan={from,days:out};renderPlanOut();
 }
 function planDayMacros(day){const fac=day.factor||1;let o={k:0,p:0,c:0,f:0,fib:0};Object.values(day.slots).forEach(idx=>{const t=mealMac(PREP[idx],fac);o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
@@ -1794,8 +1824,29 @@ document.getElementById('forceUpd').onclick=async()=>{
   }catch(e){}
   location.reload();
 };
-document.getElementById('exportData').onclick=()=>{const data={days,water,acts,weights,favs,myMeals,target,diet,shop:shopState,eanfoods:DB.load('kt_eanfoods',[])};
-  const blob=new Blob([JSON.stringify(data,null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='kalorie-zaloha.json';a.click();};
+function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,diet,shop:shopState,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
+function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
+function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
+document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena');};
+document.getElementById('shareBackup').onclick=()=>shareBackup();
+function renderBackupBar(){
+  const el=document.getElementById('backupBar');if(!el)return;
+  const hasData=Object.keys(days).length||weights.length;
+  const last=DB.load('kt_lastbackup',null);
+  const days7=last?(Date.now()-new Date(last).getTime())/86400000:999;
+  if(hasData && days7>=7){
+    el.innerHTML=`<div class="bkbar"><span>💾 <b>Zálohuj data</b> ${last?'(naposledy před '+Math.round(days7)+' dny)':'(zatím nezálohováno)'}</span><span class="sp"></span><button class="btn tiny" style="padding:6px 10px" onclick="shareBackup()">Zálohovat</button></div>`;
+  } else el.innerHTML='';
+}
+async function shareBackup(){
+  const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});
+  try{
+    const file=new File([blob],backupFilename(),{type:'application/json'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){await navigator.share({files:[file],title:'Záloha Kalorie'});markBackup();toast('Vyber „Uložit do Souborů → iCloud Drive"');return;}
+  }catch(e){}
+  // fallback: stáhnout
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena (ulož do iCloud)');
+}
 document.getElementById('importData').onclick=()=>document.getElementById('importFile').click();
 document.getElementById('importFile').onchange=function(){const f=this.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);
   if(d.days){days=d.days;DB.save('kt_days',days);}if(d.water){water=d.water;DB.save('kt_water',water);}if(d.acts){acts=d.acts;DB.save('kt_acts',acts);}
