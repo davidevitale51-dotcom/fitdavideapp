@@ -263,6 +263,10 @@
     <input type="text" id="dietExcl" placeholder="např. cibule, houby">
     <button class="btn block" id="saveDiet" style="margin-top:12px">Uložit dietní profil</button>
   </div>
+  <div class="card"><h3 style="margin-bottom:8px">📦 Import produktů</h3>
+    <p class="muted" style="font-size:.76rem;margin-bottom:8px">Načte značkové a balené výrobky z otevřené databáze Open Food Facts (vyžaduje internet). Nevhodné dle profilu se označí, duplicity přeskočí.</p>
+    <button class="btn block" id="openImport">📦 Import z Open Food Facts</button>
+  </div>
   <div class="card"><h3 style="margin-bottom:8px">Aktualizace</h3>
     <button class="btn block" id="forceUpd">🔄 Vynutit aktualizaci appky</button>
     <p class="muted" style="font-size:.76rem;margin-top:8px">Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
@@ -948,6 +952,106 @@ function warnComposition(nm,viol,ingr,aller){
      <button class="btn block" style="background:#c0392b" onclick="addWithQty('${esc(nm)}')">Přidat i přesto</button>
    </div>`;
 }
+/* ====== IMPORT PRODUKTŮ Z OPEN FOOD FACTS ====== */
+const IMP_BRANDS=['Milka','Kinder','Nutella','Knoppers','KitKat','Lion','Mars','Snickers','Twix','Bounty','Toblerone','Lindt','Ritter Sport','Orion','Opavia','Lotus','Oreo','BeBe','Corny','Emco','Haribo','Lay\'s','Pringles','Doritos','Chio','Rio Mare','Calvo','Hamé','Bonduelle','Heinz','Mutti','Barilla','Knorr','Maggi','Vitana','Magnum','Algida','Coca-Cola','Pepsi','Kofola','Mattoni','Red Bull','Alpro','Oatly','Joya','Violife','Vemondo','Garden Gourmet','Planted'];
+const IMP_CATS=[['','— libovolná kategorie —'],['chocolate-bars','Čokoládové tyčinky'],['protein-bars','Proteinové tyčinky'],['cereal-bars','Cereální tyčinky'],['biscuits','Sušenky'],['wafers','Oplatky'],['candies','Bonbóny'],['chips-and-fries','Chipsy'],['salty-snacks','Slané snacky'],['breakfast-cereals','Cereálie'],['canned-fishes','Rybí konzervy'],['canned-vegetables','Zeleninové konzervy'],['prepared-meals','Hotová jídla'],['pasta-sauces','Omáčky na těstoviny'],['meals','Instantní jídla'],['ice-creams','Zmrzliny'],['sodas','Limonády'],['energy-drinks','Energetické nápoje'],['plant-based-yogurts','Rostlinné jogurty'],['plant-based-beverages','Rostlinné nápoje'],['dairy-free','Bezmléčné']];
+const IMP_COUNTRIES=[['','všechny trhy'],['czech-republic','Česko'],['switzerland','Švýcarsko'],['germany','Německo'],['austria','Rakousko']];
+let impResults=[];
+function hasDairy(aller,ingr){
+  const a=((aller||[]).join(' ')).toLowerCase();
+  if(/milk|lait|leche|latte|milch/.test(a)) return true;
+  let s=(ingr||'').toLowerCase();
+  s=s.replace(/(kokos|sój|soj|mandl|oat|oves|rýž|ryz|rice|rostlinn|kakao|kakaov|arašíd|arasid|bambuck)[^\s,]*\s+(mléko|mleko|máslo|maslo|milk|milch|butter|drink|nápoj|napoj)/g,' ');
+  return /(mléko|mleko|mléč|mlec|laktóz|laktoz|lactose|laktose|whey|molke|syrovátk|syrovatk|casein|kasein|jogurt|yogurt|joghurt|sýr|cheese|käse|kase|smetan|cream|sahne|rahm|tvaroh|butter|máslo|maslo|milchpulver|milk powder|milk fat|milk solids)/.test(s);
+}
+const findByBarcode=code=>code?FOODS.find(f=>f.barcode===code):null;
+function openImport(){
+  stopScanner();
+  openSheet('📦 Import z Open Food Facts');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<label>Značka</label>
+    <input type="text" id="impBrand" placeholder="např. Milka">
+    <div class="chips" style="flex-wrap:wrap;max-height:96px;overflow-y:auto">${IMP_BRANDS.map(b=>`<button class="chip" onclick="document.getElementById('impBrand').value='${b.replace(/'/g,"\\'")}'">${b}</button>`).join('')}</div>
+    <label style="margin-top:8px">Kategorie</label><select id="impCat">${IMP_CATS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
+    <label style="margin-top:8px">Trh / země</label><select id="impCountry">${IMP_COUNTRIES.map(([v,l])=>`<option value="${v}"${v==='czech-republic'?' selected':''}>${l}</option>`).join('')}</select>
+    <button class="btn block" id="impPreview" style="margin-top:12px">🔍 Načíst náhled</button>
+    <div class="muted" id="impMsg" style="margin-top:8px;font-size:.82rem"></div>
+    <div id="impSummary" style="margin-top:6px"></div>
+    <div id="impList" style="margin-top:6px"></div>
+    <div id="impFooter"></div>`;
+  document.getElementById('impPreview').onclick=importPreview;
+}
+async function importPreview(){
+  const brand=(document.getElementById('impBrand').value||'').trim();
+  const cat=document.getElementById('impCat').value;
+  const country=document.getElementById('impCountry').value;
+  const msg=document.getElementById('impMsg');
+  if(!brand&&!cat){msg.textContent='Zadej značku nebo vyber kategorii.';return;}
+  msg.textContent='Načítám z Open Food Facts…';
+  document.getElementById('impList').innerHTML='';document.getElementById('impSummary').innerHTML='';document.getElementById('impFooter').innerHTML='';
+  const p=new URLSearchParams();
+  if(brand)p.set('brands_tags',brand.toLowerCase().replace(/\s+/g,'-'));
+  if(cat)p.set('categories_tags_en',cat);
+  if(country)p.set('countries_tags_en',country);
+  p.set('fields','code,product_name,product_name_cs,brands,categories,quantity,nutriments,allergens_tags,ingredients_text_cs,ingredients_text,image_front_small_url');
+  p.set('page_size','40');p.set('sort_by','popularity_key');
+  try{
+    const r=await fetch('https://world.openfoodfacts.org/api/v2/search?'+p.toString());
+    const j=await r.json();const prods=j.products||[];
+    if(!prods.length){msg.textContent='Nic nenalezeno. Zkus jen značku, jinou kategorii nebo „všechny trhy".';return;}
+    impResults=prods.map(pr=>{
+      const nu=pr.nutriments||{};let kcal=nu['energy-kcal_100g'];if(kcal==null&&nu['energy_100g']!=null)kcal=Math.round(nu['energy_100g']/4.184);
+      const aller=(pr.allergens_tags||[]).filter(Boolean);
+      const ingr=(pr.ingredients_text_cs||pr.ingredients_text||'').slice(0,500);
+      const bn=(pr.brands||'').split(',')[0].trim();const pn=(pr.product_name_cs||pr.product_name||('EAN '+pr.code)).trim();
+      let nm=((bn && !_n(pn).includes(_n(bn)))?bn+' ':'')+pn; nm=nm.trim().slice(0,60);
+      const cd=hasDairy(aller,ingr);
+      return {barcode:pr.code,n:nm,brand:(pr.brands||'').split(',')[0].trim(),ofcat:(pr.categories||'').split(',')[0].trim(),quantity:pr.quantity||'',
+        k:kcal!=null?Math.round(kcal):null,p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),
+        fib:+(+nu.fiber_100g||0).toFixed(1),sug:+(+nu.sugars_100g||0).toFixed(1),salt:+(+nu.salt_100g||0).toFixed(1),
+        aller,ingr,imgUrl:pr.image_front_small_url||'',containsDairy:cd,sel:(kcal!=null)};
+    }).filter(x=>x.n&&x.barcode);
+    renderImpList(msg);
+  }catch(e){msg.textContent='Spojení s Open Food Facts selhalo (zkontroluj internet).';}
+}
+function impViol(it){const v=dietViolation(it.n)||compositionViolation({aller:it.aller,ingr:it.ingr});return it.containsDairy&&dairyActive()?'Obsahuje mléko':v;}
+function renderImpList(msg){
+  const noKcal=impResults.filter(x=>x.k==null).length, withAller=impResults.filter(x=>x.aller.length).length;
+  const unsuit=impResults.filter(x=>impViol(x)).length, dups=impResults.filter(x=>findByBarcode(x.barcode)).length;
+  msg.textContent='';
+  document.getElementById('impSummary').innerHTML=
+   `<div class="muted" style="font-size:.8rem;line-height:1.6">Nalezeno: <b>${impResults.length}</b> · bez kcal: ${noKcal} · s alergeny: ${withAller} · nevhodných dle profilu: ${unsuit} · již v DB: ${dups}</div>`;
+  document.getElementById('impList').innerHTML=impResults.map((it,i)=>{
+    const viol=impViol(it);const dup=findByBarcode(it.barcode);
+    return `<div class="row"><input type="checkbox" ${it.sel?'checked':''} onchange="impToggle(${i})" style="width:20px;height:20px;flex:0 0 auto;accent-color:var(--green)">
+      <div class="info"><div class="n">${it.n}</div>
+        <div class="m">${it.k!=null?it.k+' kcal':'<span style="color:#c0392b">chybí kcal</span>'} · B ${it.p} S ${it.c} T ${it.f}${it.quantity?' · '+it.quantity:''}</div>
+        ${viol?`<span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:'<span class="tg">vhodné</span>'}${dup?'<span class="tg" style="background:#fff0d6;color:#a06a1b">již v DB</span>':''}
+      </div>${it.imgUrl?`<img src="${it.imgUrl}" style="width:42px;height:42px;object-fit:cover;border-radius:8px;flex:0 0 auto">`:''}</div>`;
+  }).join('');
+  document.getElementById('impFooter').innerHTML=`<button class="btn block" style="margin-top:10px" onclick="doImport()">✓ Importovat vybrané (přeskočit duplicity)</button>
+    <div class="muted" style="font-size:.74rem;margin-top:6px">Zdroj: Open Food Facts. Ukládá EAN, značku, kategorii, balení, makra, alergeny, složení i náhled. Ručně upravené položky se nepřepisují.</div>`;
+}
+window.impToggle=i=>{impResults[i].sel=!impResults[i].sel;};
+function doImport(){
+  const now=new Date().toISOString();let added=0,updated=0,skipped=0,conflicts=0;const cust=DB.load('kt_eanfoods',[]);
+  impResults.filter(x=>x.sel).forEach(it=>{
+    const food={n:it.n,k:it.k!=null?it.k:0,p:it.p,c:it.c,f:it.f,fib:it.fib,sug:it.sug,salt:it.salt,aller:it.aller,ingr:it.ingr,imgUrl:it.imgUrl,
+      cat:"⭐ Moje potraviny",barcode:it.barcode,brand:it.brand,ofcat:it.ofcat,quantity:it.quantity,
+      source:'open_food_facts',sourceId:it.barcode,importedAt:now,lastSyncedAt:now,
+      containsDairy:it.containsDairy,isSuitableForDefaultUser:!it.containsDairy};
+    const ex=findByBarcode(it.barcode)||findFood(it.n);
+    if(ex){
+      if(ex.manualEdited){conflicts++;return;}                 // ručně upravené nepřepisuj
+      let ch=false;['fib','sug','salt','aller','ingr','imgUrl','brand','ofcat','quantity','barcode'].forEach(k=>{if((ex[k]==null||ex[k]===''||(Array.isArray(ex[k])&&!ex[k].length))&&food[k]!=null&&food[k]!==''){ex[k]=food[k];ch=true;}});
+      ex.lastSyncedAt=now;if(!ex.source)ex.source='open_food_facts';
+      if(ch){const ci=cust.findIndex(c=>c.n===ex.n);if(ci>=0)cust[ci]=ex;updated++;}else skipped++;
+    } else { FOODS.push(food);cust.push(food);added++; }
+  });
+  DB.save('kt_eanfoods',cust);
+  toast(`✅ Import: +${added} nových, ${updated} doplněno, ${skipped} beze změny${conflicts?', '+conflicts+' ke kontrole':''}`);
+  closeSheet();
+}
 function addWithQty(name){
   const f=findFood(name); if(!f){toast('Potravina nenalezena');return;}
   stopScanner();
@@ -969,8 +1073,8 @@ function addWithQty(name){
     const v=dietViolation(name); if(v){confirmViol(name,q,ua.value,v);return;}
     addFood(name,q,ua.value); closeSheet();};
   // fotky obalu / tabulky (pokud u potraviny jsou)
-  if(f.imgN||f.imgP){const p=document.getElementById('awPrev');
-    p.innerHTML+=`<div style="display:flex;gap:8px;margin-top:8px">${f.imgN?`<img src="${f.imgN}" onclick="zoomImg('${'imgN'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}${f.imgP?`<img src="${f.imgP}" onclick="zoomImg('${'imgP'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}</div>`;}
+  if(f.imgN||f.imgP||f.imgUrl){const p=document.getElementById('awPrev');
+    p.innerHTML+=`<div style="display:flex;gap:8px;margin-top:8px">${f.imgN?`<img src="${f.imgN}" onclick="zoomImg('${'imgN'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}${f.imgP?`<img src="${f.imgP}" onclick="zoomImg('${'imgP'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}${f.imgUrl?`<img src="${f.imgUrl}" style="width:48%;border-radius:10px">`:''}</div>${f.brand||f.quantity?`<div class="muted" style="font-size:.74rem;margin-top:4px">${[f.brand,f.quantity].filter(Boolean).join(' · ')}${f.source==='open_food_facts'?' · zdroj: Open Food Facts':''}</div>`:''}`;}
 }
 function zoomImg(which,name){const f=findFood(name);if(!f)return;const src=f[which];if(!src)return;
   openSheet(which==='imgN'?'Nutriční tabulka':'Obal');document.getElementById('sheetTabs').innerHTML='';
@@ -1413,6 +1517,7 @@ document.getElementById('saveDiet').onclick=()=>{
 };
 
 /* export / import */
+document.getElementById('openImport').onclick=openImport;
 document.getElementById('forceUpd').onclick=async()=>{
   toast('Aktualizuji…');
   try{ if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));}
