@@ -916,7 +916,7 @@ function renderDash(){
   const cta=dayEmpty?`<button class="btn block" onclick="document.getElementById('autoPlanBtn').onclick()" style="margin-bottom:10px">✨ Naplánovat celý den automaticky</button>`:'';
   document.getElementById('mealsWrap').innerHTML=cta+SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
-    const lis=items.map((it,i)=>`<div class="li"><span ${it.meal?`onclick="mealItemDetail('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)"`:''}>${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}${it.meal?' ›':''}</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
+    const lis=items.map((it,i)=>`<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
     return `<div class="meal"><div class="mi">${s.ic}</div><div class="body">
       <div class="t"><span>${s.l}</span><span class="kc">${items.length?round(t.k)+' kcal':''}</span></div>
       ${items.length?`<div class="items">${lis}</div><div class="macs">B ${round(t.p)} g · S ${round(t.c)} g · T ${round(t.f)} g</div>`:`<div class="empty-h">Zatím prázdné — přidej jídlo</div>`}
@@ -935,6 +935,22 @@ function rmItem(slot,i){const d=dayObj(selDate);d[slot].splice(i,1);if(!d[slot].
   if(dayState(selDate)!=='past'){const r=dayRemain(selDate);
     if(r.p>=25) toast('Chybí ti '+round(r.p)+' g bílkovin — koukni do Hotová jídla na návrh 💡');
     else if(r.fib>=10) toast('Málo vlákniny — v Hotová jídla najdeš návrh 💡');}}
+/* úprava skutečně snědeného množství u jakékoli položky deníku */
+function editItemAmt(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
+  openSheet('Kolik jsi snědl: '+it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
+  const gMode=(it.u==='g'||it.u==='ml');
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="card" id="eiPrev"></div>
+    <label>Množství (${it.u})</label><input type="number" id="eiAmt" value="${it.q}">
+    ${gMode?`<div class="seg">${[50,100,150,200].map(x=>`<button onclick="document.getElementById('eiAmt').value=${x};eiUpd(${i==null?0:i})">${x}</button>`).join('')}</div>`:''}
+    <button class="btn block" id="eiSave" style="margin-top:10px">Uložit množství</button>
+    ${it.meal&&it.ingr&&it.ingr.length?`<button class="btn ghost block" style="margin-top:8px" onclick="mealItemDetail('${slot}',${i})">🍽️ Složení / upravit ingredience</button>`:''}
+    <button class="btn ghost block" style="margin-top:8px;color:#c0392b" onclick="rmItem('${slot}',${i});closeSheet()">Smazat z dne</button>`;
+  window.eiUpd=()=>{const v=parseFloat(document.getElementById('eiAmt').value)||0;const m=itemMacro(Object.assign({},it,{q:v}));
+    document.getElementById('eiPrev').innerHTML=`<div class="big" style="font-size:1.5rem;font-weight:850">${round(m.k)} kcal</div><div class="muted">B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)} g</div>`;};
+  document.getElementById('eiAmt').oninput=window.eiUpd; window.eiUpd();
+  document.getElementById('eiSave').onclick=()=>{const v=parseFloat(document.getElementById('eiAmt').value);if(!(v>0)){toast('Zadej množství');return;}it.q=v;DB.save('kt_days',days);renderDash();closeSheet();toast('Upraveno');};
+}
 /* detail hotového jídla z deníku – složení + makra na danou porci */
 function mealItemDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
   const m=itemMacro(it);const q=it.q||1;const base=PREP.find(x=>x.n===it.n);
@@ -1125,11 +1141,10 @@ function myMealPortion(i){const m=myMeals[i];const unit=(m.raw&&m.raw.unit)||'po
     <div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><label>Vlastní (${gMode?unit:'počet porcí'})</label><input type="number" id="mmAmt" placeholder="${gMode?servAmt:1}"></div>
       <button class="btn" onclick="(function(){var a=parseFloat(document.getElementById('mmAmt').value);if(a>0)addMyMealAmt(${i},a);})()">Přidat</button></div>`;
 }
-function addMyMealAmt(i,amount){const m=myMeals[i];const unit=(m.raw&&m.raw.unit)||'porce';const servAmt=(m.raw&&m.raw.amt)||1;const gMode=(unit==='g'||unit==='ml');
-  const per=gMode?(1/servAmt):1; // makra na 1 jednotku (g/ml nebo porci)
-  const d=dayObj(selDate);if(!d[addSlot])d[addSlot]=[];const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;
-  if(!d[slot])d[slot]=[];
-  d[slot].push({n:m.n,q:+(+amount).toFixed(unit==='ks'||unit==='porce'?2:0),u:unit,meal:true,k:m.k*per,p:m.p*per,c:m.c*per,f:m.f*per,fib:m.fib*per,sug:m.sug*per,salt:m.salt*per,ingr:[]});
+function addMyMealAmt(i,amount){const m=myMeals[i];const unit=(m.raw&&m.raw.unit)||m.unit||'porce';const servAmt=(m.raw&&m.raw.amt)||m.amt||1;const gMode=(unit==='g'||unit==='ml');
+  const pu=m.pu||{k:m.k/(gMode?servAmt:1),p:m.p/(gMode?servAmt:1),c:m.c/(gMode?servAmt:1),f:m.f/(gMode?servAmt:1),fib:m.fib/(gMode?servAmt:1),sug:m.sug/(gMode?servAmt:1),salt:m.salt/(gMode?servAmt:1)}; // makra na 1 jednotku
+  const d=dayObj(selDate);const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;if(!d[slot])d[slot]=[];
+  d[slot].push({n:m.n,q:+(+amount).toFixed(gMode?0:2),u:unit,meal:true,k:pu.k,p:pu.p,c:pu.c,f:pu.f,fib:pu.fib,sug:pu.sug,salt:pu.salt,ingr:[]});
   DB.save('kt_days',days);renderDash();closeSheet();toast('Přidáno: '+m.n);
 }
 function prepDetail(idx){const p=PREP[idx];const viol=mealViol(p);
@@ -1627,9 +1642,12 @@ function customMealForm(editIdx){
     const v=id=>{const x=parseFloat(document.getElementById(id).value);return isNaN(x)?0:x;};
     const amt=v('cmAmt')||1,unit=document.getElementById('cmUnit').value;
     const raw={amt,unit,k:v('cmK'),p:v('cmP'),c:v('cmC'),f:v('cmF'),fib:v('cmFib'),sug:v('cmSug'),salt:v('cmSalt')};
-    let fac=1; if(cmB==='100'&&(unit==='g'||unit==='ml'))fac=amt/100;
-    const obj={n:nm,manual:true,basis:cmB,raw,srv:amt+' '+unit,
-      k:Math.round(raw.k*fac),p:+(raw.p*fac).toFixed(1),c:+(raw.c*fac).toFixed(1),f:+(raw.f*fac).toFixed(1),fib:+(raw.fib*fac).toFixed(1),sug:+(raw.sug*fac).toFixed(1),salt:+(raw.salt*fac).toFixed(2)};
+    const gMode=(unit==='g'||unit==='ml');
+    const div = gMode ? (cmB==='100'?100:amt) : (amt||1);   // dělitel na 1 jednotku (g/ml nebo porci)
+    const pu={k:raw.k/div,p:raw.p/div,c:raw.c/div,f:raw.f/div,fib:raw.fib/div,sug:raw.sug/div,salt:raw.salt/div};
+    const sf=gMode?amt:amt; // hodnoty pro zobrazení = na zadané množství/porci
+    const obj={n:nm,manual:true,basis:cmB,raw,unit,amt,srv:amt+' '+unit,pu,
+      k:Math.round(pu.k*sf),p:+(pu.p*sf).toFixed(1),c:+(pu.c*sf).toFixed(1),f:+(pu.f*sf).toFixed(1),fib:+(pu.fib*sf).toFixed(1),sug:+(pu.sug*sf).toFixed(1),salt:+(pu.salt*sf).toFixed(2)};
     const ex=myMeals.findIndex(x=>x.n===nm);if(editIdx!=null)myMeals[editIdx]=obj;else if(ex>=0)myMeals[ex]=obj;else myMeals.push(obj);
     DB.save('kc_meals',myMeals);closeSheet();renderMyMeals();toast('💾 Uloženo');
   };
