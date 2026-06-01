@@ -1187,10 +1187,17 @@ document.getElementById('aBar').onclick=()=>eanFlow();
 document.getElementById('aMic').onclick=()=>{toast('Hlasové zadání chce nativní appku — přidej zatím ručně.');pickSlotThen(openAdd);};
 document.getElementById('aCam').onclick=()=>{toast('Foto-rozpoznání chce nativní appku — přidej zatím ručně.');pickSlotThen(openAdd);};
 document.getElementById('aAct').onclick=()=>actFlow();
-function pickSlotThen(fn){
-  openSheet('Do kterého jídla?');document.getElementById('sheetTabs').innerHTML='';
-  document.getElementById('sheetBody').innerHTML=SLOTS.map(s=>`<button class="btn ghost block" style="margin-bottom:8px;text-align:left" onclick="closeSheet();(${fn===openAdd?'openAdd':''})('${s.k}')">${s.ic} ${s.l}</button>`).join('');
+/* výchozí fáze dne podle aktuálního času telefonu */
+function defaultSlotByTime(){const h=new Date().getHours();
+  if(h>=3&&h<9)return'snidane';
+  if(h>=9&&h<11)return'svacina1';
+  if(h>=11&&h<14)return'obed';
+  if(h>=14&&h<18)return'svacina2';
+  if(h>=18&&h<22)return'vecere';
+  return'vecere2'; // 22:00–02:59
 }
+/* bez mezikroku výběru sekce – sekci zvolíš až u konkrétní potraviny */
+function pickSlotThen(fn){fn(defaultSlotByTime());}
 
 /* EAN přes Open Food Facts */
 let scanner=null;
@@ -1408,14 +1415,14 @@ function addWithQty(name){
   else{ opts.push(['u:g','g']); if(f.g) opts.push(['u:ks','kus ('+f.g+' g)']);
     presets.forEach(([lbl,g])=>opts.push(['p:'+g,lbl])); }
   document.getElementById('sheetBody').innerHTML=
-   `<div class="card"><div id="awPrevH"></div><div class="muted" style="font-size:.72rem;margin:6px 0 0">Vliv na příjem (z denního cíle)</div><div id="awImpact"></div></div>
-    <div style="display:flex;gap:10px;margin-top:8px">
-      <div style="flex:1"><label>Množství</label><div style="display:flex;gap:6px"><input type="number" id="awQty" style="flex:1"><select id="awUnit" style="flex:1.3">${opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div></div>
-    </div>
-    <div style="display:flex;gap:10px;margin-top:8px">
+   `<div style="display:flex;gap:10px">
       <div style="flex:1"><label>Do jídla</label><select id="awSlot">${SLOTS.map(s=>`<option value="${s.k}"${s.k===addSlot?' selected':''}>${s.ic} ${s.l}</option>`).join('')}</select></div>
       <div style="flex:1"><label>Datum</label><input type="date" id="awDate" value="${selDate}"></div>
     </div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <div style="flex:1"><label>Množství</label><div style="display:flex;gap:6px"><input type="number" id="awQty" style="flex:1"><select id="awUnit" style="flex:1.3">${opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div></div>
+    </div>
+    <div class="card" style="margin-top:10px"><div id="awPrevH"></div><div class="muted" style="font-size:.72rem;margin:6px 0 0">Vliv na příjem (z denního cíle)</div><div id="awImpact"></div></div>
     <button class="btn block" id="awAdd" style="margin-top:12px">Přidat do dne</button>`;
   const qa=document.getElementById('awQty'),ua=document.getElementById('awUnit');
   // přepočet zvolené jednotky na (množství, jednotka) pro macroOne
