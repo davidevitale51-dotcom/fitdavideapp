@@ -1232,7 +1232,8 @@ async function lookupEan(ean,msg){
     const aller=(p.allergens_tags||[]).concat((p.allergens||'').split(',')).filter(Boolean);
     const ingr=(p.ingredients_text_cs||p.ingredients_text||'').slice(0,400);
     let food=findFood(nm);
-    if(!food){food={n:nm,k:Math.round(kcal),p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),fib:+(+nu.fiber_100g||0).toFixed(1),aller,ingr,cat:"⭐ Moje potraviny"};
+    let salt=nu.salt_100g; if(salt==null&&nu.sodium_100g!=null)salt=+(nu.sodium_100g*2.5); // sůl = sodík × 2,5
+    if(!food){food={n:nm,k:Math.round(kcal),p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),fib:+(+nu.fiber_100g||0).toFixed(1),sug:+(+nu.sugars_100g||0).toFixed(1),salt:+(+(salt||0)).toFixed(2),aller,ingr,cat:"⭐ Moje potraviny"};
       FOODS.push(food);const cust=DB.load('kt_eanfoods',[]);cust.push(food);DB.save('kt_eanfoods',cust);}
     if(msg)msg.innerHTML=`✅ <b>${nm}</b> nalezeno`;
     // kontrola složení vůči dietnímu profilu
@@ -1517,6 +1518,7 @@ function customFoodForm(prefill){
 }
 function stopScanner(){ if(scanner){ try{scanner.stop().then(()=>scanner.clear()).catch(()=>{});}catch(e){} scanner=null; } }
 function eanFlow(){
+  addSlot=defaultSlotByTime(); // po naskenování se sekce předvyplní podle času
   openSheet('Čárový kód (EAN)');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<button class="btn block" id="scanBtn">📷 Skenovat kamerou</button>
