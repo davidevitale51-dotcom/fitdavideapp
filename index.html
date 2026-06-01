@@ -229,7 +229,7 @@
   <div class="topbar"><span class="title">🍽️ Jídla</span></div>
   <div class="card"><p class="muted" style="font-size:.86rem">Procházej databázi potravin, hotová jídla a oblíbené. Klikni na ＋ a vyber, do kterého jídla dne přidat.</p>
     <button class="btn block" id="browseBtn" style="margin-top:10px">Otevřít databázi a hotová jídla</button></div>
-  <div class="card"><div class="card-h"><h3>Moje vlastní jídla</h3><button class="linkbtn" id="newMealBtn2">+ vytvořit</button></div>
+  <div class="card"><div class="card-h"><h3>Moje vlastní jídla</h3><div><button class="linkbtn" id="newMealBtn2">+ ze surovin</button> · <button class="linkbtn" id="newMealManual">+ ruční</button></div></div>
     <div id="myMealsList"></div></div>
 </div></section>
 
@@ -1016,7 +1016,7 @@ function fillAddList(){
       h+=gate(viol,()=>rowHTML('🍽️ '+p.n,`Hotové jídlo · ${round(p.k)} kcal · B ${round(p.p)} S ${round(p.c)} T ${round(p.f)}`,[],`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n));});
     FOODS.filter(f=>norm(f.n).includes(q)).slice(0,120).forEach(f=>{const viol=dietViolation(f.n);const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);const src=(f.barcode||f.source)?'Značka':'Potravina';
       h+=gate(viol,()=>rowHTML(f.n,`${src} · ${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`,[],`addFoodChecked('${esc(f.n)}',${q0},'${u}')`,`addWithQty('${esc(f.n)}')`,viol,f.n));});
-    myMeals.filter(m=>norm(m.n).includes(q)).forEach(m=>{const i=myMeals.indexOf(m);const viol=mealViolation(m.items);const t=sumItems(m.items.map(x=>({n:x[0],q:x[1],u:x[2]})));
+    myMeals.filter(m=>norm(m.n).includes(q)).forEach(m=>{const i=myMeals.indexOf(m);const viol=m.manual?dietViolation(m.n):mealViolation(m.items);const t=myMealMac(m);
       h+=gate(viol,()=>rowHTML('🍲 '+m.n,`Recept · ${round(t.k)} kcal · B ${round(t.p)} g`,[],`addMyMeal(${i})`,null,viol));});
     const anyLocal=/class="row"/.test(h);
     h+=`<div style="padding:10px 0;border-top:1px solid var(--line);margin-top:6px">
@@ -1046,8 +1046,8 @@ function fillAddList(){
       return rowHTML(f.n,`${f.brand?f.brand+' · ':''}${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`,[],`addFoodChecked('${esc(f.n)}',${q0},'${u}')`,`addWithQty('${esc(f.n)}')`,viol,f.n);});}).join(''):'<p class="muted" style="padding:14px 0">Zatím žádné značkové produkty. Klepni na tlačítko nahoře a naimportuj je.</p>';
   } else if(addTab==='recepty'){
     const items=myMeals.filter(m=>!q||norm(m.n).includes(q));
-    h=items.length?items.map((m,i)=>{const viol=mealViolation(m.items);return gate(viol,()=>{const t=sumItems(m.items.map(x=>({n:x[0],q:x[1],u:x[2]})));
-      return rowHTML('🍲 '+m.n,`${round(t.k)} kcal · B ${round(t.p)} g`,[],`addMyMeal(${i})`,null,viol);});}).join(''):'<p class="muted" style="padding:14px 0">Zatím žádné vlastní jídlo. Vytvoř ho v záložce Jídla.</p>';
+    h=items.length?items.map((m)=>{const i=myMeals.indexOf(m);const viol=m.manual?dietViolation(m.n):mealViolation(m.items);return gate(viol,()=>{const t=myMealMac(m);
+      return rowHTML((m.manual?'📝 ':'🍲 ')+m.n,`${round(t.k)} kcal · B ${round(t.p)} g`,[],`addMyMeal(${i})`,null,viol);});}).join(''):'<p class="muted" style="padding:14px 0">Zatím žádné vlastní jídlo. Vytvoř ho v záložce Jídla.</p>';
   } else if(addTab==='oblibene'){
     if(!favs.length){h='<p class="muted" style="padding:14px 0">Zatím žádné oblíbené. U potraviny/jídla klikni na ★.</p>';}
     else h=favs.map(nm=>{const viol=dietViolation(nm);return gate(viol,()=>{const f=findFood(nm);if(f){const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(nm,q0,u);return rowHTML('★ '+nm,`${q0} ${u} · ${round(m.k)} kcal`,[],`addFoodChecked('${esc(nm)}',${q0},'${u}')`,null,viol);}
@@ -1108,7 +1108,11 @@ function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getEleme
   d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
   DB.save('kt_days',days);toast('Přidáno: '+p.n);renderDash();closeSheet();
 }
-function addMyMeal(i){ const m=myMeals[i]; const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; m.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]})); DB.save('kt_days',days); toast('Přidáno: '+m.n); renderDash(); }
+function myMealMac(m){return m.manual?{k:m.k||0,p:m.p||0,c:m.c||0,f:m.f||0,fib:m.fib||0,sug:m.sug||0,salt:m.salt||0}:sumItems((m.items||[]).map(x=>({n:x[0],q:x[1],u:x[2]})));}
+function addMyMeal(i){ const m=myMeals[i]; const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[];
+  if(m.manual){d[addSlot].push({n:m.n,q:1,u:'porce',meal:true,k:m.k,p:m.p,c:m.c,f:m.f,fib:m.fib,sug:m.sug,salt:m.salt,ingr:[]});}
+  else m.items.forEach(it=>d[addSlot].push({n:it[0],q:it[1],u:it[2]}));
+  DB.save('kt_days',days); toast('Přidáno: '+m.n); renderDash(); }
 function prepDetail(idx){const p=PREP[idx];const viol=mealViol(p);
   openSheet(p.ic+' '+p.n);document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
@@ -1572,10 +1576,44 @@ function renderProgres(){
 /* JÍDLA: procházení + vlastní jídla */
 document.getElementById('browseBtn').onclick=()=>openAdd('obed');
 document.getElementById('newMealBtn2').onclick=()=>mealBuilder();
+document.getElementById('newMealManual').onclick=()=>customMealForm();
 function renderMyMeals(){
-  document.getElementById('myMealsList').innerHTML=myMeals.length?myMeals.map((m,i)=>{const t=sumItems(m.items.map(x=>({n:x[0],q:x[1],u:x[2]})));
-    return `<div class="row"><div class="info"><div class="n">🍲 ${m.n}</div><div class="m">${round(t.k)} kcal · B ${round(t.p)} g</div></div>
-      <button class="add" onclick="mealBuilder(${i})">✏️</button></div>`;}).join(''):'<p class="muted">Zatím žádné. Např. „Nutty puding".</p>';
+  document.getElementById('myMealsList').innerHTML=myMeals.length?myMeals.map((m,i)=>{const t=myMealMac(m);
+    return `<div class="row"><div class="info"><div class="n">${m.manual?'📝':'🍲'} ${m.n}</div><div class="m">${m.manual?(m.srv?m.srv+' · ':''):''}${round(t.k)} kcal · B ${round(t.p)} g</div></div>
+      <button class="add" onclick="${m.manual?`customMealForm(${i})`:`mealBuilder(${i})`}">✏️</button><button class="menu" style="color:#c0392b" onclick="delMyMeal(${i})">✕</button></div>`;}).join(''):'<p class="muted">Zatím žádné. „+ ze surovin" složí z potravin, „+ ruční" zadáš nutrienty sám.</p>';
+}
+function delMyMeal(i){if(!confirm('Smazat „'+myMeals[i].n+'"?'))return;myMeals.splice(i,1);DB.save('kc_meals',myMeals);renderMyMeals();}
+function customMealForm(editIdx){
+  const m=(editIdx!=null&&myMeals[editIdx]&&myMeals[editIdx].manual)?myMeals[editIdx]:null;const r=(m&&m.raw)||{};
+  openSheet(m?'Upravit vlastní jídlo':'Vlastní jídlo (ruční)');document.getElementById('sheetTabs').innerHTML='';
+  const basis=(m&&m.basis)||'srv';
+  document.getElementById('sheetBody').innerHTML=
+   `<label>Název</label><input type="text" id="cmName" value="${m?m.n.replace(/"/g,'&quot;'):''}" placeholder="např. Babiččin guláš">
+    <div style="display:flex;gap:8px;margin-top:8px"><div style="flex:1"><label>Množství / porce</label><input type="number" id="cmAmt" value="${r.amt||1}"></div>
+      <div style="flex:1"><label>Jednotka</label><select id="cmUnit">${['porce','g','ml','ks'].map(u=>`<option ${(r.unit||'porce')===u?'selected':''}>${u}</option>`).join('')}</select></div></div>
+    <div class="seg" id="cmBasis" style="margin-top:8px"><button data-b="srv" class="${basis==='srv'?'on':''}">hodnoty na 1 porci</button><button data-b="100" class="${basis==='100'?'on':''}">na 100 g/ml</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+      <div><label>kcal</label><input type="number" id="cmK" value="${r.k??''}"></div>
+      <div><label>Bílkoviny (g)</label><input type="number" id="cmP" value="${r.p??''}"></div>
+      <div><label>Sacharidy (g)</label><input type="number" id="cmC" value="${r.c??''}"></div>
+      <div><label>Tuky (g)</label><input type="number" id="cmF" value="${r.f??''}"></div>
+      <div><label>Vláknina (g)</label><input type="number" id="cmFib" value="${r.fib??''}"></div>
+      <div><label>Cukry (g)</label><input type="number" id="cmSug" value="${r.sug??''}"></div>
+      <div><label>Sůl (g)</label><input type="number" step="0.01" id="cmSalt" value="${r.salt??''}"></div>
+    </div>
+    <button class="btn block" id="cmSave" style="margin-top:12px">💾 Uložit vlastní jídlo</button>`;
+  let cmB=basis; document.querySelectorAll('#cmBasis button').forEach(b=>b.onclick=()=>{cmB=b.dataset.b;document.querySelectorAll('#cmBasis button').forEach(x=>x.classList.toggle('on',x===b));});
+  document.getElementById('cmSave').onclick=()=>{
+    const nm=document.getElementById('cmName').value.trim();if(!nm){toast('Zadej název');return;}
+    const v=id=>{const x=parseFloat(document.getElementById(id).value);return isNaN(x)?0:x;};
+    const amt=v('cmAmt')||1,unit=document.getElementById('cmUnit').value;
+    const raw={amt,unit,k:v('cmK'),p:v('cmP'),c:v('cmC'),f:v('cmF'),fib:v('cmFib'),sug:v('cmSug'),salt:v('cmSalt')};
+    let fac=1; if(cmB==='100'&&(unit==='g'||unit==='ml'))fac=amt/100;
+    const obj={n:nm,manual:true,basis:cmB,raw,srv:amt+' '+unit,
+      k:Math.round(raw.k*fac),p:+(raw.p*fac).toFixed(1),c:+(raw.c*fac).toFixed(1),f:+(raw.f*fac).toFixed(1),fib:+(raw.fib*fac).toFixed(1),sug:+(raw.sug*fac).toFixed(1),salt:+(raw.salt*fac).toFixed(2)};
+    const ex=myMeals.findIndex(x=>x.n===nm);if(editIdx!=null)myMeals[editIdx]=obj;else if(ex>=0)myMeals[ex]=obj;else myMeals.push(obj);
+    DB.save('kc_meals',myMeals);closeSheet();renderMyMeals();toast('💾 Uloženo');
+  };
 }
 let mealDraft=[];
 function mealBuilder(editIdx){
