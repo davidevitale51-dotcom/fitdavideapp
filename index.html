@@ -956,12 +956,10 @@ function nutrientBreakdown(key,label,unit){
   rows.sort((a,b)=>b.val-a.val);
   const total=rows.reduce((a,r)=>a+r.val,0);
   const dec=unit==='kcal'?0:(total<10?1:0);
-  openSheet(label+' — co ho dnes tvoří');document.getElementById('sheetTabs').innerHTML='';
+  openSheet(label);document.getElementById('sheetTabs').innerHTML='';
   const body=rows.length
-   ? `<div class="card"><div class="big" style="font-size:1.4rem;font-weight:850">${total.toFixed(dec)} ${unit}</div><div class="muted">celkem za den · ${rows.length} ${rows.length===1?'položka':(rows.length<5?'položky':'položek')}</div></div>`
-     + rows.map(r=>`<div class="li" onclick="closeSheet();editItemAmt('${r.slot}',${r.i})" style="cursor:pointer">
-         <span style="color:var(--green-d)">${r.ic} ${r.n} <span class="muted" style="font-size:.74rem">· ${r.q} ${r.u} · ${r.slotL}</span></span>
-         <span><b>${r.val.toFixed(dec)}</b> ${unit} ›</span></div>`).join('')
+   ? rows.map(r=>`<div onclick="closeSheet();editItemAmt('${r.slot}',${r.i})" style="display:flex;justify-content:space-between;align-items:center;padding:14px 2px;border-bottom:1px solid var(--line);cursor:pointer">
+         <span>${r.n}</span><span class="muted">${r.val.toFixed(dec)} ${unit}</span></div>`).join('')
    : `<p class="muted" style="padding:14px 0">Dnes zatím nic do kategorie ${label} nepřispělo.</p>`;
   document.getElementById('sheetBody').innerHTML=body;
 }
