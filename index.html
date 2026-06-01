@@ -190,6 +190,10 @@
   <div class="card">
     <div class="card-h"><h3>Jídelníček</h3><div><button class="linkbtn" id="autoPlanBtn">✨ Naplánovat den</button> · <button class="linkbtn" id="analyzaBtn">Analýza</button></div></div>
     <div id="mealsWrap"></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn ghost" id="saveTplBtn" style="flex:1;font-size:.82rem">💾 Uložit jako šablonu</button>
+      <button class="btn ghost" id="useTplBtn" style="flex:1;font-size:.82rem">📁 Vložit šablonu</button>
+    </div>
   </div>
 
   <div class="card waterCard">
@@ -239,6 +243,7 @@
     <div class="chips" id="planPrefs" style="flex-wrap:wrap"></div>
     <button class="btn block" id="genPlan" style="margin-top:12px">✨ Sestavit návrh</button>
   </div>
+  <div class="card"><div class="card-h"><h3>Týdenní přehled</h3></div><div id="weekOverview"></div></div>
   <div id="planOut"></div>
 </div></section>
 
@@ -1448,6 +1453,29 @@ document.getElementById('autoPlanBtn').onclick=()=>{
   if(has && !confirm('Den už obsahuje jídla. Přepsat novým návrhem?'))return;
   days[selDate]={}; planSingleDay(selDate);
 };
+/* ŠABLONY DNÍ */
+let templates=DB.load('kt_templates',[]);
+document.getElementById('saveTplBtn').onclick=()=>{
+  if(!SLOTS.some(s=>slotItems(selDate,s.k).length)){toast('Den je prázdný — není co uložit');return;}
+  const nm=prompt('Název šablony:', 'Můj den');if(!nm)return;
+  const snap=JSON.parse(JSON.stringify(days[selDate]||{}));
+  const ex=templates.findIndex(t=>t.n===nm); const obj={n:nm,slots:snap};
+  if(ex>=0)templates[ex]=obj; else templates.push(obj);
+  DB.save('kt_templates',templates);toast('💾 Šablona uložena');
+};
+document.getElementById('useTplBtn').onclick=()=>{
+  if(!templates.length){toast('Zatím žádná šablona — nejdřív si den ulož');return;}
+  openSheet('📁 Šablony dní');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="muted" style="font-size:.8rem;margin-bottom:6px">Vlož šablonu do vybraného dne (${selDate}):</div>`+
+   templates.map((t,i)=>{const tot=Object.values(t.slots).reduce((a,arr)=>{const s=sumItems(arr);return{k:a.k+s.k,p:a.p+s.p};},{k:0,p:0});
+     return `<div class="row"><div class="info"><div class="n">${t.n}</div><div class="m">${round(tot.k)} kcal · B ${round(tot.p)} g</div></div>
+       <button class="add" onclick="applyTpl(${i})">＋</button><button class="menu" style="color:#c0392b" onclick="delTpl(${i})">✕</button></div>`;}).join('');
+};
+function applyTpl(i){const t=templates[i];if(!t)return;
+  if(SLOTS.some(s=>slotItems(selDate,s.k).length)&&!confirm('Přepsat obsah dne šablonou „'+t.n+'"?'))return;
+  days[selDate]=JSON.parse(JSON.stringify(t.slots));DB.save('kt_days',days);closeSheet();renderDash();toast('📁 Vloženo: '+t.n);}
+function delTpl(i){if(!confirm('Smazat šablonu „'+templates[i].n+'"?'))return;templates.splice(i,1);DB.save('kt_templates',templates);document.getElementById('useTplBtn').click();}
 document.getElementById('analyzaBtn').onclick=()=>{
   const t=dayTotals(selDate);const msgs=[];
   const dk=t.k-target.kcal;
@@ -1582,7 +1610,23 @@ function initPlanScreen(){
   document.getElementById('planPrefs').innerHTML=PLAN_PREFS.map(([k,l])=>`<button class="chip ${planPrefSet.has(k)?'on':''}" data-p="${k}">${l}</button>`).join('');
   document.querySelectorAll('#planPrefs .chip').forEach(c=>c.onclick=()=>{const k=c.dataset.p;planPrefSet.has(k)?planPrefSet.delete(k):planPrefSet.add(k);c.classList.toggle('on');});
   document.querySelectorAll('#planLen button').forEach(b=>b.onclick=()=>{planDaysN=+b.dataset.d;document.querySelectorAll('#planLen button').forEach(x=>x.classList.toggle('on',x===b));});
+  renderWeekOverview();
 }
+function renderWeekOverview(){
+  const el=document.getElementById('weekOverview');if(!el)return;
+  const base=new Date(todayISO);let h='';
+  for(let i=0;i<7;i++){const d=new Date(base);d.setDate(base.getDate()+i);const di=iso(d);const t=dayTotals(di);
+    const planned=SLOTS.some(s=>slotItems(di,s.k).length);
+    const pct=Math.min(100,t.k/target.kcal*100);const inR=planned&&Math.abs(t.k-target.kcal)<=target.kcal*0.10;
+    const lbl=di===todayISO?'Dnes':DOW[d.getDay()];
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line)">
+      <div style="width:54px;font-size:.78rem"><b>${lbl}</b> ${d.getDate()}.</div>
+      <div style="flex:1"><div class="pbar" style="height:9px"><span style="width:${pct}%;background:${inR?'var(--green)':(planned?'var(--carb)':'#dfe6e0')}"></span></div></div>
+      <div style="width:96px;text-align:right;font-size:.76rem">${planned?round(t.k)+' kcal · '+round(t.p)+'g B':'<span class="muted">nenaplánováno</span>'}</div>
+      <button class="linkbtn" style="font-size:.74rem" onclick="planFromOverview('${di}')">${planned?'⟳':'✨'}</button></div>`;}
+  el.innerHTML=h+`<div class="muted" style="font-size:.72rem;margin-top:6px">✨ = naplánovat den · ⟳ = přeplánovat · zelená = v cíli ±10 %</div>`;
+}
+function planFromOverview(date){selDate=date;document.getElementById('datePick').value=date;days[date]={};planSingleDay(date);renderWeekOverview();toast('✨ '+date+' naplánováno');}
 function pickPrep(slot,usedIdx){
   // TVRDÉ pravidlo: jen jídla vhodná dle dietního profilu uživatele
   const suitable=PREP.filter(p=>!mealViol(p));
@@ -1824,7 +1868,7 @@ document.getElementById('forceUpd').onclick=async()=>{
   }catch(e){}
   location.reload();
 };
-function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,diet,shop:shopState,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
+function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
 document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena');};
@@ -1851,7 +1895,7 @@ document.getElementById('importData').onclick=()=>document.getElementById('impor
 document.getElementById('importFile').onchange=function(){const f=this.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);
   if(d.days){days=d.days;DB.save('kt_days',days);}if(d.water){water=d.water;DB.save('kt_water',water);}if(d.acts){acts=d.acts;DB.save('kt_acts',acts);}
   if(d.weights){weights=d.weights;DB.save('kc_weights',weights);}if(d.favs){favs=d.favs;DB.save('kt_favs',favs);}if(d.myMeals){myMeals=d.myMeals;DB.save('kc_meals',myMeals);}
-  if(d.target){target=d.target;DB.save('kt_target',target);}if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
+  if(d.target){target=d.target;DB.save('kt_target',target);}if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
   loadTargets();renderDietOpts();renderDash();toast('Data naimportována');}catch(e){toast('Soubor se nepodařilo načíst');}};rd.readAsText(f);};
 
 /* ====== INIT ====== */
