@@ -813,6 +813,23 @@ function mealViol(p){
   for(const it of (p.ingr||[])){const v=dietViolation(it[0]); if(v && v!=='Obsahuje mléčný výrobek') return v;}
   return null;
 }
+/* odhad makro příspěvku jedné ingredience hotového jídla (pro úpravu složení) */
+const MEAL_INGR={"knedlík":[215,7,45,1],"rýže (suchá)":[360,7,79,0.6],"těstoviny (suché)":[350,12,70,1.5],"brambory":[87,2,20,0.1],
+ "hovězí maso":[190,26,0,9],"kuřecí maso":[165,31,0,3.6],"kuřecí prsa":[165,31,0,3.6],"krůtí maso":[135,29,0,1.7],
+ "vepřové maso":[240,27,0,15],"mleté maso":[240,18,0,18],"losos":[208,20,0,13],"smetana":[290,2.5,3,30],
+ "rostlinná smetana":[180,1,3,18],"kokosové mléko":[197,2,3,21],"mrkev":[41,0.9,10,0.2],"cibule":[40,1.1,9,0.1],
+ "kořenová zelenina":[35,1,8,0.2],"rajčatový protlak":[38,1.6,7,0.3],"chléb":[250,8,47,2],"čočka":[116,9,20,0.4],
+ "červená čočka":[116,9,20,0.4],"fazole":[127,9,23,0.5],"houby":[22,3,3,0.3],"paprika":[31,1,6,0.3],"ovesné vločky":[370,13,60,7],
+ "avokádo":[160,2,9,15],"kuskus (suchý)":[360,12,72,1],"krevety":[99,24,0,0.3],"zelenina":[35,1.5,6,0.3],"zelenina mix":[35,1.5,6,0.3],
+ "ovoce":[55,0.7,14,0.2],"rostlinný nápoj":[42,1,4,1.8],"sójový nápoj":[42,3.3,2.5,1.8],"chia semínka":[486,17,42,31],"olej":[884,0,0,100],"oříšky":[600,15,15,55],"tofu":[120,13,2,7]};
+const KS_G={"tortilla":60,"vejce":60,"tuňák konzerva":120,"sardinky konzerva":90,"banán":120,"rýžové chlebíčky":9,"vegan protein":30};
+function ingrMacro(name,qty,unit){const z={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};if(!name)return z;
+  const q=parseFloat(qty);if(isNaN(q)||q<=0)return z;const key=(''+name).trim().toLowerCase();const per=MEAL_INGR[key];if(!per)return z;
+  let g; if(unit==='g')g=q; else if(unit==='lžíce')g=q*14; else if(unit==='lžička')g=q*5; else if(unit==='odměrka')g=q*30; else if(unit==='ks')g=q*(KS_G[key]||100); else g=q;
+  const r=g/100;return {k:per[0]*r,p:per[1]*r,c:per[2]*r,f:per[3]*r,fib:0,sug:0,salt:0};}
+function removeMealIngr(slot,i,j){const it=slotItems(selDate,slot)[i];if(!it||!it.ingr)return;const ing=it.ingr[j];if(!ing)return;
+  const per=ingrMacro(ing[0],ing[1],ing[2]);['k','p','c','f','fib','sug','salt'].forEach(kk=>{it[kk]=Math.max(0,+( (it[kk]||0)-(per[kk]||0) ).toFixed(2));});
+  it.ingr=it.ingr.slice(0,j).concat(it.ingr.slice(j+1));it.edited=true;DB.save('kt_days',days);mealItemDetail(slot,i);renderDash();toast('Odebráno: '+(ing[0]||''));}
 function dayObj(date){ if(!days[date]) days[date]={}; return days[date]; }
 function slotItems(date,slot){ const d=days[date]||{}; return d[slot]||[]; }
 function dayTotals(date){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};SLOTS.forEach(s=>{const t=sumItems(slotItems(date,s.k));o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;o.sug+=t.sug;o.salt+=t.salt;});return o;}
@@ -911,8 +928,9 @@ function mealItemDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it)retur
    `<div class="muted" style="font-size:.82rem;margin-bottom:6px">${base?base.cat+' · ':''}${q} porce${base?' · 1 porce ~'+base.srvG+' g':''}</div>
     <div class="card"><div class="big" style="font-size:1.7rem;font-weight:850">${round(m.k)} kcal</div>
       <div class="muted">B ${round(m.p)} g · S ${round(m.c)} g · T ${round(m.f)} g · vláknina ${round(m.fib)} g · cukry ${round(m.sug)} g · sůl ${m.salt.toFixed(1)} g</div></div>
-    <h4 style="margin:8px 0 4px">Složení potravin</h4>
-    ${(it.ingr&&it.ingr.length)?it.ingr.map(ing=>`<div class="row"><div class="info"><div class="n">${(ing[0]||'').replace(/ \(.*?\)/,'')}</div>${ing[1]?`<div class="m">${(parseFloat(ing[1])*q)||ing[1]} ${ing[2]||''}${q!==1?' (×'+q+' porce)':''}</div>`:''}</div></div>`).join(''):'<p class="muted">Složení není u tohoto jídla uvedené.</p>'}
+    <h4 style="margin:8px 0 4px">Složení potravin ${it.edited?'<span class="muted" style="font-size:.72rem">(upraveno)</span>':''}</h4>
+    <div class="muted" style="font-size:.74rem;margin-bottom:4px">Co nejíš, smaž křížkem — kalorie i makra se přepočítají.</div>
+    ${(it.ingr&&it.ingr.length)?it.ingr.map((ing,j)=>`<div class="row"><div class="info"><div class="n">${(ing[0]||'').replace(/ \(.*?\)/,'')}</div>${ing[1]?`<div class="m">${+(parseFloat(ing[1])*q).toFixed(0)||ing[1]} ${ing[2]||''}${q!==1?' (×'+q+' porce)':''}</div>`:''}</div><button class="menu" style="color:#c0392b;font-size:1.15rem" onclick="removeMealIngr('${slot}',${i},${j})">✕</button></div>`).join(''):'<p class="muted">Složení není u tohoto jídla uvedené.</p>'}
     ${base&&base.conf==='estimated'?'<div class="muted" style="font-size:.74rem;margin-top:6px">Nutriční hodnoty jsou orientační.</div>':''}
     <div style="display:flex;gap:8px;margin-top:12px">
       <button class="btn ghost block" onclick="closeSheet()">Zavřít</button>
@@ -976,7 +994,20 @@ function renderAddBody(){
 function fillAddList(){
   const q=norm(addQuery); const list=document.getElementById('addList'); let h=''; let hidden=0;
   const gate=(viol,build)=>{ if(viol&&!showUnsuitable){hidden++;return'';} return build(viol); };
-  if(addTab==='potraviny'){
+  if(q){
+    /* GLOBÁLNÍ vyhledávání napříč celou databází (hotová jídla + potraviny + značky + recepty) */
+    h='<div class="muted" style="font-size:.74rem;padding:4px 0">Hledám v celé databázi…</div>';
+    PREP.filter(p=>norm(p.n).includes(q)).slice(0,40).forEach(p=>{const viol=mealViol(p);const idx=PREP.indexOf(p);
+      h+=gate(viol,()=>rowHTML('🍽️ '+p.n,`Hotové jídlo · ${round(p.k)} kcal · B ${round(p.p)} S ${round(p.c)} T ${round(p.f)}`,[],`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n));});
+    FOODS.filter(f=>norm(f.n).includes(q)).slice(0,120).forEach(f=>{const viol=dietViolation(f.n);const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);const src=(f.barcode||f.source)?'Značka':'Potravina';
+      h+=gate(viol,()=>rowHTML(f.n,`${src} · ${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`,[],`addFoodChecked('${esc(f.n)}',${q0},'${u}')`,`addWithQty('${esc(f.n)}')`,viol,f.n));});
+    myMeals.filter(m=>norm(m.n).includes(q)).forEach(m=>{const i=myMeals.indexOf(m);const viol=mealViolation(m.items);const t=sumItems(m.items.map(x=>({n:x[0],q:x[1],u:x[2]})));
+      h+=gate(viol,()=>rowHTML('🍲 '+m.n,`Recept · ${round(t.k)} kcal · B ${round(t.p)} g`,[],`addMyMeal(${i})`,null,viol));});
+    const anyLocal=/class="row"/.test(h);
+    h+=`<div style="padding:10px 0;border-top:1px solid var(--line);margin-top:6px">
+      <div class="muted" style="font-size:.78rem;margin-bottom:6px">${anyLocal?'Nenašel jsi konkrétní produkt?':'V tvé databázi nic takového není.'}</div>
+      <button class="btn sec block" onclick="offSearchAdd(document.getElementById('addSearch').value)">🔎 Dohledat „${(addQuery||'').replace(/"/g,'&quot;').slice(0,30)}" v Open Food Facts</button></div>`;
+  } else if(addTab==='potraviny'){
     const items=FOODS.filter(f=>(!q||norm(f.n).includes(q))&&foodMatchesFilter(f)).slice(0,120);
     h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
       return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFoodChecked('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol, f.n);});}).join('');
@@ -1162,12 +1193,43 @@ function openImport(){
     <div class="chips" style="flex-wrap:wrap;max-height:96px;overflow-y:auto">${IMP_BRANDS.map(b=>`<button class="chip" onclick="document.getElementById('impBrand').value='${b.replace(/'/g,"\\'")}'">${b}</button>`).join('')}</div>
     <label style="margin-top:8px">Kategorie</label><select id="impCat">${IMP_CATS.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select>
     <label style="margin-top:8px">Trh / země</label><select id="impCountry">${IMP_COUNTRIES.map(([v,l])=>`<option value="${v}"${v==='czech-republic'?' selected':''}>${l}</option>`).join('')}</select>
-    <button class="btn block" id="impPreview" style="margin-top:12px">🔍 Načíst náhled</button>
+    <button class="btn block" id="impPreview" style="margin-top:12px">🔍 Načíst náhled a vybrat</button>
+    <div class="muted" style="font-size:.72rem;margin-top:6px">Najdi produkty podle značky/kategorie a vyber, co přidat. Konkrétní produkt můžeš taky dohledat přímo při přidávání jídla (vyhledávání → „Hledat v Open Food Facts").</div>
     <div class="muted" id="impMsg" style="margin-top:8px;font-size:.82rem"></div>
     <div id="impSummary" style="margin-top:6px"></div>
     <div id="impList" style="margin-top:6px"></div>
     <div id="impFooter"></div>`;
   document.getElementById('impPreview').onclick=importPreview;
+}
+const OFF_FIELDS='code,product_name,product_name_cs,brands,categories,quantity,nutriments,allergens_tags,ingredients_text_cs,ingredients_text,image_front_small_url';
+function offParams(brand,cat,country){const p=new URLSearchParams();
+  if(brand)p.set('brands_tags',brand.toLowerCase().replace(/\s+/g,'-'));
+  if(cat)p.set('categories_tags_en',cat);
+  if(country)p.set('countries_tags_en',country);
+  p.set('fields',OFF_FIELDS);p.set('sort_by','popularity_key');return p;}
+function parseProduct(pr){
+  const nu=pr.nutriments||{};let kcal=nu['energy-kcal_100g'];if(kcal==null&&nu['energy_100g']!=null)kcal=Math.round(nu['energy_100g']/4.184);
+  const aller=(pr.allergens_tags||[]).filter(Boolean);
+  const ingr=(pr.ingredients_text_cs||pr.ingredients_text||'').slice(0,500);
+  const bn=(pr.brands||'').split(',')[0].trim();const pn=(pr.product_name_cs||pr.product_name||('EAN '+pr.code)).trim();
+  let nm=((bn && !_n(pn).includes(_n(bn)))?bn+' ':'')+pn; nm=nm.trim().slice(0,60);
+  const cd=hasDairy(aller,ingr);
+  return {barcode:pr.code,n:nm,brand:bn,ofcat:(pr.categories||'').split(',')[0].trim(),quantity:pr.quantity||'',
+    k:kcal!=null?Math.round(kcal):null,p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),
+    fib:+(+nu.fiber_100g||0).toFixed(1),sug:+(+nu.sugars_100g||0).toFixed(1),salt:+(+nu.salt_100g||0).toFixed(1),
+    aller,ingr,imgUrl:pr.image_front_small_url||'',containsDairy:cd,sel:(kcal!=null)};
+}
+function importCandidate(it,cust,c,now){
+  if(!it.n||!it.barcode){c.skipped++;return;}
+  const food={n:it.n,k:it.k!=null?it.k:0,p:it.p,c:it.c,f:it.f,fib:it.fib,sug:it.sug,salt:it.salt,aller:it.aller,ingr:it.ingr,imgUrl:it.imgUrl,
+    cat:"⭐ Moje potraviny",barcode:it.barcode,brand:it.brand,ofcat:it.ofcat,quantity:it.quantity,
+    source:'open_food_facts',sourceId:it.barcode,importedAt:now,lastSyncedAt:now,containsDairy:it.containsDairy,isSuitableForDefaultUser:!it.containsDairy};
+  const ex=findByBarcode(it.barcode)||findFood(it.n);
+  if(ex){ if(ex.manualEdited){c.conflicts++;return;}
+    let ch=false;['fib','sug','salt','aller','ingr','imgUrl','brand','ofcat','quantity','barcode'].forEach(k=>{if((ex[k]==null||ex[k]===''||(Array.isArray(ex[k])&&!ex[k].length))&&food[k]!=null&&food[k]!==''){ex[k]=food[k];ch=true;}});
+    ex.lastSyncedAt=now;if(!ex.source)ex.source='open_food_facts';
+    if(ch){const ci=cust.findIndex(x=>x.n===ex.n);if(ci>=0)cust[ci]=ex;c.updated++;}else c.skipped++;
+  } else { FOODS.push(food);cust.push(food);c.added++; }
 }
 async function importPreview(){
   const brand=(document.getElementById('impBrand').value||'').trim();
@@ -1177,30 +1239,37 @@ async function importPreview(){
   if(!brand&&!cat){msg.textContent='Zadej značku nebo vyber kategorii.';return;}
   msg.textContent='Načítám z Open Food Facts…';
   document.getElementById('impList').innerHTML='';document.getElementById('impSummary').innerHTML='';document.getElementById('impFooter').innerHTML='';
-  const p=new URLSearchParams();
-  if(brand)p.set('brands_tags',brand.toLowerCase().replace(/\s+/g,'-'));
-  if(cat)p.set('categories_tags_en',cat);
-  if(country)p.set('countries_tags_en',country);
-  p.set('fields','code,product_name,product_name_cs,brands,categories,quantity,nutriments,allergens_tags,ingredients_text_cs,ingredients_text,image_front_small_url');
-  p.set('page_size','40');p.set('sort_by','popularity_key');
+  const p=offParams(brand,cat,country);p.set('page_size','40');
   try{
     const r=await fetch('https://world.openfoodfacts.org/api/v2/search?'+p.toString());
     const j=await r.json();const prods=j.products||[];
     if(!prods.length){msg.textContent='Nic nenalezeno. Zkus jen značku, jinou kategorii nebo „všechny trhy".';return;}
-    impResults=prods.map(pr=>{
-      const nu=pr.nutriments||{};let kcal=nu['energy-kcal_100g'];if(kcal==null&&nu['energy_100g']!=null)kcal=Math.round(nu['energy_100g']/4.184);
-      const aller=(pr.allergens_tags||[]).filter(Boolean);
-      const ingr=(pr.ingredients_text_cs||pr.ingredients_text||'').slice(0,500);
-      const bn=(pr.brands||'').split(',')[0].trim();const pn=(pr.product_name_cs||pr.product_name||('EAN '+pr.code)).trim();
-      let nm=((bn && !_n(pn).includes(_n(bn)))?bn+' ':'')+pn; nm=nm.trim().slice(0,60);
-      const cd=hasDairy(aller,ingr);
-      return {barcode:pr.code,n:nm,brand:(pr.brands||'').split(',')[0].trim(),ofcat:(pr.categories||'').split(',')[0].trim(),quantity:pr.quantity||'',
-        k:kcal!=null?Math.round(kcal):null,p:+(+nu.proteins_100g||0).toFixed(1),c:+(+nu.carbohydrates_100g||0).toFixed(1),f:+(+nu.fat_100g||0).toFixed(1),
-        fib:+(+nu.fiber_100g||0).toFixed(1),sug:+(+nu.sugars_100g||0).toFixed(1),salt:+(+nu.salt_100g||0).toFixed(1),
-        aller,ingr,imgUrl:pr.image_front_small_url||'',containsDairy:cd,sel:(kcal!=null)};
-    }).filter(x=>x.n&&x.barcode);
+    impResults=prods.map(parseProduct).filter(x=>x.n&&x.barcode);
     renderImpList(msg);
   }catch(e){msg.textContent='Spojení s Open Food Facts selhalo (zkontroluj internet).';}
+}
+/* dohledání konkrétního produktu v OFF přímo z vyhledávání jídla */
+let offResults=[];
+async function offSearchAdd(query){
+  const q=(query||'').trim(); if(!q){toast('Zadej název produktu');return;}
+  openSheet('🔎 Open Food Facts');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=`<div class="muted" id="offMsg" style="font-size:.84rem">Hledám „${q}" v Open Food Facts…</div><div id="offList" style="margin-top:8px"></div>`;
+  const msg=document.getElementById('offMsg');
+  try{
+    const url='https://world.openfoodfacts.org/cgi/search.pl?search_terms='+encodeURIComponent(q)+'&search_simple=1&action=process&json=1&page_size=24&fields='+OFF_FIELDS;
+    const r=await fetch(url);const j=await r.json();const prods=j.products||[];
+    offResults=prods.map(parseProduct).filter(x=>x.n&&x.barcode&&x.k!=null);
+    if(!offResults.length){msg.textContent='V Open Food Facts nic nenalezeno. Zkus jiný název nebo přidej přes čárový kód / ručně.';return;}
+    msg.textContent='Klikni na ＋ a produkt se přidá do tvé databáze i do dne:';
+    document.getElementById('offList').innerHTML=offResults.map((it,i)=>{const viol=it.containsDairy&&dairyActive()?'Obsahuje mléko':dietViolation(it.n);
+      return `<div class="row"><div class="info"><div class="n">${it.n}</div><div class="m">${it.brand?it.brand+' · ':''}${it.k} kcal · B ${it.p} S ${it.c} T ${it.f}</div>${viol?`<span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:'<span class="tg">vhodné</span>'}</div>${it.imgUrl?`<img src="${it.imgUrl}" style="width:42px;height:42px;object-fit:cover;border-radius:8px;flex:0 0 auto">`:''}<button class="add" onclick="offAdd(${i})">＋</button></div>`;}).join('');
+  }catch(e){msg.textContent='Spojení s Open Food Facts selhalo (zkontroluj internet).';}
+}
+function offAdd(i){const it=offResults[i];if(!it)return;
+  const now=new Date().toISOString();const c={added:0,updated:0,skipped:0,conflicts:0};const cust=DB.load('kt_eanfoods',[]);
+  importCandidate(it,cust,c,now);DB.save('kt_eanfoods',cust);
+  toast(c.added?'✅ Přidáno do databáze':'Produkt už v databázi byl');
+  addWithQty(it.n);
 }
 function impViol(it){const v=dietViolation(it.n)||compositionViolation({aller:it.aller,ingr:it.ingr});return it.containsDairy&&dairyActive()?'Obsahuje mléko':v;}
 function renderImpList(msg){
@@ -1222,22 +1291,10 @@ function renderImpList(msg){
 }
 window.impToggle=i=>{impResults[i].sel=!impResults[i].sel;};
 function doImport(){
-  const now=new Date().toISOString();let added=0,updated=0,skipped=0,conflicts=0;const cust=DB.load('kt_eanfoods',[]);
-  impResults.filter(x=>x.sel).forEach(it=>{
-    const food={n:it.n,k:it.k!=null?it.k:0,p:it.p,c:it.c,f:it.f,fib:it.fib,sug:it.sug,salt:it.salt,aller:it.aller,ingr:it.ingr,imgUrl:it.imgUrl,
-      cat:"⭐ Moje potraviny",barcode:it.barcode,brand:it.brand,ofcat:it.ofcat,quantity:it.quantity,
-      source:'open_food_facts',sourceId:it.barcode,importedAt:now,lastSyncedAt:now,
-      containsDairy:it.containsDairy,isSuitableForDefaultUser:!it.containsDairy};
-    const ex=findByBarcode(it.barcode)||findFood(it.n);
-    if(ex){
-      if(ex.manualEdited){conflicts++;return;}                 // ručně upravené nepřepisuj
-      let ch=false;['fib','sug','salt','aller','ingr','imgUrl','brand','ofcat','quantity','barcode'].forEach(k=>{if((ex[k]==null||ex[k]===''||(Array.isArray(ex[k])&&!ex[k].length))&&food[k]!=null&&food[k]!==''){ex[k]=food[k];ch=true;}});
-      ex.lastSyncedAt=now;if(!ex.source)ex.source='open_food_facts';
-      if(ch){const ci=cust.findIndex(c=>c.n===ex.n);if(ci>=0)cust[ci]=ex;updated++;}else skipped++;
-    } else { FOODS.push(food);cust.push(food);added++; }
-  });
+  const now=new Date().toISOString();const c={added:0,updated:0,skipped:0,conflicts:0};const cust=DB.load('kt_eanfoods',[]);
+  impResults.filter(x=>x.sel).forEach(it=>importCandidate(it,cust,c,now));
   DB.save('kt_eanfoods',cust);
-  toast(`✅ Import: +${added} nových, ${updated} doplněno, ${skipped} beze změny${conflicts?', '+conflicts+' ke kontrole':''}`);
+  toast(`✅ Import: +${c.added} nových, ${c.updated} doplněno, ${c.skipped} beze změny${c.conflicts?', '+c.conflicts+' ke kontrole':''}`);
   closeSheet();
 }
 function addWithQty(name){
