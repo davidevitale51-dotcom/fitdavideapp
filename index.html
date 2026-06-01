@@ -954,11 +954,13 @@ function editItemAmt(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
    `<div class="card" id="eiPrev"></div>
     <label>Množství (${it.u})</label><input type="number" id="eiAmt" value="${it.q}">
     ${gMode?`<div class="seg">${[50,100,150,200].map(x=>`<button onclick="document.getElementById('eiAmt').value=${x};eiUpd(${i==null?0:i})">${x}</button>`).join('')}</div>`:''}
+    <div class="card" style="margin-top:10px"><div class="muted" style="font-size:.72rem;margin-bottom:2px">Vliv na příjem (z denního cíle)</div><div id="eiImpact"></div></div>
     <button class="btn block" id="eiSave" style="margin-top:10px">Uložit množství</button>
     ${it.meal&&it.ingr&&it.ingr.length?`<button class="btn ghost block" style="margin-top:8px" onclick="mealItemDetail('${slot}',${i})">🍽️ Složení / upravit ingredience</button>`:''}
     <button class="btn ghost block" style="margin-top:8px;color:#c0392b" onclick="rmItem('${slot}',${i});closeSheet()">Smazat z dne</button>`;
   window.eiUpd=()=>{const v=parseFloat(document.getElementById('eiAmt').value)||0;const m=itemMacro(Object.assign({},it,{q:v}));
-    document.getElementById('eiPrev').innerHTML=`<div class="big" style="font-size:1.5rem;font-weight:850">${round(m.k)} kcal</div><div class="muted">B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)} g</div>`;};
+    document.getElementById('eiPrev').innerHTML=`<div class="big" style="font-size:1.5rem;font-weight:850">${round(m.k)} kcal</div><div class="muted">B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)} g</div>`;
+    document.getElementById('eiImpact').innerHTML=awImpact(m);};
   document.getElementById('eiAmt').oninput=window.eiUpd; window.eiUpd();
   document.getElementById('eiSave').onclick=()=>{const v=parseFloat(document.getElementById('eiAmt').value);if(!(v>0)){toast('Zadej množství');return;}it.q=v;DB.save('kt_days',days);renderDash();closeSheet();toast('Upraveno');};
 }
