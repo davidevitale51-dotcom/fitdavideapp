@@ -757,6 +757,9 @@ let water  = DB.load('kt_water', {});      // {date: ml}
 let acts   = DB.load('kt_acts', {});       // {date:[{n,min,kcal}]}
 let weights= DB.load('kc_weights', []);    // [{d,v}]
 let favs   = DB.load('kt_favs', []);       // [name]
+let freq   = DB.load('kt_freq', {});       // {name: počet přidání} – pro „Nejčastější"
+function bumpFreq(n){ if(!n)return; freq[n]=(freq[n]||0)+1; DB.save('kt_freq',freq); }
+function topFreq(limit){ return Object.keys(freq).sort((a,b)=>freq[b]-freq[a]).slice(0,limit||8); }
 let myMeals= DB.load('kc_meals', []);      // [{n,items:[[n,q,u]]}]
 let target = DB.load('kt_target', {kcal:1800,prot:160,carb:165,fat:60,fib:30,sugar:90,salt:6,water:3.5,weight:95});
 if(target.sugar==null)target.sugar=90; if(target.salt==null)target.salt=6;
@@ -1040,8 +1043,15 @@ function fillAddList(){
       <div class="muted" style="font-size:.78rem;margin-bottom:6px">${anyLocal?'Nenašel jsi konkrétní produkt?':'V tvé databázi nic takového není.'}</div>
       <button class="btn sec block" onclick="offSearchAdd(document.getElementById('addSearch').value)">🔎 Dohledat „${(addQuery||'').replace(/"/g,'&quot;').slice(0,30)}" v Open Food Facts</button></div>`;
   } else if(addTab==='potraviny'){
+    if(!q&&addFilters.size===0){
+      const recent=topFreq(8).filter(nm=>findFood(nm));
+      if(recent.length){h+=`<div class="muted" style="font-size:.74rem;padding:4px 0 2px">⭐ Nejčastější</div>`+
+        recent.map(nm=>{const f=findFood(nm);const viol=dietViolation(nm);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(nm,q0,u);
+          return rowHTML(nm,`${freq[nm]}× · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`,[],`addFoodChecked('${esc(nm)}',${q0},'${u}')`,`addWithQty('${esc(nm)}')`,viol,nm);});}).join('')+
+        `<div class="muted" style="font-size:.74rem;padding:8px 0 2px;border-top:1px solid var(--line);margin-top:6px">Vše</div>`;}
+    }
     const items=FOODS.filter(f=>(!q||norm(f.n).includes(q))&&foodMatchesFilter(f)).slice(0,120);
-    h=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
+    h+=items.map(f=>{const viol=dietViolation(f.n);return gate(viol,()=>{const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);
       return rowHTML(f.n, `${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`, [], `addFoodChecked('${esc(f.n)}',${q0},'${u}')`, `addWithQty('${esc(f.n)}')`, viol, f.n);});}).join('');
   } else if(addTab==='hotova'){
     let items=PREP.filter(p=>(!q||norm(p.n).includes(q))&&prepMatchesFilter(p));
@@ -1087,7 +1097,7 @@ function rowHTML(name,meta,tags,addFn,clickFn,warn,favName){
     </div><div style="display:flex;gap:6px;align-items:center;flex:0 0 auto">${star}<button class="add" onclick="${addFn}" ${warn?'style="background:#c0392b"':''}>＋</button></div></div>`;
 }
 function dietActiveLabel(){const a=[];if(dairyActive())a.push('bez mléka');if(diet.vegan)a.push('vegan');else if(diet.vegetarian)a.push('vegetariánské');if(diet.glutenFree)a.push('bez lepku');if(diet.noPork)a.push('bez vepřového');if(diet.noFish)a.push('bez ryb');if(diet.noNuts)a.push('bez ořechů');if(diet.noEgg)a.push('bez vajec');if((diet.excl||[]).length)a.push('vlastní');return a.join(', ');}
-function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
+function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); bumpFreq(n); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
 /* kontrola dietního profilu – při porušení vyskočí pop-up s vykřičníkem */
 function confirmViol(n,q,u,viol,closeAfter){
   const alt=altFor(n);
@@ -1123,7 +1133,7 @@ function prepPortion(idx){const p=PREP[idx];
 function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;
   const d=dayObj(selDate); if(!d[slot])d[slot]=[];
   d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
-  DB.save('kt_days',days);toast('Přidáno: '+p.n);renderDash();closeSheet();
+  DB.save('kt_days',days);bumpFreq(p.n);toast('Přidáno: '+p.n);renderDash();closeSheet();
 }
 function myMealMac(m){return m.manual?{k:m.k||0,p:m.p||0,c:m.c||0,f:m.f||0,fib:m.fib||0,sug:m.sug||0,salt:m.salt||0}:sumItems((m.items||[]).map(x=>({n:x[0],q:x[1],u:x[2]})));}
 function addMyMeal(i){ const m=myMeals[i];
@@ -1352,28 +1362,72 @@ function doImport(){
   toast(`✅ Import: +${c.added} nových, ${c.updated} doplněno, ${c.skipped} beze změny${c.conflicts?', '+c.conflicts+' ke kontrole':''}`);
   closeSheet();
 }
+/* přednastavené porce dle typu potraviny – [popis, gramáž] */
+const PORTION_PRESETS=[
+  [/vejc/, [['malý kus (50 g)',50],['kus (55 g)',55],['velký kus (60 g)',60]]],
+  [/rohlík|houska|pečivo/, [['kus (43 g)',43],['větší kus (60 g)',60]]],
+  [/chl(e|é)b|chleba|toust/, [['krajíc (35 g)',35],['silný krajíc (50 g)',50]]],
+  [/banán/, [['kus (120 g)',120]]],
+  [/jablko|hruška/, [['kus (180 g)',180]]],
+  [/jogurt|skyr|tvaroh/, [['kelímek (150 g)',150],['velké balení (400 g)',400]]],
+  [/lžíce|olej|máslo|mast/, [['lžíce (15 g)',15],['lžička (5 g)',5]]],
+  [/rýže|těstoviny|kuskus|bulgur|vločky/, [['hrnek vařené (180 g)',180],['příloha (125 g)',125]]],
+];
+function portionPresets(f){
+  const n=norm(f.n); for(const [re,arr] of PORTION_PRESETS){ if(re.test(n)) return arr; }
+  return [];
+}
+/* živé barevné kroužky „Vliv na příjem" – příspěvek porce k dennímu cíli */
+function awImpact(m){
+  const rows=[['Energie',m.k,target.kcal,'kcal'],['Bílkoviny',m.p,target.prot,'g'],
+    ['Sacharidy',m.c,target.carb,'g'],['Tuky',m.f,target.fat,'g'],
+    ['Vláknina',m.fib,target.fib,'g'],['Cukry',m.sug,target.sugar,'g']];
+  return `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:8px">`+
+    rows.map(([nm,v,g,u])=>{const p=g?v/g:0;
+      const band=p<=0.8?'#f0b400':p<=1.2?'#36b06a':'#e0533f';
+      return `<div style="text-align:center"><div style="position:relative;display:inline-block">${ringSVG(Math.min(p,1),band,58,7)}
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center">
+          <b style="font-size:.78rem">${v.toFixed(g<10?1:0)}</b><small style="color:${band};font-size:.62rem">${round(p*100)}%</small></div></div>
+        <div class="muted" style="font-size:.66rem;margin-top:1px">${nm}</div></div>`;}).join('')+`</div>`;
+}
 function addWithQty(name){
   const f=findFood(name); if(!f){toast('Potravina nenalezena');return;}
   stopScanner();
   openSheet('Přidat: '+name.slice(0,28)); document.getElementById('sheetTabs').innerHTML='';
-  const units=f.unit?[f.unit]:(f.g?['ks','g']:['g']);
+  // sestav jednotky: g/ml/ks + přednastavené porce (value „p:<gramáž>")
+  const presets=portionPresets(f);
+  const opts=[];
+  if(f.unit){opts.push(['u:'+f.unit,f.unit]);}
+  else{ opts.push(['u:g','g']); if(f.g) opts.push(['u:ks','kus ('+f.g+' g)']);
+    presets.forEach(([lbl,g])=>opts.push(['p:'+g,lbl])); }
   document.getElementById('sheetBody').innerHTML=
-   `<div class="card" id="awPrev"></div>
-    <div style="display:flex;gap:10px">
-      <div style="flex:1"><label>Množství</label><div style="display:flex;gap:6px"><input type="number" id="awQty" style="flex:1"><select id="awUnit" style="width:70px">${units.map(u=>`<option>${u}</option>`).join('')}</select></div></div>
+   `<div class="card"><div id="awPrevH"></div><div class="muted" style="font-size:.72rem;margin:6px 0 0">Vliv na příjem (z denního cíle)</div><div id="awImpact"></div></div>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <div style="flex:1"><label>Množství</label><div style="display:flex;gap:6px"><input type="number" id="awQty" style="flex:1"><select id="awUnit" style="flex:1.3">${opts.map(([v,l])=>`<option value="${v}">${l}</option>`).join('')}</select></div></div>
     </div>
-    <label style="margin-top:8px">Do jídla</label><select id="awSlot">${SLOTS.map(s=>`<option value="${s.k}">${s.ic} ${s.l}</option>`).join('')}</select>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <div style="flex:1"><label>Do jídla</label><select id="awSlot">${SLOTS.map(s=>`<option value="${s.k}"${s.k===addSlot?' selected':''}>${s.ic} ${s.l}</option>`).join('')}</select></div>
+      <div style="flex:1"><label>Datum</label><input type="date" id="awDate" value="${selDate}"></div>
+    </div>
     <button class="btn block" id="awAdd" style="margin-top:12px">Přidat do dne</button>`;
   const qa=document.getElementById('awQty'),ua=document.getElementById('awUnit');
-  ua.value=units[0]; qa.value=units[0]==='g'?100:1;
-  const prev=()=>{const m=macroOne(name,+qa.value||0,ua.value);document.getElementById('awPrev').innerHTML=`<div style="font-size:1.3rem;font-weight:850">${round(m.k)} kcal</div><div class="muted">B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)} g</div>`;};
-  ua.onchange=()=>{qa.value=ua.value==='g'?100:1;prev();}; qa.oninput=prev; prev();
+  // přepočet zvolené jednotky na (množství, jednotka) pro macroOne
+  const resolve=()=>{const sel=ua.value;const q=+qa.value||0;
+    if(sel.startsWith('p:')){const g=+sel.slice(2);return{q:q*g,u:'g'};}
+    if(sel==='u:ks')return{q,u:'ks'}; return{q,u:f.unit||'g'};};
+  ua.value=opts[0][0]; qa.value=ua.value==='u:g'?100:1;
+  const prev=()=>{const r=resolve();const m=macroOne(name,r.q,r.u);
+    document.getElementById('awPrevH').innerHTML=`<div style="font-size:1.3rem;font-weight:850">${round(m.k)} kcal</div><div class="muted">B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)} g</div>`;
+    document.getElementById('awImpact').innerHTML=awImpact(m);};
+  ua.onchange=()=>{qa.value=ua.value==='u:g'?100:1;prev();}; qa.oninput=prev; prev();
   document.getElementById('awAdd').onclick=()=>{const q=+qa.value;if(!(q>0)){toast('Zadej množství');return;}
     addSlot=document.getElementById('awSlot').value;
-    const v=dietViolation(name); if(v){confirmViol(name,q,ua.value,v);return;}
-    addFood(name,q,ua.value); closeSheet();};
+    const dv=document.getElementById('awDate').value; if(dv)selDate=dv;
+    const r=resolve();
+    const v=dietViolation(name); if(v){confirmViol(name,r.q,r.u,v);return;}
+    addFood(name,r.q,r.u); closeSheet();};
   // fotky obalu / tabulky (pokud u potraviny jsou)
-  if(f.imgN||f.imgP||f.imgUrl){const p=document.getElementById('awPrev');
+  if(f.imgN||f.imgP||f.imgUrl){const p=document.getElementById('awImpact');
     p.innerHTML+=`<div style="display:flex;gap:8px;margin-top:8px">${f.imgN?`<img src="${f.imgN}" onclick="zoomImg('${'imgN'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}${f.imgP?`<img src="${f.imgP}" onclick="zoomImg('${'imgP'}','${esc(name)}')" style="width:48%;border-radius:10px;cursor:pointer">`:''}${f.imgUrl?`<img src="${f.imgUrl}" style="width:48%;border-radius:10px">`:''}</div>${f.brand||f.quantity?`<div class="muted" style="font-size:.74rem;margin-top:4px">${[f.brand,f.quantity].filter(Boolean).join(' · ')}${f.source==='open_food_facts'?' · zdroj: Open Food Facts':''}</div>`:''}`;}
 }
 function zoomImg(which,name){const f=findFood(name);if(!f)return;const src=f[which];if(!src)return;
