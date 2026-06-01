@@ -884,7 +884,7 @@ function renderDash(){
   // meals
   document.getElementById('mealsWrap').innerHTML=SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
-    const lis=items.map((it,i)=>`<div class="li"><span>${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
+    const lis=items.map((it,i)=>`<div class="li"><span ${it.meal?`onclick="mealItemDetail('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)"`:''}>${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}${it.meal?' ›':''}</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
     return `<div class="meal"><div class="mi">${s.ic}</div><div class="body">
       <div class="t"><span>${s.l}</span><span class="kc">${items.length?round(t.k)+' kcal':''}</span></div>
       ${items.length?`<div class="items">${lis}</div><div class="macs">B ${round(t.p)} g · S ${round(t.c)} g · T ${round(t.f)} g</div>`:`<div class="empty-h">Zatím prázdné — přidej jídlo</div>`}
@@ -903,6 +903,21 @@ function rmItem(slot,i){const d=dayObj(selDate);d[slot].splice(i,1);if(!d[slot].
   if(dayState(selDate)!=='past'){const r=dayRemain(selDate);
     if(r.p>=25) toast('Chybí ti '+round(r.p)+' g bílkovin — koukni do Hotová jídla na návrh 💡');
     else if(r.fib>=10) toast('Málo vlákniny — v Hotová jídla najdeš návrh 💡');}}
+/* detail hotového jídla z deníku – složení + makra na danou porci */
+function mealItemDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
+  const m=itemMacro(it);const q=it.q||1;const base=PREP.find(x=>x.n===it.n);
+  openSheet(it.n);document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="muted" style="font-size:.82rem;margin-bottom:6px">${base?base.cat+' · ':''}${q} porce${base?' · 1 porce ~'+base.srvG+' g':''}</div>
+    <div class="card"><div class="big" style="font-size:1.7rem;font-weight:850">${round(m.k)} kcal</div>
+      <div class="muted">B ${round(m.p)} g · S ${round(m.c)} g · T ${round(m.f)} g · vláknina ${round(m.fib)} g · cukry ${round(m.sug)} g · sůl ${m.salt.toFixed(1)} g</div></div>
+    <h4 style="margin:8px 0 4px">Složení potravin</h4>
+    ${(it.ingr&&it.ingr.length)?it.ingr.map(ing=>`<div class="row"><div class="info"><div class="n">${(ing[0]||'').replace(/ \(.*?\)/,'')}</div>${ing[1]?`<div class="m">${(parseFloat(ing[1])*q)||ing[1]} ${ing[2]||''}${q!==1?' (×'+q+' porce)':''}</div>`:''}</div></div>`).join(''):'<p class="muted">Složení není u tohoto jídla uvedené.</p>'}
+    ${base&&base.conf==='estimated'?'<div class="muted" style="font-size:.74rem;margin-top:6px">Nutriční hodnoty jsou orientační.</div>':''}
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button class="btn ghost block" onclick="closeSheet()">Zavřít</button>
+      <button class="btn" style="background:#c0392b" onclick="rmItem('${slot}',${i});closeSheet()">Smazat z dne</button></div>`;
+}
 
 /* ====== SHEET (modal) ====== */
 const ovl=document.getElementById('ovl');
@@ -1041,7 +1056,7 @@ function prepPortion(idx){const p=PREP[idx];
     <div style="display:flex;gap:8px;align-items:flex-end"><div style="flex:1"><label>Vlastní gramáž (g)</label><input type="number" id="pmG" placeholder="${p.srvG}"></div>
       <button class="btn" onclick="(function(){var g=parseFloat(document.getElementById('pmG').value);if(g>0)addMealToDay(${idx},g/${p.srvG});})()">Přidat</button></div>`;
 }
-function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=slEl?slEl.value:addSlot;
+function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;
   const d=dayObj(selDate); if(!d[slot])d[slot]=[];
   d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
   DB.save('kt_days',days);toast('Přidáno: '+p.n);renderDash();closeSheet();
@@ -1509,20 +1524,40 @@ function pickPrep(slot,usedIdx){
   return PREP.indexOf(p);
 }
 const PLAN_SLOTS=['snidane','svacina1','obed','svacina2','vecere'];
+const SLOT_W={snidane:0.20,svacina1:0.12,obed:0.30,svacina2:0.12,vecere:0.26};
+/* picker, který vybere jídlo s kcal blízko rozpočtu daného slotu */
+function pickPrepB(slot,used,budget){
+  const suitable=PREP.filter(p=>!mealViol(p));
+  let pool=suitable.filter(p=>p.slots.includes(slot));
+  const pref=[...planPrefSet].filter(pr=>pr!=='bez mléka');
+  const wp=pool.filter(p=>pref.every(pr=>p.tags.includes(pr))); if(wp.length)pool=wp;
+  if(!pool.length)pool=suitable.filter(p=>p.slots.includes(slot));
+  if(!pool.length)pool=suitable;
+  if(!pool.length)return -1;
+  let fresh=pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
+  fresh=fresh.slice().sort((a,b)=>Math.abs(a.k-budget)-Math.abs(b.k-budget));
+  const top=fresh.slice(0,3); const p=top[Math.floor(Math.random()*top.length)];
+  return PREP.indexOf(p);
+}
+/* faktor porcí, aby se celkové kcal blížilo dennímu cíli (±10 %), omezeno 0.8–1.3× */
+function recalcFactor(day){let base=0;Object.values(day.slots).forEach(i=>base+=PREP[i].k);if(base<=0)return 1;
+  let f=target.kcal/base; f=Math.max(0.8,Math.min(1.3,f)); return Math.round(f*20)/20;}
 function genPlan(){
   const from=document.getElementById('planFrom').value||todayISO;
   const out=[];const used=new Set();
   for(let d=0;d<planDaysN;d++){const dt=new Date(from);dt.setDate(dt.getDate()+d);const date=iso(dt);
-    const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrep(s,used);if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});out.push({date,slots});}
+    const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2));if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});
+    const day={date,slots};day.factor=recalcFactor(day);out.push(day);}
   lastPlan={from,days:out};renderPlanOut();
 }
-function planDayMacros(day){let o={k:0,p:0,c:0,f:0,fib:0};Object.values(day.slots).forEach(idx=>{const t=mealMac(PREP[idx],1);o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
+function planDayMacros(day){const fac=day.factor||1;let o={k:0,p:0,c:0,f:0,fib:0};Object.values(day.slots).forEach(idx=>{const t=mealMac(PREP[idx],fac);o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
 function renderPlanOut(){
   const wrap=document.getElementById('planOut');if(!lastPlan){wrap.innerHTML='';return;}
-  wrap.innerHTML=lastPlan.days.map((day,di)=>{const t=planDayMacros(day);
+  wrap.innerHTML=lastPlan.days.map((day,di)=>{const t=planDayMacros(day);const fac=day.factor||1;
+    const inRange=Math.abs(t.k-target.kcal)<=target.kcal*0.10;
     const warn=t.p<target.prot-20?`<div class="muted" style="color:#c9534a;font-size:.8rem;margin-top:4px">Po úpravách chybí ${round(target.prot-t.p)} g bílkovin — přidej proteinovou svačinu.</div>`:'';
-    return `<div class="card"><div class="card-h"><h3>Den ${di+1} · ${day.date}</h3><span class="kc" style="color:var(--green-d);font-weight:800">${round(t.k)} kcal</span></div>
-      <div class="muted" style="font-size:.78rem;margin-bottom:6px">B ${round(t.p)} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g</div>
+    return `<div class="card"><div class="card-h"><h3>Den ${di+1} · ${day.date}</h3><span class="kc" style="color:${inRange?'var(--green-d)':'#c0392b'};font-weight:800">${round(t.k)} kcal ${inRange?'✓':''}</span></div>
+      <div class="muted" style="font-size:.78rem;margin-bottom:6px">cíl ${target.kcal} ±10 % · porce ×${fac} · B ${round(t.p)} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g</div>
       ${PLAN_SLOTS.map(s=>{const idx=day.slots[s];const sl=SLOTS.find(x=>x.k===s);const p=idx!=null?PREP[idx]:null;
         return `<div class="meal" style="padding:8px 2px"><div class="mi">${sl.ic}</div><div class="body"><div class="t"><span style="font-size:.82rem${p?'':';color:var(--muted)'}">${sl.l}: ${p?p.n:'— bez vhodného návrhu —'}</span></div></div>
         <button class="plus" onclick="swapMeal(${di},'${s}')">🔄</button></div>`;}).join('')}
@@ -1548,8 +1583,8 @@ function planDayChanged(di){const day=lastPlan.days[di];
   const real=PLAN_SLOTS.map(s=>(slotItems(day.date,s).map(it=>it.n).join(','))).join('|');
   return sugg!==real;
 }
-function swapMeal(di,slot){const used=new Set(Object.values(lastPlan.days[di].slots));const idx=pickPrep(slot,used);if(idx>=0)lastPlan.days[di].slots[slot]=idx;renderPlanOut();}
-function acceptDay(di){const day=lastPlan.days[di];const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
+function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2));if(idx>=0)day.slots[slot]=idx;day.factor=recalcFactor(day);renderPlanOut();}
+function acceptDay(di){const day=lastPlan.days[di];const fac=day.factor||1;const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=[{n:p.n,q:fac,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
 
 /* ====== NÁKUPNÍ SEZNAM (samostatná záložka, perzistentní) ====== */
 let shopState=DB.load('kt_shop',[]);     // [{n,u,q,done,cat,range?}]
@@ -1569,7 +1604,7 @@ function mergeAgg(agg){
 }
 function setShopFromPlan(){
   const agg={};
-  lastPlan.days.forEach(day=>Object.values(day.slots).forEach(idx=>(PREP[idx].ingr||[]).forEach(([n,q,u])=>{if(!n)return;const key=n+'|'+(u||'');agg[key]=(agg[key]||0)+(parseFloat(q)||0);})));
+  lastPlan.days.forEach(day=>{const fac=day.factor||1;Object.values(day.slots).forEach(idx=>(PREP[idx].ingr||[]).forEach(([n,q,u])=>{if(!n)return;const key=n+'|'+(u||'');agg[key]=(agg[key]||0)+(parseFloat(q)||0)*fac;}));});
   shopState=mergeAgg(agg);
   shopRange=lastPlan.days.length>1?(lastPlan.days[0].date+' – '+lastPlan.days[lastPlan.days.length-1].date):lastPlan.days[0].date;
   saveShop();gotoNakup();
