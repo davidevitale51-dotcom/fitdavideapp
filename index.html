@@ -188,8 +188,6 @@
     </div>
   </div>
 
-  <div class="card" id="stepsCard"></div>
-
   <div class="card">
     <div class="card-h"><h3>Nutrienty</h3><button class="linkbtn" id="nutToggle">skrýt</button></div>
     <div class="nutgrid" id="nutGrid"></div>
@@ -203,6 +201,8 @@
       <button class="btn ghost" id="useTplBtn" style="flex:1;font-size:.82rem">📁 Vložit šablonu</button>
     </div>
   </div>
+
+  <div class="card" id="stepsCard"></div>
 
   <div class="card waterCard">
     <div class="card-h"><h3>💧 Pitný režim</h3><button class="iconbtn" id="waterPlus" style="background:#fff">＋</button></div>
@@ -317,10 +317,7 @@
     </details>
   </div>
   <div class="card"><h3 style="margin-bottom:8px">Aktualizace</h3>
-    <button class="btn block" id="forceUpd2">🔄 Vynutit aktualizaci appky</button>
-    <details class="setblk" style="margin-top:8px"><summary><span class="muted" style="font-size:.8rem">Co to dělá</span></summary>
-      <p class="muted" style="font-size:.76rem;margin:8px 0 0">Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
-    </details>
+    <p class="muted" style="font-size:.78rem;margin:0">Tlačítko <b>„🔄 Aktualizovat appku"</b> najdeš nahoře. Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
   </div>
   <div class="card">
     <details class="setblk"><summary><h3 style="display:inline;margin:0">Záloha a import dat</h3></summary>
@@ -1043,7 +1040,7 @@ function renderDash(){
   const isTrain=(days[selDate]||{}).train;
   if(typeof renderSteps==='function')renderSteps();
   const aT=document.getElementById('aTrain');
-  if(aT){aT.style.background=isTrain?'#36b06a':'#e0533f';aT.style.color='#fff';aT.title=isTrain?'Silový trénink zapnut':'Silový trénink vypnut';}
+  if(aT){aT.style.background=isTrain?'#e0533f':'#36b06a';aT.style.color='#fff';aT.title=isTrain?'Silový trénink zapnut – klepni pro vypnutí':'Silový trénink vypnut – klepni pro zapnutí';}
   const eatLabel= st==='future'?'Naplánováno':'Snědeno';
   document.getElementById('eEatenL').textContent=eatLabel;
   document.getElementById('eEaten').textContent=round(tot.k);
