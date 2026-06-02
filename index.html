@@ -183,8 +183,7 @@
     <div class="actions">
       <button class="act main" id="aAdd">＋</button>
       <button class="act" id="aBar">▮▯▮</button>
-      <button class="act" id="aMic">🎤</button>
-      <button class="act" id="aCam">📷</button>
+      <button class="act" id="aTrain">🏋️</button>
       <button class="act" id="aAct">🏃</button>
     </div>
   </div>
@@ -1346,8 +1345,7 @@ function toggleFav(n){const i=favs.indexOf(n);if(i>=0)favs.splice(i,1);else favs
 /* action bar */
 document.getElementById('aAdd').onclick=()=>openAdd(defaultSlotByTime());
 document.getElementById('aBar').onclick=()=>eanFlow();
-document.getElementById('aMic').onclick=()=>{toast('Hlasové zadání chce nativní appku — přidej zatím ručně.');openAdd(defaultSlotByTime());};
-document.getElementById('aCam').onclick=()=>{toast('Foto-rozpoznání chce nativní appku — přidej zatím ručně.');openAdd(defaultSlotByTime());};
+document.getElementById('aTrain').onclick=()=>toggleTrain();
 document.getElementById('aAct').onclick=()=>actFlow();
 /* výchozí fáze dne podle aktuálního času telefonu */
 function defaultSlotByTime(){const h=new Date().getHours();
