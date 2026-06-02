@@ -260,6 +260,7 @@
 <!-- ============ VÍCE ============ -->
 <section class="screen" id="scr-vice"><div class="wrap">
   <div class="topbar"><span class="title">⚙️ Více</span></div>
+  <button class="btn block" id="forceUpd" style="margin-bottom:12px">🔄 Aktualizovat appku</button>
   <div class="card">
     <details class="setblk"><summary><h3 style="display:inline;margin:0">Denní cíle</h3></summary>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
@@ -300,27 +301,37 @@
       <button class="btn sec block" id="saveSteps" style="margin-top:10px">Uložit nastavení kroků</button>
     </details>
   </div>
-  <div class="card"><h3 style="margin-bottom:4px">🥗 Diety a omezení</h3>
-    <p class="muted" style="font-size:.78rem;margin-bottom:10px">Tato pravidla platí všude — návrhy jídelníčku, hotová jídla, vyhledávání i nákupní seznam nikdy nenavrhnou nevhodné jídlo.</p>
+  <div class="card">
+    <details class="setblk"><summary><h3 style="display:inline;margin:0">🥗 Diety a omezení</h3></summary>
+    <p class="muted" style="font-size:.78rem;margin:10px 0">Tato pravidla platí všude — návrhy jídelníčku, hotová jídla, vyhledávání i nákupní seznam nikdy nenavrhnou nevhodné jídlo.</p>
     <div id="dietOpts"></div>
     <label style="margin-top:10px">Vlastní vyloučené suroviny (oddělené čárkou)</label>
     <input type="text" id="dietExcl" placeholder="např. cibule, houby">
     <button class="btn block" id="saveDiet" style="margin-top:12px">Uložit dietní profil</button>
+    </details>
   </div>
   <div class="card"><h3 style="margin-bottom:8px">📦 Import produktů</h3>
-    <p class="muted" style="font-size:.76rem;margin-bottom:8px">Načte značkové a balené výrobky z otevřené databáze Open Food Facts (vyžaduje internet). Nevhodné dle profilu se označí, duplicity přeskočí.</p>
     <button class="btn block" id="openImport">📦 Import z Open Food Facts</button>
+    <details class="setblk" style="margin-top:8px"><summary><span class="muted" style="font-size:.8rem">O importu</span></summary>
+      <p class="muted" style="font-size:.76rem;margin:8px 0 0">Načte značkové a balené výrobky z otevřené databáze Open Food Facts (vyžaduje internet). Nevhodné dle profilu se označí, duplicity přeskočí.</p>
+    </details>
   </div>
   <div class="card"><h3 style="margin-bottom:8px">Aktualizace</h3>
-    <button class="btn block" id="forceUpd">🔄 Vynutit aktualizaci appky</button>
-    <p class="muted" style="font-size:.76rem;margin-top:8px">Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
+    <button class="btn block" id="forceUpd2">🔄 Vynutit aktualizaci appky</button>
+    <details class="setblk" style="margin-top:8px"><summary><span class="muted" style="font-size:.8rem">Co to dělá</span></summary>
+      <p class="muted" style="font-size:.76rem;margin:8px 0 0">Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
+    </details>
   </div>
-  <div class="card"><h3 style="margin-bottom:8px">Data</h3>
-    <button class="btn block" id="shareBackup" style="margin-bottom:8px">☁️ Záloha do iCloud / Soubory</button>
-    <button class="btn ghost block" id="exportData" style="margin-bottom:8px">⬇️ Stáhnout zálohu (soubor)</button>
-    <button class="btn ghost block" id="importData">⬆️ Import dat</button>
-    <input type="file" id="importFile" accept="application/json" style="display:none">
-    <p class="muted" style="font-size:.78rem;margin-top:10px">Profil: muž, 34 let, 181 cm. Bezmléčný režim. Data jsou uložená jen v tomto zařízení.</p>
+  <div class="card">
+    <details class="setblk"><summary><h3 style="display:inline;margin:0">Záloha a import dat</h3></summary>
+    <div style="margin-top:10px">
+      <button class="btn block" id="shareBackup" style="margin-bottom:8px">☁️ Záloha do iCloud / Soubory</button>
+      <button class="btn ghost block" id="exportData" style="margin-bottom:8px">⬇️ Stáhnout zálohu (soubor)</button>
+      <button class="btn ghost block" id="importData">⬆️ Import dat</button>
+      <input type="file" id="importFile" accept="application/json" style="display:none">
+      <p class="muted" style="font-size:.78rem;margin-top:10px">Profil: muž, 34 let, 181 cm. Bezmléčný režim. Data jsou uložená jen v tomto zařízení.</p>
+    </div>
+    </details>
   </div>
 </div></section>
 
@@ -2247,13 +2258,15 @@ document.getElementById('saveDiet').onclick=()=>{
 
 /* export / import */
 document.getElementById('openImport').onclick=openImport;
-document.getElementById('forceUpd').onclick=async()=>{
+async function doForceUpd(){
   toast('Aktualizuji…');
   try{ if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));}
     if(navigator.serviceWorker){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}
   }catch(e){}
   location.reload();
-};
+}
+document.getElementById('forceUpd').onclick=doForceUpd;
+{const f2=document.getElementById('forceUpd2');if(f2)f2.onclick=doForceUpd;}
 function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
