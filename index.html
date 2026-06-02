@@ -188,8 +188,6 @@
     </div>
   </div>
 
-  <div id="trainWrap"></div>
-
   <div class="card" id="stepsCard"></div>
 
   <div class="card">
@@ -216,6 +214,8 @@
     <div class="card-h"><h3>⚖️ Hmotnost</h3><button class="iconbtn" id="weightEdit" style="background:#fff">✏️</button></div>
     <div class="bigrow"><div><span class="v" id="weightV">—</span> <span class="l">kg · cíl <span id="weightGoal">—</span></span></div></div>
   </div>
+
+  <div id="trainWrap"></div>
 </div></section>
 
 <!-- ============ PROGRES ============ -->
@@ -1042,6 +1042,8 @@ function renderDash(){
   const st=dayState(selDate);
   const isTrain=(days[selDate]||{}).train;
   if(typeof renderSteps==='function')renderSteps();
+  const aT=document.getElementById('aTrain');
+  if(aT){aT.style.background=isTrain?'#36b06a':'#e0533f';aT.style.color='#fff';aT.title=isTrain?'Silový trénink zapnut':'Silový trénink vypnut';}
   const eatLabel= st==='future'?'Naplánováno':'Snědeno';
   document.getElementById('eEatenL').textContent=eatLabel;
   document.getElementById('eEaten').textContent=round(tot.k);
