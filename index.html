@@ -1670,20 +1670,80 @@ function applyTpl(i){const t=templates[i];if(!t)return;
   if(SLOTS.some(s=>slotItems(selDate,s.k).length)&&!confirm('Přepsat obsah dne šablonou „'+t.n+'"?'))return;
   days[selDate]=JSON.parse(JSON.stringify(t.slots));DB.save('kt_days',days);closeSheet();renderDash();toast('📁 Vloženo: '+t.n);}
 function delTpl(i){if(!confirm('Smazat šablonu „'+templates[i].n+'"?'))return;templates.splice(i,1);DB.save('kt_templates',templates);document.getElementById('useTplBtn').click();}
-document.getElementById('analyzaBtn').onclick=()=>{
-  const t=dayTotals(selDate);const msgs=[];
-  const dk=t.k-target.kcal;
-  msgs.push(Math.abs(dk)<=120?'Kalorie jsou prakticky v cíli. 👍':(dk<0?`Jsi ${round(-dk)} kcal pod cílem.`:`Jsi ${round(dk)} kcal nad cílem.`));
-  if(t.p<target.prot-15)msgs.push(`Chybí ${round(target.prot-t.p)} g bílkovin — přidej tofu, kuře, rybu nebo proteinovou svačinu.`);
-  else msgs.push('Bílkoviny jsou v pořádku. 💪');
-  if(t.c>target.carb*1.1)msgs.push('Sacharidy jsou vysoko — uber přílohu nebo sladké.');
-  if(t.f>target.fat*1.1)msgs.push('Tuky jsou nad cílem — uber olej/ořechy.');
-  if(t.fib<target.fib-6)msgs.push(`Málo vlákniny (${round(t.fib)} g) — přidej zeleninu, luštěniny nebo celozrnné.`);
+document.getElementById('analyzaBtn').onclick=()=>dayAnalysis();
+/* denní doba podle hodiny */
+function timePhase(h){
+  if(h>=3&&h<9)return'rano';
+  if(h>=9&&h<11)return'dopo';
+  if(h>=11&&h<14)return'obed';
+  if(h>=14&&h<18)return'odpo';
+  if(h>=18&&h<22)return'vecer';
+  return'pozde';
+}
+/* návrh konkrétního hotového jídla dle zbývajících kcal a bílkovin */
+function suggestConcrete(remK,remP){
+  let pool=PREP.filter(p=>!mealViol(p));
+  if(remP>15)pool=pool.filter(p=>p.p>=18);
+  if(remK>200)pool=pool.filter(p=>p.k<=remK+150); else if(remK>0)pool=pool.filter(p=>p.k<=remK+120);
+  pool.sort((a,b)=>(b.p)-(a.p));
+  return pool[0]||null;
+}
+function dayAnalysis(){
+  const g=effTarget(selDate), t=dayTotals(selDate);
+  const isTrain=(days[selDate]||{}).train;
+  const remK=g.kcal-t.k, remP=g.prot-t.p;
+  const w=(water[selDate]||0)/1000;
+  const hasObed=slotItems(selDate,'obed').length>0, hasVecere=slotItems(selDate,'vecere').length>0;
+  const phase=(selDate===todayISO)?timePhase(new Date().getHours()):'obed';
+  const over=remK<-100;
+  // 1) shrnutí + 2) kcal + 3) bílkoviny
+  let summary;
+  if(over)summary=`Jsi ${round(-remK)} kcal nad cílem.${remP>15?` Bílkovin ti ještě chybí ${round(remP)} g.`:' Bílkoviny máš pokryté.'}`;
+  else summary=`Zatím jsi ${round(remK)} kcal pod cílem${remP>5?` a chybí ti ${round(remP)} g bílkovin.`:' a bílkoviny máš skoro hotové.'}`;
+  // 4) doporučení dle denní doby
+  let rec;
+  if(over){
+    rec='Cíl máš naplněný — další jídlo už jen lehké, nebo žádné, pokud nemáš hlad. Doplň vodu, drž zbytek dne jednoduše. Zítra pokračuj normálně.';
+  }else if(phase==='rano'){
+    rec='Ráno: dej si snídani s bílkovinami (vejce, skyr/rostlinná alternativa, tvaroh, ovesná kaše s proteinem).';
+  }else if(phase==='dopo'){
+    rec='Dopoledne: lehká proteinová svačina, nebo si naplánuj vydatnější oběd.';
+  }else if(phase==='obed'){
+    rec=hasObed?'Oběd už máš. Doplň zbytek menší svačinou podle chybějících bílkovin.':'Obědový čas: dej si pořádné hlavní jídlo — bílkovina + příloha + zelenina.';
+  }else if(phase==='odpo'){
+    rec=remP>15?'Odpoledne: proteinová svačina (jogurt/skyr, šejk, tuňák, šunka, ořechy s mírou).':'Odpoledne: lehká svačina, kcal i bílkoviny jsou skoro v cíli.';
+  }else if(phase==='vecer'){
+    rec=hasVecere?'Večeři už máš. Pokud chybí bílkoviny, přidej lehký proteinový dezert (skyr/tvaroh).':'Večer: lehčí proteinová večeře s důrazem na bílkoviny a sytost — ne velké tučné jídlo.';
+  }else{
+    rec=remP>15?'Pozdě večer: nepřejídej se kvůli číslu. Když chybí bílkoviny, dej si jen lehké — proteinový šejk, vejce nebo šunku.':'Pozdě večer: už nic netřeba, kcal i bílkoviny jsou v pohodě. Doplň vodu a odpočiň si.';
+  }
+  // 5) varování
+  const warns=[];
+  if(t.f>g.fat*1.15)warns.push('Tuky jsou nad cílem — odlehči olej, ořechy, tučné maso.');
+  if(t.sug>g.sugar*1.15)warns.push('Cukry jsou vysoko — uber sladké a slazené nápoje.');
+  if(t.salt>g.salt*1.15)warns.push('Sůl je nad cílem — pozor na uzeniny a slané snacky.');
+  if(t.fib<g.fib*0.6&&!over)warns.push('Málo vlákniny — přidej zeleninu, luštěniny nebo celozrnné.');
+  if(w<g.water*0.6)warns.push(`Málo vody (${w.toFixed(1)} z ${g.water} l) — dopij během dne.`);
+  // 6) konkrétní návrh
+  let concrete='';
+  if(!over && remK>120){
+    const p=suggestConcrete(remK,remP);
+    const combo=remP>25?'200 g kuřecího/krůtího masa, zeleninu a menší porci rýže — nebo proteinový šejk + 2 vejce/šunku, když nechceš velké jídlo.'
+      :remP>10?'porce ryby/tofu/masa se zeleninou, případně skyr/tvaroh navrch.'
+      :'menší vyvážená porce — bílkovina + zelenina.';
+    concrete=`<b>Návrh:</b> ${combo}`+(p?`<br><span class="muted" style="font-size:.84rem">Z hotových jídel sedí např. „${p.ic} ${p.n}" (${round(p.k)} kcal · B ${round(p.p)} g).</span>`:'');
+  }
   openSheet('Analýza dne');document.getElementById('sheetTabs').innerHTML='';
-  document.getElementById('sheetBody').innerHTML=`<div class="card"><div style="font-size:1.3rem;font-weight:850">${round(t.k)} / ${target.kcal} kcal</div>
-    <div class="muted">B ${round(t.p)} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g</div></div>`+
-    msgs.map(m=>`<div class="row"><div class="info"><div class="m" style="font-size:.9rem;color:var(--ink)">${m}</div></div></div>`).join('');
-};
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="card" style="${isTrain?'background:var(--green-soft)':''}">
+      <div style="font-size:1.25rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal ${isTrain?'🏋️':''}</div>
+      <div class="muted" style="font-size:.82rem">${isTrain?'Tréninkový den (cíl navýšen).':'Běžný den.'} B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l</div>
+    </div>
+    <div class="card"><b>Shrnutí:</b> ${summary}</div>
+    <div class="card"><b>Co doplnit:</b> ${rec}</div>
+    ${concrete?`<div class="card">${concrete}</div>`:''}
+    ${warns.length?`<div class="card" style="background:#fde6e3"><b style="color:#c0392b">Pozor:</b><ul style="margin:6px 0 0;padding-left:18px">${warns.map(w=>`<li style="margin:2px 0">${w}</li>`).join('')}</ul></div>`:''}`;
+}
 
 /* VODA */
 document.getElementById('waterPlus').onclick=()=>{
@@ -2102,7 +2162,7 @@ document.getElementById('forceUpd').onclick=async()=>{
   }catch(e){}
   location.reload();
 };
-function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
+function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
 document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena');};
@@ -2129,7 +2189,7 @@ document.getElementById('importData').onclick=()=>document.getElementById('impor
 document.getElementById('importFile').onchange=function(){const f=this.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);
   if(d.days){days=d.days;DB.save('kt_days',days);}if(d.water){water=d.water;DB.save('kt_water',water);}if(d.acts){acts=d.acts;DB.save('kt_acts',acts);}
   if(d.weights){weights=d.weights;DB.save('kc_weights',weights);}if(d.favs){favs=d.favs;DB.save('kt_favs',favs);}if(d.myMeals){myMeals=d.myMeals;DB.save('kc_meals',myMeals);}
-  if(d.target){target=d.target;DB.save('kt_target',target);}if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
+  if(d.target){target=d.target;DB.save('kt_target',target);}if(d.trainCfg){trainCfg=d.trainCfg;DB.save('kt_train',trainCfg);}if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
   loadTargets();renderDietOpts();renderDash();toast('Data naimportována');}catch(e){toast('Soubor se nepodařilo načíst');}};rd.readAsText(f);};
 
 /* ====== INIT ====== */
