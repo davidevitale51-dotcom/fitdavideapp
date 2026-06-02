@@ -1039,13 +1039,16 @@ function renderAddBody(){
   const body=document.getElementById('sheetBody');
   const dietNote = dietActiveLabel();
   const catSel = addTab==='hotova'?`<select id="hotovaCat" style="margin-top:6px"><option value="">Všechny kategorie</option>${MEAL_CATS.map(c=>`<option value="${c}"${c===hotovaCat?' selected':''}>${c}</option>`).join('')}</select>`:'';
-  const chips=`<div class="addStick"><input id="addSearch" placeholder="Vyhledej potravinu, jídlo nebo recept…" value="${addQuery.replace(/"/g,'&quot;')}">
+  const chips=`<div class="addStick">
+    <div style="display:flex;gap:6px"><input id="addSearch" placeholder="Vyhledej potravinu, jídlo nebo recept…" value="${addQuery.replace(/"/g,'&quot;')}" style="flex:1">
+      <button id="addScan" class="btn" style="flex:0 0 auto;padding:0 14px" title="Načíst čárový kód">▮║▮</button></div>
     <div class="chips">${FILTERS.map(([k,l])=>`<button class="chip ${addFilters.has(k)?'on':''}" data-f="${k}">${l}</button>`).join('')}</div>
     ${catSel}
     ${dietNote?`<div class="muted" style="font-size:.74rem;margin:2px 0 4px">Filtruje dle profilu: ${dietNote}</div>`:''}</div>
     <div id="addList"></div>`;
   body.innerHTML=chips;
   const si=document.getElementById('addSearch'); si.oninput=()=>{addQuery=si.value;fillAddList();};
+  const sc=document.getElementById('addScan'); if(sc) sc.onclick=()=>eanFlow(true);
   const cs=document.getElementById('hotovaCat'); if(cs) cs.onchange=()=>{hotovaCat=cs.value;fillAddList();};
   body.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const k=c.dataset.f;
     if(k==='__unsuit'){showUnsuitable=!showUnsuitable;c.classList.toggle('on');fillAddList();return;}
@@ -1517,8 +1520,8 @@ function customFoodForm(prefill){
   };
 }
 function stopScanner(){ if(scanner){ try{scanner.stop().then(()=>scanner.clear()).catch(()=>{});}catch(e){} scanner=null; } }
-function eanFlow(){
-  addSlot=defaultSlotByTime(); // po naskenování se sekce předvyplní podle času
+function eanFlow(keepSlot){
+  if(!keepSlot) addSlot=defaultSlotByTime(); // po naskenování se sekce předvyplní podle času
   openSheet('Čárový kód (EAN)');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<button class="btn block" id="scanBtn">📷 Skenovat kamerou</button>
