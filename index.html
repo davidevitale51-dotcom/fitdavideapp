@@ -300,6 +300,15 @@
       <div style="margin-top:6px"><label>Kolik % bonusu spalování přidat do příjmu</label><input type="number" id="aiPct" min="0" max="100"></div>
       <button class="btn sec block" id="saveSteps" style="margin-top:10px">Uložit nastavení kroků</button>
     </details>
+    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
+      <summary><h3 style="display:inline;margin:0">👜 Pracovní den</h3></summary>
+      <div class="muted" style="font-size:.8rem;margin:8px 0">Které dny jdeš do práce? V pracovní dny návrhy preferují jednoduchá jídla bez vaření, dostupná v práci.</div>
+      <div id="workDayChips" class="chips" style="flex-wrap:wrap"></div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="wkRepeat" style="width:auto"> Povolit opakování stejné pracovní snídaně/oběda</label>
+      <div class="muted" style="font-size:.78rem;margin-top:10px;margin-bottom:4px">Dostupné v práci (★ = oblíbené):</div>
+      <div id="workFoodList"></div>
+      <button class="btn sec block" id="saveWork" style="margin-top:10px">Uložit pracovní nastavení</button>
+    </details>
   </div>
   <div class="card">
     <details class="setblk"><summary><h3 style="display:inline;margin:0">🥗 Diety a omezení</h3></summary>
@@ -771,6 +780,35 @@ const PREP=[
  M("Pečená zelenina s masem","🍗","Rodinné",["obed","vecere"],["bez mléka","rodinné","high protein"],400,440,36,24,22,7,9,0.9,false,false,[["maso (kuřecí/krůtí)",150,"g"],["zelenina mix",250,"g"],["olej",1,"lžíce"]]),
  M("Trhané kuřecí s rýží","🍚","Rodinné",["obed","vecere"],["high protein","bez mléka","meal prep","rodinné"],400,520,42,56,12,3,4,1,false,false,[["kuřecí prsa",150,"g"],["rýže (suchá)",70,"g"]])
 ];
+/* ====== PRACOVNÍ JÍDLA (do práce, bez vaření) ====== */
+const WORK_MEALS=[
+ M("Dean & David salát","🥗","Práce",["obed"],["práce","bez vaření","bez mléka"],350,300,18,18,16,7,8,2.6,false,false,[["salát mix",250,"g"],["dresink",1,"lžíce"]]),
+ M("Dean & David salát s grilovanými kuřecími prsy","🥗","Práce",["obed"],["práce","high protein","bez vaření","bez mléka"],380,360,33,16,16,7,7,2.8,false,false,[["grilovaná kuřecí prsa",120,"g"],["salát mix",250,"g"]]),
+ M("Dean & David salát s dvojitým masem","🥗","Práce",["obed"],["práce","high protein","bez vaření","bez mléka"],450,440,46,16,20,8,7,3.4,false,false,[["grilovaná kuřecí prsa",220,"g"],["salát mix",250,"g"]]),
+ M("Dean & David salát s dvojitým kuřetem (1/2 Tahini)","🥗","Práce",["obed"],["práce","high protein","bez vaření","bez mléka","redukce"],400,405,45,14,17,8,8,3.5,false,false,[["grilovaná kuřecí prsa",220,"g"],["salát mix",250,"g"],["tahini lemon",0.5,"porce"]]),
+ M("Dean & David Japanese Beef Bowl","🍚","Práce",["obed"],["práce","high protein","bez vaření"],500,820,48,100,28,20,5,5,false,false,[["hovězí",150,"g"],["rýže",200,"g"],["teriyaki, miso mayo","","",]]),
+ M("Japanese Beef Bowl – extra beef, 1/2 teriyaki","🍚","Práce",["obed"],["práce","high protein","bez vaření"],520,900,55,102,35,21,7,5,false,false,[["hovězí extra",200,"g"],["rýže",200,"g"],["1/2 teriyaki","","",]]),
+ M("Japanese Beef Bowl – dietnější (1/2 rýže, 1/2 omáčky)","🍚","Práce",["obed"],["práce","high protein","bez vaření","redukce"],420,750,54,72,34,18,6,4.8,false,false,[["hovězí extra",200,"g"],["rýže",100,"g"],["1/2 omáčky","","",]]),
+ M("Vejce natvrdo + šunka + zelenina + ovoce","🥚","Práce",["snidane","svacina1","svacina2"],["práce","high protein","bez vaření","bez mléka"],340,290,24,22,12,4,10,1.6,false,false,[["vejce natvrdo",2,"ks"],["šunka",50,"g"],["zelenina",150,"g"],["ovoce",100,"g"]]),
+ M("Veganský proteinový shake + banán","🥤","Práce",["snidane","svacina1","svacina2"],["práce","high protein","bez vaření","bez mléka","veganské"],400,230,24,30,3,4,18,0.4,false,false,[["vegan protein",1,"odměrka"],["banán",1,"ks"],["voda/rostlinný nápoj",250,"g"]]),
+ M("Veganský proteinový shake (bez ovoce)","🥤","Práce",["snidane","svacina1","svacina2"],["práce","high protein","bez vaření","bez mléka","veganské","redukce"],300,120,24,3,2,1,1,0.3,false,false,[["vegan protein",1,"odměrka"],["voda",300,"g"]]),
+ M("Proteinová tyčinka + ovoce","🍫","Práce",["svacina1","svacina2"],["práce","high protein","bez vaření","nouzové"],150,260,21,28,7,2,14,0.5,false,false,[["proteinová tyčinka",1,"ks"],["ovoce",100,"g"]]),
+ M("Uzený losos + zelenina + pečivo","🐟","Práce",["svacina1","svacina2","obed"],["práce","high protein","bez vaření"],200,300,23,22,13,3,3,2.2,false,false,[["uzený losos",80,"g"],["zelenina",100,"g"],["pečivo",40,"g"]])
+];
+WORK_MEALS.forEach(m=>{m.work=true;m.nocook=true;if(m.p>=25)m.hp=true;PREP.push(m);});
+/* ====== PRACOVNÍ POTRAVINY (jednoduché, dostupné v práci) ====== */
+const WORK_FOODS=[
+ {n:"Šunka", k:110,p:18,c:1,f:4,fib:0,sug:1,salt:2.2,g:30},
+ {n:"Vejce natvrdo", k:143,p:13,c:1,f:10,fib:0,sug:0,salt:0.3,g:55},
+ {n:"Uzený losos", k:180,p:23,c:0,f:10,fib:0,sug:0,salt:3,g:50},
+ {n:"Proteinová tyčinka", k:350,p:33,c:35,f:9,fib:6,sug:2,salt:0.6,g:55},
+ {n:"Veganský proteinový prášek", k:380,p:78,c:8,f:5,fib:4,sug:3,salt:1,g:30},
+ {n:"Mandarinka", k:53,p:0.8,c:13,f:0.3,fib:1.8,sug:11,salt:0,g:80},
+ {n:"Okurka salátová", k:15,p:0.7,c:3,f:0.1,fib:0.5,sug:1.7,salt:0,g:300},
+ {n:"Rajče", k:18,p:0.9,c:3.9,f:0.2,fib:1.2,sug:2.6,salt:0,g:120},
+ {n:"Kedlubna", k:27,p:1.7,c:6,f:0.1,fib:3.6,sug:2.6,salt:0,g:150}
+];
+WORK_FOODS.forEach(f=>{if(!FOODS.some(x=>x.n===f.n)){f.cat="👜 Pracovní potraviny";f.work=true;FOODS.push(f);}else{FOODS.find(x=>x.n===f.n).work=true;}});
 
 /* ====== SLOTY JÍDEL ====== */
 const SLOTS=[
@@ -826,6 +864,16 @@ function stepBurn(date){           // odhad spalování navíc z kroků nad prá
 function stepIntakeBonus(date){    // kolik z bonusu se případně přičte do jídelního cíle
   return actIntake.on ? Math.round(stepBurn(date)*((+actIntake.pct||0)/100)) : 0;
 }
+/* ====== PRACOVNÍ DEN ====== */
+let workCfg = DB.load('kt_work', {days:[1,2,3,4,5], repeat:true, avail:null, favs:[]});
+if(workCfg.avail==null) workCfg.avail = null; // null = vše dostupné
+function workFoodAvailable(n){ return !workCfg.avail || workCfg.avail.includes(n); }
+function isWork(date){ const d=days[date]||{}; if(d.work!=null)return d.work; try{return workCfg.days.includes(new Date(date).getDay());}catch(e){return false;} }
+function dayStatusLabel(date){ const tr=(days[date]||{}).train, wk=isWork(date);
+  if(wk&&tr)return'pracovní + tréninkový den'; if(wk)return'pracovní den'; if(tr)return'tréninkový den'; return'běžný den'; }
+function toggleWork(){ const d=dayObj(selDate); d.work=!isWork(selDate); DB.save('kt_days',days); renderDash(); toast(d.work?'👜 Pracovní den zapnut':'Pracovní den vypnut'); }
+/* pracovní hotová jídla pro daný slot (snídaně/oběd/svačina), filtr na dostupnost a dietu */
+function workMealsFor(slot){ return PREP.filter(p=>p.work && !mealViol(p) && (p.slots||[]).includes(slot) && workFoodAvailable(p.n)); }
 function renderSteps(){
   const el=document.getElementById('stepsCard'); if(!el)return;
   const s=stepCount(selDate), burn=stepBurn(selDate), intake=stepIntakeBonus(selDate);
@@ -1054,8 +1102,13 @@ function renderDash(){
   ring.style.cursor='pointer'; ring.onclick=()=>nutrientBreakdown('k','Energie','kcal');
   // tréninkový den – přepínač + informace o navýšení
   const tw=document.getElementById('trainWrap');
-  if(tw){const man=dayHasManualGoals(selDate);
-    tw.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:10px;${isTrain?'background:var(--green-soft)':''}">
+  if(tw){const man=dayHasManualGoals(selDate);const wk=isWork(selDate);
+    tw.innerHTML=`<div class="card" style="margin-bottom:10px;${wk?'background:#eef4ff':''}">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1"><b>👜 Pracovní den</b><div class="muted" style="font-size:.78rem">Stav dne: <b>${dayStatusLabel(selDate)}</b></div>${wk?`<div class="muted" style="font-size:.74rem">Návrhy preferují jídla bez vaření, dostupná v práci.</div>`:''}</div>
+        <button class="btn ${wk?'':'sec'}" style="${wk?'background:#c0392b':''}" onclick="toggleWork()">${wk?'Vypnout':'Zapnout'}</button>
+      </div></div>
+      <div class="card" style="display:flex;align-items:center;gap:10px;${isTrain?'background:var(--green-soft)':''}">
       <div style="flex:1"><b>🏋️ Silový trénink</b>${isTrain?`<div class="muted" style="font-size:.78rem">Cíl navýšen o +${trainCfg.kcal} kcal (B +${trainCfg.p} · S +${trainCfg.c} · T +${trainCfg.f} g)</div>`:`<div class="muted" style="font-size:.78rem">Zapni u tréninkového dne – navýší denní cíl</div>`}${man?`<div class="muted" style="font-size:.72rem;color:var(--green-d)">Tento den má ručně upravené cíle</div>`:''}</div>
       <button class="btn ${isTrain?'':'sec'}" style="${isTrain?'background:#c0392b':''}" onclick="toggleTrain()">${isTrain?'Vypnout':'Zapnout'}</button>
       <button class="btn ghost" style="padding:0 12px" onclick="editDayGoals()" title="Upravit cíle dne">✎</button></div>`;}
@@ -1156,7 +1209,7 @@ ovl.onclick=e=>{if(e.target===ovl)closeSheet();};
 
 /* ====== PŘIDAT JÍDLO ====== */
 let addSlot='snidane', addTab='potraviny', addQuery='', addFilters=new Set(), hotovaCat='';
-const MEAL_CATS=['Hovězí','Kuřecí & krůtí','Vepřové','Rybí','Bezmasé','Omáčky','Polévky','Saláty','Bowls','Těstoviny','Rizota','Snídaně','Svačiny','Dezerty','Rodinné'];
+const MEAL_CATS=['Práce','Hovězí','Kuřecí & krůtí','Vepřové','Rybí','Bezmasé','Omáčky','Polévky','Saláty','Bowls','Těstoviny','Rizota','Snídaně','Svačiny','Dezerty','Rodinné'];
 function openAdd(slot){ addSlot=slot||defaultSlotByTime(); addTab='potraviny'; addQuery=''; addFilters.clear(); hotovaCat=''; showUnsuitable=false;
   const sl=SLOTS.find(s=>s.k===slot);
   openSheet('Přidat do: '+(sl?sl.l:'jídlo'));
@@ -1727,8 +1780,9 @@ function actFlow(){
 
 /* ANALÝZA */
 function planSingleDay(date){
+  const wd=isWork(date);
   const used=new Set();const slots={};
-  PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2));if(idx>=0){slots[s]=idx;used.add(idx);}});
+  PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),wd);if(idx>=0){slots[s]=idx;used.add(idx);}});
   const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);
   const d=dayObj(date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=[{n:p.n,q:day.factor,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
   DB.save('kt_days',days);renderDash();const t=dayTotals(date);toast('✨ Naplánováno: '+round(t.k)+' kcal · '+round(t.p)+' g B');
@@ -1736,7 +1790,8 @@ function planSingleDay(date){
 document.getElementById('autoPlanBtn').onclick=()=>{
   const has=SLOTS.some(s=>slotItems(selDate,s.k).length);
   if(has && !confirm('Den už obsahuje jídla. Přepsat novým návrhem?'))return;
-  days[selDate]={}; planSingleDay(selDate);
+  const keep=days[selDate]||{}; days[selDate]={}; if(keep.work!=null)days[selDate].work=keep.work; if(keep.train)days[selDate].train=keep.train; if(keep.goals)days[selDate].goals=keep.goals;
+  planSingleDay(selDate);
 };
 /* ŠABLONY DNÍ */
 let templates=DB.load('kt_templates',[]);
@@ -1808,21 +1863,33 @@ function dayAnalysis(){
   }else{
     rec=remP>15?'Pozdě večer: nepřejídej se kvůli číslu. Když chybí bílkoviny, dej si jen lehké — proteinový šejk, vejce nebo šunku.':'Pozdě večer: už nic netřeba, kcal i bílkoviny jsou v pohodě. Doplň vodu a odpočiň si.';
   }
+  // pracovní den – doporuč pracovní potraviny, ne domácí vaření
+  const wk=isWork(selDate);
+  const saltHigh=t.salt>g.salt*1.1;
+  if(wk && !over){
+    if(remP>20)rec='V práci a chybí bílkoviny — sáhni po proteinovém shaku, vejcích, '+(saltHigh?'':'šunce, ')+'salátu s dvojitým masem'+(saltHigh?'':' nebo uzeném lososu')+'. Bez vaření, rychle.';
+    else if(remK<300)rec='V práci a málo zbývajících kcal — lehká proteinová varianta: salát s dvojitým kuřetem a 1/2 omáčky, vejce + zelenina, nebo proteinový shake bez ovoce.';
+    else rec='V práci a zbývá dost kcal — dej si hlavní pracovní jídlo: salát s dvojitým masem nebo Japanese Beef Bowl s extra beef.';
+    if(g.fib&&t.fib<g.fib*0.6)rec+=' Vlákninu dožeň okurkou, rajčaty, kedlubnou nebo ovocem.';
+  }
   // 5) varování
   const warns=[];
   if(t.f>g.fat*1.15)warns.push('Tuky jsou nad cílem — odlehči olej, ořechy, tučné maso.');
   if(t.sug>g.sugar*1.15)warns.push('Cukry jsou vysoko — uber sladké a slazené nápoje.');
-  if(t.salt>g.salt*1.15)warns.push('Sůl je nad cílem — pozor na uzeniny a slané snacky.');
-  if(t.fib<g.fib*0.6&&!over)warns.push('Málo vlákniny — přidej zeleninu, luštěniny nebo celozrnné.');
+  if(saltHigh)warns.push('Sůl je nad cílem — nepreferuj další šunku, uzeného lososa ani slaná hotová jídla.');
+  if(t.fib<g.fib*0.6&&!over)warns.push('Málo vlákniny — přidej zeleninu, ovoce'+(wk?' (okurka, rajče, kedlubna, jablko, mandarinka)':', luštěniny nebo celozrnné')+'.');
   if(w<g.water*0.6)warns.push(`Málo vody (${w.toFixed(1)} z ${g.water} l) — dopij během dne.`);
   // 6) konkrétní návrh
   let concrete='';
   if(!over && remK>120){
-    const p=suggestConcrete(remK,remP);
-    const combo=remP>25?'200 g kuřecího/krůtího masa, zeleninu a menší porci rýže — nebo proteinový šejk + 2 vejce/šunku, když nechceš velké jídlo.'
-      :remP>10?'porce ryby/tofu/masa se zeleninou, případně skyr/tvaroh navrch.'
-      :'menší vyvážená porce — bílkovina + zelenina.';
-    concrete=`<b>Návrh:</b> ${combo}`+(p?`<br><span class="muted" style="font-size:.84rem">Z hotových jídel sedí např. „${p.ic} ${p.n}" (${round(p.k)} kcal · B ${round(p.p)} g).</span>`:'');
+    let pool=PREP.filter(p=>!mealViol(p)); if(wk)pool=pool.filter(p=>p.work&&workFoodAvailable(p.n));
+    if(remP>15)pool=pool.filter(p=>p.p>=18);
+    if(saltHigh)pool=pool.filter(p=>p.salt<=g.salt*0.5);
+    pool=pool.filter(p=>p.k<=remK+150).sort((a,b)=>b.p-a.p);
+    const p=pool[0]||(wk?null:suggestConcrete(remK,remP));
+    const combo=wk?(remP>25?'salát s dvojitým kuřetem, nebo proteinový shake + 2 vejce a šunku, když nechceš velké jídlo.':remP>10?'menší pracovní porce — salát s kuřetem, nebo vejce/šunka se zeleninou.':'lehká pracovní svačina — zelenina + ovoce, případně proteinová tyčinka.')
+      :(remP>25?'200 g kuřecího/krůtího masa, zeleninu a menší porci rýže — nebo proteinový šejk + 2 vejce/šunku, když nechceš velké jídlo.':remP>10?'porce ryby/tofu/masa se zeleninou, případně skyr/tvaroh navrch.':'menší vyvážená porce — bílkovina + zelenina.');
+    concrete=`<b>Návrh:</b> ${combo}`+(p?`<br><span class="muted" style="font-size:.84rem">${wk?'Z pracovních jídel':'Z hotových jídel'} sedí např. „${p.ic} ${p.n}" (${round(p.k)} kcal · B ${round(p.p)} g).</span>`:'');
   }
   // kroky
   const sCnt=stepCount(selDate), sBurn=stepBurn(selDate), sIntake=stepIntakeBonus(selDate);
@@ -1832,9 +1899,9 @@ function dayAnalysis(){
   stepLine+= actIntake.on?` Do jídelního cíle bylo přidáno ${sIntake} kcal z aktivity.`:' Denní jídelní cíl se kvůli krokům nezměnil.';
   openSheet('Analýza dne');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
-   `<div class="card" style="${isTrain?'background:var(--green-soft)':''}">
-      <div style="font-size:1.25rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal ${isTrain?'🏋️':''}</div>
-      <div class="muted" style="font-size:.82rem">${isTrain?'Tréninkový den (cíl navýšen).':'Běžný den.'} B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
+   `<div class="card" style="${isTrain?'background:var(--green-soft)':wk?'background:#eef4ff':''}">
+      <div style="font-size:1.25rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal ${isTrain?'🏋️':''}${wk?'👜':''}</div>
+      <div class="muted" style="font-size:.82rem">${dayStatusLabel(selDate)[0].toUpperCase()+dayStatusLabel(selDate).slice(1)}. B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
     </div>
     <div class="card"><b>Shrnutí:</b> ${summary}</div>
     <div class="card"><b>👟 Kroky:</b> ${stepLine}</div>
@@ -2034,15 +2101,21 @@ function pickPrep(slot,usedIdx){
 const PLAN_SLOTS=['snidane','svacina1','obed','svacina2','vecere'];
 const SLOT_W={snidane:0.20,svacina1:0.12,obed:0.30,svacina2:0.12,vecere:0.26};
 /* picker, který vybere jídlo s kcal blízko rozpočtu daného slotu */
-function pickPrepB(slot,used,budget){
+function pickPrepB(slot,used,budget,workDay){
   const suitable=PREP.filter(p=>!mealViol(p));
-  let pool=suitable.filter(p=>p.slots.includes(slot));
-  const pref=[...planPrefSet].filter(pr=>pr!=='bez mléka');
-  const wp=pool.filter(p=>pref.every(pr=>p.tags.includes(pr))); if(wp.length)pool=wp;
-  if(!pool.length)pool=suitable.filter(p=>p.slots.includes(slot));
-  if(!pool.length)pool=suitable;
+  let pool;
+  // pracovní den: snídani, oběd a svačiny ber primárně z pracovních jídel (bez vaření)
+  if(workDay && ['snidane','obed','svacina1','svacina2'].includes(slot)){
+    const wm=workMealsFor(slot); if(wm.length)pool=wm;
+  }
+  if(!pool){ pool=suitable.filter(p=>p.slots.includes(slot));
+    const pref=[...planPrefSet].filter(pr=>pr!=='bez mléka');
+    const wp=pool.filter(p=>pref.every(pr=>p.tags.includes(pr))); if(wp.length)pool=wp;
+    if(!pool.length)pool=suitable.filter(p=>p.slots.includes(slot));
+    if(!pool.length)pool=suitable; }
   if(!pool.length)return -1;
-  let fresh=pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
+  // pracovní den s povoleným opakováním nevylučuje už použitá jídla
+  let fresh=(workDay&&workCfg.repeat)?pool:pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
   fresh=fresh.slice().sort((a,b)=>Math.abs(a.k-budget)-Math.abs(b.k-budget));
   const top=fresh.slice(0,3); const p=top[Math.floor(Math.random()*top.length)];
   return PREP.indexOf(p);
@@ -2052,12 +2125,15 @@ function recalcFactor(day){let base=0;Object.values(day.slots).forEach(i=>base+=
   let f=target.kcal/base; f=Math.max(0.8,Math.min(1.3,f)); return Math.round(f*20)/20;}
 /* dorovná bílkoviny: vymění nejslabší slot za vysokoproteinové vhodné jídlo, kcal drží faktorem */
 function balanceDay(day){
+  const wd=day.date?isWork(day.date):false;
   for(let pass=0;pass<3;pass++){
     const m=planDayMacros(day); if(m.p>=target.prot-12) break;
     let worst=null,worstP=1e9;
     PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const pp=PREP[idx].p;if(pp<worstP){worstP=pp;worst=s;}});
     if(!worst)break;
-    const cand=PREP.filter(p=>!mealViol(p)&&p.slots.includes(worst)).sort((a,b)=>b.p-a.p);
+    let cand;
+    if(wd&&['snidane','obed','svacina1','svacina2'].includes(worst)){const wm=workMealsFor(worst);cand=(wm.length?wm:PREP.filter(p=>!mealViol(p)&&p.slots.includes(worst))).slice().sort((a,b)=>b.p-a.p);}
+    else cand=PREP.filter(p=>!mealViol(p)&&p.slots.includes(worst)).sort((a,b)=>b.p-a.p);
     const pick=cand.find(p=>PREP.indexOf(p)!==day.slots[worst]);
     if(!pick||pick.p<=PREP[day.slots[worst]].p)break;
     day.slots[worst]=PREP.indexOf(pick); day.factor=recalcFactor(day);
@@ -2234,7 +2310,27 @@ const gv=id=>document.getElementById(id);
 function loadTargets(){gv('tKcal').value=target.kcal;gv('tProt').value=target.prot;gv('tCarb').value=target.carb;gv('tFat').value=target.fat;gv('tFib').value=target.fib;gv('tSugar').value=target.sugar;gv('tSalt').value=target.salt;gv('tWater').value=target.water;gv('tWeight').value=target.weight;
   gv('trKcal').value=trainCfg.kcal;gv('trP').value=trainCfg.p;gv('trC').value=trainCfg.c;gv('trF').value=trainCfg.f;
   gv('stGoal').value=stepCfg.goal;gv('stThr').value=stepCfg.threshold;gv('stPerK').value=stepCfg.perK;gv('stMax').value=stepCfg.max;
-  document.getElementById('aiOn').checked=!!actIntake.on;gv('aiPct').value=actIntake.pct;}
+  document.getElementById('aiOn').checked=!!actIntake.on;gv('aiPct').value=actIntake.pct;
+  renderWorkSettings();}
+const WORK_DOW=[['1','Po'],['2','Út'],['3','St'],['4','Čt'],['5','Pá'],['6','So'],['0','Ne']];
+function workItemNames(){return PREP.filter(p=>p.work).map(p=>p.n).concat(FOODS.filter(f=>f.work).map(f=>f.n));}
+function renderWorkSettings(){
+  const wc=document.getElementById('workDayChips'); if(!wc)return;
+  wc.innerHTML=WORK_DOW.map(([d,l])=>`<button type="button" class="chip ${workCfg.days.includes(+d)?'on':''}" data-d="${d}">${l}</button>`).join('');
+  wc.querySelectorAll('.chip').forEach(c=>c.onclick=()=>{const d=+c.dataset.d;const i=workCfg.days.indexOf(d);i>=0?workCfg.days.splice(i,1):workCfg.days.push(d);c.classList.toggle('on');});
+  document.getElementById('wkRepeat').checked=!!workCfg.repeat;
+  const names=workItemNames();
+  document.getElementById('workFoodList').innerHTML=names.map(n=>{const av=workFoodAvailable(n);const fav=(workCfg.favs||[]).includes(n);
+    return `<div class="row"><div class="info"><div class="n">${fav?'★ ':''}${n}</div></div>
+      <button class="add" data-fav="${esc(n)}" style="background:${fav?'#f0a83c':'#eef0ee'};color:${fav?'#fff':'#b9c4bc'}">★</button>
+      <button class="add" data-av="${esc(n)}" style="background:${av?'#36b06a':'#eef0ee'};color:${av?'#fff':'#b9c4bc'}" title="dostupné v práci">✓</button></div>`;}).join('');
+  document.querySelectorAll('#workFoodList [data-av]').forEach(b=>b.onclick=()=>{const n=b.getAttribute('data-av');
+    if(workCfg.avail==null)workCfg.avail=workItemNames().slice();
+    const i=workCfg.avail.indexOf(n); i>=0?workCfg.avail.splice(i,1):workCfg.avail.push(n); renderWorkSettings();});
+  document.querySelectorAll('#workFoodList [data-fav]').forEach(b=>b.onclick=()=>{const n=b.getAttribute('data-fav');
+    workCfg.favs=workCfg.favs||[]; const i=workCfg.favs.indexOf(n); i>=0?workCfg.favs.splice(i,1):workCfg.favs.push(n); renderWorkSettings();});
+}
+document.getElementById('saveWork').onclick=()=>{workCfg.repeat=document.getElementById('wkRepeat').checked;DB.save('kt_work',workCfg);renderDash();toast('Pracovní nastavení uloženo');};
 document.getElementById('saveTrain').onclick=()=>{trainCfg={kcal:+gv('trKcal').value||0,p:+gv('trP').value||0,c:+gv('trC').value||0,f:+gv('trF').value||0};DB.save('kt_train',trainCfg);renderDash();toast('Nastavení tréninku uloženo');};
 document.getElementById('saveSteps').onclick=()=>{stepCfg={goal:+gv('stGoal').value||10000,threshold:+gv('stThr').value||7000,perK:+gv('stPerK').value||40,max:+gv('stMax').value||250};DB.save('kt_stepcfg',stepCfg);
   actIntake={on:document.getElementById('aiOn').checked,pct:Math.max(0,Math.min(100,+gv('aiPct').value||0))};DB.save('kt_actintake',actIntake);renderDash();toast('Nastavení kroků uloženo');};
@@ -2266,7 +2362,7 @@ async function doForceUpd(){
 }
 document.getElementById('forceUpd').onclick=doForceUpd;
 {const f2=document.getElementById('forceUpd2');if(f2)f2.onclick=doForceUpd;}
-function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
+function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,workCfg,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
 document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena');};
@@ -2294,7 +2390,7 @@ document.getElementById('importFile').onchange=function(){const f=this.files[0];
   if(d.days){days=d.days;DB.save('kt_days',days);}if(d.water){water=d.water;DB.save('kt_water',water);}if(d.acts){acts=d.acts;DB.save('kt_acts',acts);}
   if(d.weights){weights=d.weights;DB.save('kc_weights',weights);}if(d.favs){favs=d.favs;DB.save('kt_favs',favs);}if(d.myMeals){myMeals=d.myMeals;DB.save('kc_meals',myMeals);}
   if(d.target){target=d.target;DB.save('kt_target',target);}if(d.trainCfg){trainCfg=d.trainCfg;DB.save('kt_train',trainCfg);}
-  if(d.steps){steps=d.steps;DB.save('kt_steps',steps);}if(d.stepCfg){stepCfg=d.stepCfg;DB.save('kt_stepcfg',stepCfg);}if(d.actIntake){actIntake=d.actIntake;DB.save('kt_actintake',actIntake);}
+  if(d.steps){steps=d.steps;DB.save('kt_steps',steps);}if(d.stepCfg){stepCfg=d.stepCfg;DB.save('kt_stepcfg',stepCfg);}if(d.actIntake){actIntake=d.actIntake;DB.save('kt_actintake',actIntake);}if(d.workCfg){workCfg=d.workCfg;DB.save('kt_work',workCfg);}
   if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
   loadTargets();renderDietOpts();renderDash();toast('Data naimportována');}catch(e){toast('Soubor se nepodařilo načíst');}};rd.readAsText(f);};
 
