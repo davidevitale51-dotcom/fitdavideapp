@@ -1042,7 +1042,7 @@ function renderDash(){
   if(tw){const man=dayHasManualGoals(selDate);
     tw.innerHTML=`<div class="card" style="display:flex;align-items:center;gap:10px;${isTrain?'background:var(--green-soft)':''}">
       <div style="flex:1"><b>🏋️ Silový trénink</b>${isTrain?`<div class="muted" style="font-size:.78rem">Cíl navýšen o +${trainCfg.kcal} kcal (B +${trainCfg.p} · S +${trainCfg.c} · T +${trainCfg.f} g)</div>`:`<div class="muted" style="font-size:.78rem">Zapni u tréninkového dne – navýší denní cíl</div>`}${man?`<div class="muted" style="font-size:.72rem;color:var(--green-d)">Tento den má ručně upravené cíle</div>`:''}</div>
-      <button class="btn ${isTrain?'':'sec'}" onclick="toggleTrain()">${isTrain?'Zapnuto':'Zapnout'}</button>
+      <button class="btn ${isTrain?'':'sec'}" style="${isTrain?'background:#c0392b':''}" onclick="toggleTrain()">${isTrain?'Vypnout':'Zapnout'}</button>
       <button class="btn ghost" style="padding:0 12px" onclick="editDayGoals()" title="Upravit cíle dne">✎</button></div>`;}
   // nutrients
   const N=[['Bílkoviny',tot.p,gT.prot,'var(--prot)',0,'p'],['Sacharidy',tot.c,gT.carb,'var(--carb)',0,'c'],
