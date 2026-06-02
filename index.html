@@ -187,6 +187,8 @@
 
   <div id="trainWrap"></div>
 
+  <div class="card" id="stepsCard"></div>
+
   <div class="card">
     <div class="card-h"><h3>Nutrienty</h3><button class="linkbtn" id="nutToggle">skrýt</button></div>
     <div class="nutgrid" id="nutGrid"></div>
@@ -278,6 +280,19 @@
         <div><label>+ Tuky (g)</label><input type="number" id="trF"></div>
       </div>
       <button class="btn sec block" id="saveTrain" style="margin-top:10px">Uložit nastavení tréninku</button>
+    </div>
+    <div style="border-top:1px solid var(--line);margin-top:14px;padding-top:12px">
+      <h3 style="margin-bottom:4px">👟 Kroky a spalování</h3>
+      <div class="muted" style="font-size:.8rem;margin-bottom:8px">Kroky navyšují jen odhad spalování nad práh — denní jídelní cíl nemění (pokud níže nezapneš přičítání části aktivity).</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+        <div><label>Denní cíl kroků</label><input type="number" id="stGoal"></div>
+        <div><label>Práh pro spalování</label><input type="number" id="stThr"></div>
+        <div><label>kcal / 1000 kroků nad práh</label><input type="number" id="stPerK"></div>
+        <div><label>Max. bonus spalování (kcal)</label><input type="number" id="stMax"></div>
+      </div>
+      <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="aiOn" style="width:auto"> Přidat část aktivity do jídelního cíle</label>
+      <div style="margin-top:6px"><label>Kolik % bonusu spalování přidat do příjmu</label><input type="number" id="aiPct" min="0" max="100"></div>
+      <button class="btn sec block" id="saveSteps" style="margin-top:10px">Uložit nastavení kroků</button>
     </div>
   </div>
   <div class="card"><h3 style="margin-bottom:4px">🥗 Diety a omezení</h3>
@@ -781,7 +796,67 @@ let myMeals= DB.load('kc_meals', []);      // [{n,items:[[n,q,u]]}]
 let target = DB.load('kt_target', {kcal:1800,prot:160,carb:165,fat:60,fib:30,sugar:90,salt:6,water:3.5,weight:95});
 if(target.sugar==null)target.sugar=90; if(target.salt==null)target.salt=6;
 /* silový trénink – přednastavené navýšení cíle pro tréninkový den (rozděleno do maker) */
-let trainCfg = DB.load('kt_train', {kcal:200,p:15,c:20,f:5});
+let trainCfg = DB.load('kt_train', {kcal:200,p:20,c:30,f:0});
+// migrace ze staršího defaultu 15/20/5 na nový 20/30/0
+if(trainCfg.p===15&&trainCfg.c===20&&trainCfg.f===5){trainCfg={kcal:200,p:20,c:30,f:0};DB.save('kt_train',trainCfg);}
+/* ====== KROKY (steps) – jen lokálně, navyšují odhad spalování nad práh ====== */
+let steps = DB.load('kt_steps', {});            // {date:{n:počet, at:ISO}}
+let stepCfg = DB.load('kt_stepcfg', {goal:10000, threshold:7000, perK:40, max:250});
+let actIntake = DB.load('kt_actintake', {on:false, pct:50}); // přičíst část spalování do příjmu
+function stepCount(date){return (steps[date]||{}).n||0;}
+function stepBurn(date){           // odhad spalování navíc z kroků nad práh
+  const s=stepCount(date), c=stepCfg;
+  if(s<=c.threshold)return 0;
+  const thousands=Math.floor((s-c.threshold)/1000); // celé tisíce nad prahem
+  return Math.min(thousands*(+c.perK||0), +c.max||0);
+}
+function stepIntakeBonus(date){    // kolik z bonusu se případně přičte do jídelního cíle
+  return actIntake.on ? Math.round(stepBurn(date)*((+actIntake.pct||0)/100)) : 0;
+}
+function renderSteps(){
+  const el=document.getElementById('stepsCard'); if(!el)return;
+  const s=stepCount(selDate), burn=stepBurn(selDate), intake=stepIntakeBonus(selDate);
+  const at=(steps[selDate]||{}).at;
+  const atTxt=at?new Date(at).toLocaleTimeString('cs-CZ',{hour:'2-digit',minute:'2-digit'}):'—';
+  const goalPct=Math.min(100,s/(stepCfg.goal||1)*100);
+  el.innerHTML=
+   `<div style="display:flex;align-items:center;gap:10px">
+      <div style="flex:1"><b>👟 Kroky</b> <span class="muted" style="font-size:.8rem">· cíl ${stepCfg.goal.toLocaleString('cs-CZ')}</span>
+        <div style="font-size:1.5rem;font-weight:850">${s.toLocaleString('cs-CZ')}</div></div>
+      <button class="btn sec" onclick="updateSteps()">Aktualizovat kroky</button>
+    </div>
+    <div style="height:7px;background:var(--ring-bg);border-radius:5px;margin:6px 0 8px;overflow:hidden"><div style="height:100%;width:${goalPct}%;background:var(--green)"></div></div>
+    <div class="muted" style="font-size:.78rem;line-height:1.5">
+      Práh pro spalování: ${stepCfg.threshold.toLocaleString('cs-CZ')} kroků<br>
+      Odhad spalování navíc: <b style="color:${burn>0?'var(--green-d)':'inherit'}">+${burn} kcal</b>${burn>=stepCfg.max?' (max)':''}${s<=stepCfg.threshold?' — pod prahem se nezapočítává':''}<br>
+      ${actIntake.on?`Do jídelního cíle přidáno z aktivity: <b>+${intake} kcal</b> (${actIntake.pct} %)`:'Jídelní cíl se kvůli krokům nemění.'}<br>
+      Naposledy aktualizováno: ${atTxt}</div>`;
+}
+/* detekce nativního mostu k HealthKit (funguje jen v nativní obálce, ne v Safari/PWA) */
+function healthBridge(){try{return window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.healthkit?window.webkit.messageHandlers.healthkit:null;}catch(e){return null;}}
+function saveSteps(n){steps[selDate]={n, at:new Date().toISOString()};DB.save('kt_steps',steps);renderDash();toast('Kroky uloženy: '+n.toLocaleString('cs-CZ'));}
+function readHealthKit(){
+  const br=healthBridge(); if(!br)return Promise.reject('nobridge');
+  return new Promise((res,rej)=>{ window._hkCb=v=>{const n=parseInt(v,10);isNaN(n)?rej('nodata'):res(n);};
+    try{br.postMessage({type:'stepCount',from:selDate+'T00:00:00',cb:'_hkCb'});}catch(e){rej('err');}
+    setTimeout(()=>rej('timeout'),6000); });
+}
+function updateSteps(){
+  const cur=stepCount(selDate);
+  openSheet('Kroky');document.getElementById('sheetTabs').innerHTML='';
+  const hasHK=!!healthBridge();
+  document.getElementById('sheetBody').innerHTML=
+   `${hasHK?`<button class="btn block" id="hkBtn" style="margin-bottom:10px">❤️ Načíst z Apple Zdraví</button>`:
+     `<div class="card" style="font-size:.82rem;line-height:1.5"><b>Apple Zdraví (HealthKit)</b><br>Webová appka na ploše bohužel nemůže číst HealthKit přímo — to umí jen nativní appka z App Store. Kroky proto zadej ručně, nebo si nastav iOS <b>Zkratku</b>: „Získat kroky z aplikace Zdraví (od 00:00)" → otevři tuto appku → vlož číslo do pole níže.</div>`}
+    <label style="margin-top:8px">Dnešní počet kroků${selDate!==todayISO?' ('+selDate+')':''}</label>
+    <input type="number" id="stIn" inputmode="numeric" value="${cur||''}" placeholder="např. 8500">
+    <button class="btn block" id="stSave" style="margin-top:10px">Uložit kroky</button>
+    <div class="muted" style="font-size:.74rem;margin-top:8px">Kroky se ukládají jen lokálně v zařízení, nikam se neodesílají.</div>`;
+  const hk=document.getElementById('hkBtn');
+  if(hk)hk.onclick=()=>{hk.textContent='Načítám z Apple Zdraví…';readHealthKit().then(n=>{document.getElementById('stIn').value=n;hk.textContent='✓ Načteno: '+n.toLocaleString('cs-CZ');}).catch(()=>{hk.textContent='❌ Nepovoleno / nedostupné — zadej ručně';});};
+  document.getElementById('stSave').onclick=()=>{const n=parseInt((document.getElementById('stIn').value||'').replace(/\D/g,''),10);
+    if(isNaN(n)||n<0){toast('Zadej platné číslo');return;} saveSteps(n); closeSheet();};
+}
 /* efektivní denní cíl: základ + navýšení za trénink + ruční přepis daného dne (ten má přednost) */
 function effTarget(date){
   const d=days[date]||{};
@@ -946,9 +1021,11 @@ function renderDash(){
   if(typeof renderBackupBar==='function')renderBackupBar();
   const tot=dayTotals(selDate), burned=actKcal(selDate);
   const gT=effTarget(selDate);
-  const goal=gT.kcal+burned;
+  const stIntake=stepIntakeBonus(selDate);
+  const goal=gT.kcal+burned+stIntake;
   const st=dayState(selDate);
   const isTrain=(days[selDate]||{}).train;
+  if(typeof renderSteps==='function')renderSteps();
   const eatLabel= st==='future'?'Naplánováno':'Snědeno';
   document.getElementById('eEatenL').textContent=eatLabel;
   document.getElementById('eEaten').textContent=round(tot.k);
@@ -1733,13 +1810,20 @@ function dayAnalysis(){
       :'menší vyvážená porce — bílkovina + zelenina.';
     concrete=`<b>Návrh:</b> ${combo}`+(p?`<br><span class="muted" style="font-size:.84rem">Z hotových jídel sedí např. „${p.ic} ${p.n}" (${round(p.k)} kcal · B ${round(p.p)} g).</span>`:'');
   }
+  // kroky
+  const sCnt=stepCount(selDate), sBurn=stepBurn(selDate), sIntake=stepIntakeBonus(selDate);
+  let stepLine;
+  if(sCnt<=stepCfg.threshold)stepLine=`Kroky (${sCnt.toLocaleString('cs-CZ')}) jsou zatím pod prahem ${stepCfg.threshold.toLocaleString('cs-CZ')} — nezvyšují plán spalování.`;
+  else stepLine=`Kroky nad prahem zvýšily odhad spalování o +${sBurn} kcal.`;
+  stepLine+= actIntake.on?` Do jídelního cíle bylo přidáno ${sIntake} kcal z aktivity.`:' Denní jídelní cíl se kvůli krokům nezměnil.';
   openSheet('Analýza dne');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card" style="${isTrain?'background:var(--green-soft)':''}">
       <div style="font-size:1.25rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal ${isTrain?'🏋️':''}</div>
-      <div class="muted" style="font-size:.82rem">${isTrain?'Tréninkový den (cíl navýšen).':'Běžný den.'} B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l</div>
+      <div class="muted" style="font-size:.82rem">${isTrain?'Tréninkový den (cíl navýšen).':'Běžný den.'} B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
     </div>
     <div class="card"><b>Shrnutí:</b> ${summary}</div>
+    <div class="card"><b>👟 Kroky:</b> ${stepLine}</div>
     <div class="card"><b>Co doplnit:</b> ${rec}</div>
     ${concrete?`<div class="card">${concrete}</div>`:''}
     ${warns.length?`<div class="card" style="background:#fde6e3"><b style="color:#c0392b">Pozor:</b><ul style="margin:6px 0 0;padding-left:18px">${warns.map(w=>`<li style="margin:2px 0">${w}</li>`).join('')}</ul></div>`:''}`;
@@ -2134,8 +2218,12 @@ document.getElementById('nutToggle').onclick=function(){const g=document.getElem
 /* cíle */
 const gv=id=>document.getElementById(id);
 function loadTargets(){gv('tKcal').value=target.kcal;gv('tProt').value=target.prot;gv('tCarb').value=target.carb;gv('tFat').value=target.fat;gv('tFib').value=target.fib;gv('tSugar').value=target.sugar;gv('tSalt').value=target.salt;gv('tWater').value=target.water;gv('tWeight').value=target.weight;
-  gv('trKcal').value=trainCfg.kcal;gv('trP').value=trainCfg.p;gv('trC').value=trainCfg.c;gv('trF').value=trainCfg.f;}
+  gv('trKcal').value=trainCfg.kcal;gv('trP').value=trainCfg.p;gv('trC').value=trainCfg.c;gv('trF').value=trainCfg.f;
+  gv('stGoal').value=stepCfg.goal;gv('stThr').value=stepCfg.threshold;gv('stPerK').value=stepCfg.perK;gv('stMax').value=stepCfg.max;
+  document.getElementById('aiOn').checked=!!actIntake.on;gv('aiPct').value=actIntake.pct;}
 document.getElementById('saveTrain').onclick=()=>{trainCfg={kcal:+gv('trKcal').value||0,p:+gv('trP').value||0,c:+gv('trC').value||0,f:+gv('trF').value||0};DB.save('kt_train',trainCfg);renderDash();toast('Nastavení tréninku uloženo');};
+document.getElementById('saveSteps').onclick=()=>{stepCfg={goal:+gv('stGoal').value||10000,threshold:+gv('stThr').value||7000,perK:+gv('stPerK').value||40,max:+gv('stMax').value||250};DB.save('kt_stepcfg',stepCfg);
+  actIntake={on:document.getElementById('aiOn').checked,pct:Math.max(0,Math.min(100,+gv('aiPct').value||0))};DB.save('kt_actintake',actIntake);renderDash();toast('Nastavení kroků uloženo');};
 document.getElementById('saveTargets').onclick=()=>{target={kcal:+gv('tKcal').value||1800,prot:+gv('tProt').value||160,carb:+gv('tCarb').value||165,fat:+gv('tFat').value||60,fib:+gv('tFib').value||30,sugar:+gv('tSugar').value||90,salt:+gv('tSalt').value||6,water:+gv('tWater').value||3.5,weight:+gv('tWeight').value||95};DB.save('kt_target',target);renderDash();toast('Cíle uloženy');};
 
 /* dietní nastavení */
@@ -2162,7 +2250,7 @@ document.getElementById('forceUpd').onclick=async()=>{
   }catch(e){}
   location.reload();
 };
-function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
+function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
 document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena');};
@@ -2189,7 +2277,9 @@ document.getElementById('importData').onclick=()=>document.getElementById('impor
 document.getElementById('importFile').onchange=function(){const f=this.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const d=JSON.parse(rd.result);
   if(d.days){days=d.days;DB.save('kt_days',days);}if(d.water){water=d.water;DB.save('kt_water',water);}if(d.acts){acts=d.acts;DB.save('kt_acts',acts);}
   if(d.weights){weights=d.weights;DB.save('kc_weights',weights);}if(d.favs){favs=d.favs;DB.save('kt_favs',favs);}if(d.myMeals){myMeals=d.myMeals;DB.save('kc_meals',myMeals);}
-  if(d.target){target=d.target;DB.save('kt_target',target);}if(d.trainCfg){trainCfg=d.trainCfg;DB.save('kt_train',trainCfg);}if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
+  if(d.target){target=d.target;DB.save('kt_target',target);}if(d.trainCfg){trainCfg=d.trainCfg;DB.save('kt_train',trainCfg);}
+  if(d.steps){steps=d.steps;DB.save('kt_steps',steps);}if(d.stepCfg){stepCfg=d.stepCfg;DB.save('kt_stepcfg',stepCfg);}if(d.actIntake){actIntake=d.actIntake;DB.save('kt_actintake',actIntake);}
+  if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
   loadTargets();renderDietOpts();renderDash();toast('Data naimportována');}catch(e){toast('Soubor se nepodařilo načíst');}};rd.readAsText(f);};
 
 /* ====== INIT ====== */
