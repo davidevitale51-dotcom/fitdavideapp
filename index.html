@@ -1156,15 +1156,22 @@ function renderDash(){
   // meals
   const dayEmpty=!SLOTS.some(s=>slotItems(selDate,s.k).length);
   const cta=dayEmpty?`<button class="btn block" onclick="document.getElementById('autoPlanBtn').onclick()" style="margin-bottom:10px">✨ Naplánovat celý den automaticky</button>`:'';
+  const dayNotes=(days[selDate]||{}).notes||{}; const daySkip=(days[selDate]||{}).skip||{};
   document.getElementById('mealsWrap').innerHTML=cta+SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
     const collapsed=slotIsCollapsed(selDate,s.k);
     const chev=collapsed?'▾':'▴';
     const lis=items.map((it,i)=>`<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span><b>${round(itemMacro(it).k)}</b> kcal <span class="x" onclick="rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
+    // doporučení / placeholder pro prázdný slot
+    const note=dayNotes[s.k]; const sk=daySkip[s.k];
+    const skipBtns = (s.k==='svacina2'||s.k==='vecere') ? `<div style="margin-top:4px">${s.k==='vecere'?`<button class="chip ${sk==='manual'?'on':''}" onclick="event.stopPropagation();skipSlot('vecere',${sk==='manual'?'null':"'manual'"})">večeři řeším doma</button>`:`<button class="chip ${sk==='no'?'on':''}" onclick="event.stopPropagation();skipSlot('svacina2',${sk==='no'?'null':"'no'"})">svačinu nechci</button>`}</div>`:'';
+    const emptyBody = note ? `<div class="empty-h" style="color:var(--green-d)">${note}</div>${skipBtns}`
+      : `<div class="empty-h">Zatím prázdné — přidej jídlo</div>${skipBtns}`;
+    const emptyCollapsed = note ? `<div class="empty-h" style="color:var(--green-d);font-size:.74rem">${note}</div>` : '';
     return `<div class="meal"><div class="mi">${s.ic}</div><div class="body">
       <div class="t" onclick="toggleSlot('${s.k}')" style="cursor:pointer"><span>${chev} ${s.l}${items.length?` <span class="muted" style="font-size:.74rem">(${items.length})</span>`:''}</span><span class="kc">${items.length?round(t.k)+' kcal':''}</span></div>
       ${items.length?`<div class="macs" style="margin-top:2px">B ${round(t.p)} g · S ${round(t.c)} g · T ${round(t.f)} g</div>`:''}
-      ${collapsed?(items.length?'':`<div class="empty-h">Prázdné — klepni na ＋</div>`):(items.length?`<div class="items">${lis}</div>`:`<div class="empty-h">Zatím prázdné — přidej jídlo</div>`)}
+      ${collapsed?(items.length?'':emptyCollapsed):(items.length?`<div class="items">${lis}</div>`:emptyBody)}
       </div><button class="plus" onclick="event.stopPropagation();openAdd('${s.k}')">＋</button></div>`;}).join('');
   // water
   const w=(water[selDate]||0)/1000;
@@ -1359,7 +1366,7 @@ function rowHTML(name,meta,tags,addFn,clickFn,warn,favName){
     </div><div style="display:flex;gap:6px;align-items:center;flex:0 0 auto">${star}<button class="add" onclick="${addFn}" ${warn?'style="background:#c0392b"':''}>＋</button></div></div>`;
 }
 function dietActiveLabel(){const a=[];if(dairyActive())a.push('bez mléka');if(diet.vegan)a.push('vegan');else if(diet.vegetarian)a.push('vegetariánské');if(diet.glutenFree)a.push('bez lepku');if(diet.noPork)a.push('bez vepřového');if(diet.noFish)a.push('bez ryb');if(diet.noNuts)a.push('bez ořechů');if(diet.noEgg)a.push('bez vajec');if((diet.excl||[]).length)a.push('vlastní');return a.join(', ');}
-function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); DB.save('kt_days',days); expandSlot(selDate,addSlot); bumpFreq(n); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
+function addFood(n,q,u){ const d=dayObj(selDate); if(!d[addSlot])d[addSlot]=[]; d[addSlot].push({n,q,u}); if(d.notes)delete d.notes[addSlot]; DB.save('kt_days',days); expandSlot(selDate,addSlot); bumpFreq(n); toast('Přidáno do: '+(SLOTS.find(s=>s.k===addSlot).l)); renderDash(); }
 /* kontrola dietního profilu – při porušení vyskočí pop-up s vykřičníkem */
 function confirmViol(n,q,u,viol,closeAfter){
   const alt=altFor(n);
@@ -1395,7 +1402,7 @@ function prepPortion(idx){const p=PREP[idx];
 function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;
   const d=dayObj(selDate); if(!d[slot])d[slot]=[];
   d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
-  DB.save('kt_days',days);expandSlot(selDate,slot);bumpFreq(p.n);toast('Přidáno: '+p.n);renderDash();closeSheet();
+  if(d.notes)delete d.notes[slot];DB.save('kt_days',days);expandSlot(selDate,slot);bumpFreq(p.n);toast('Přidáno: '+p.n);renderDash();closeSheet();
 }
 function myMealMac(m){return m.manual?{k:m.k||0,p:m.p||0,c:m.c||0,f:m.f||0,fib:m.fib||0,sug:m.sug||0,salt:m.salt||0}:sumItems((m.items||[]).map(x=>({n:x[0],q:x[1],u:x[2]})));}
 function addMyMeal(i){ const m=myMeals[i];
@@ -1811,7 +1818,64 @@ function applyModeTemplate(){
   if(filled&&!confirm('Přepsat obsah dne šablonou režimu?'))return;
   const keep=days[selDate]||{};const nd={};['mode','train','highAct','simple','dietv','satiety','goals'].forEach(k=>{if(keep[k]!=null)nd[k]=keep[k];});days[selDate]=nd;
   Object.keys(tpl).forEach(slot=>{const p=PREP.find(x=>x.n===tpl[slot]);if(p)dayObj(selDate)[slot]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
-  DB.save('kt_days',days);renderDash();toast('📋 Šablona režimu „'+modeLabel(mode).replace(/^[^ ]+ /,'')+'" vložena');
+  completeDay(selDate);
+  DB.save('kt_days',days);renderDash();showPlanSummary(selDate);
+}
+/* dopočítá zbývající sloty dne: buď konkrétní jídlo, nebo jasné doporučení do prázdného slotu */
+function completeDay(date){
+  const mode=dayMode(date), ctx=dayCtx(date);
+  // pořadí slotů dle režimu (noční směna jede přes večer–noc–ráno)
+  const order = mode==='nocni' ? ['vecere','vecere2','svacina2','snidane']
+    : (['volno','special','vlastni'].includes(mode) ? ['snidane','obed','vecere','svacina1','svacina2']
+    : ['snidane','svacina1','obed','svacina2','vecere']);
+  const d=dayObj(date); d.notes=d.notes||{};
+  const used=new Set(); SLOTS.forEach(s=>slotItems(date,s.k).forEach(it=>{const idx=PREP.findIndex(p=>p.n===it.n);if(idx>=0)used.add(idx);}));
+  order.forEach(slot=>{
+    if(slotItems(date,slot).length){ delete d.notes[slot]; return; }
+    const sk=(d.skip||{})[slot];
+    if(sk){ d.notes[slot]= sk==='manual' ? 'Večeři vyřešíš doma ručně.' : 'Označeno: tohle jídlo dnes nechceš.'; return; }
+    const g=effTarget(date), t=dayTotals(date);
+    const remK=g.kcal-t.k, remP=g.prot-t.p;
+    if(remK<-100){ d.notes[slot]='Další jídlo není nutné, pokud nemáš hlad.'; return; }
+    if(remK<250 && remP<20){ d.notes[slot]= remP>=10 ? 'Chybí hlavně bílkoviny — lehký doplněk: proteinový shake.' : 'Není potřeba doplňovat, pokud nemáš hlad.'; return; }
+    // dost kcal/bílkovin → zkus doplnit konkrétní jídlo do slotu
+    const budget=Math.max(150, slot==='vecere'?remK:Math.min(remK, remK*0.65));
+    const idx=pickPrepB(slot,used,budget,ctx);
+    if(idx>=0){ const p=PREP[idx]; dayObj(date)[slot]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}]; used.add(idx); delete d.notes[slot]; }
+    else { d.notes[slot]= remP>20 ? 'Chybí bílkoviny — přidej proteinový shake nebo větší porci masa.' : 'Zbývá hodně kcal — doporučená večeře: maso/vejce/tuňák + zelenina + příloha.'; }
+  });
+  DB.save('kt_days',days);
+}
+/* uživatel: odpolední svačinu nechci / večeři řeším doma */
+function skipSlot(slot,val){ const d=dayObj(selDate); d.skip=d.skip||{}; if(val)d.skip[slot]=val; else delete d.skip[slot];
+  if(val){ if(d[slot])delete d[slot]; } DB.save('kt_days',days); completeDay(selDate); DB.save('kt_days',days); renderDash(); }
+/* validace automaticky vytvořeného plánu + souhrn */
+function validatePlan(date){
+  // 1) každý slot musí mít jídlo nebo doporučení – případně dopočítej
+  completeDay(date);
+  const d=days[date]||{}, notes=d.notes||{};
+  const resolved=slot=>slotItems(date,slot).length>0 || !!notes[slot] || !!(d.skip||{})[slot];
+  const mainWithFood=['snidane','obed','vecere'].filter(s=>slotItems(date,s).length>0).length;
+  const wk=isWork(date);
+  // 2) pokud nejsou splněny podmínky, ještě jednou dopočítej
+  let ok = (mainWithFood>=3 || ['snidane','obed','vecere'].every(s=>resolved(s))) && resolved('vecere') && (!wk || resolved('svacina2'));
+  if(!ok){ completeDay(date); }
+  DB.save('kt_days',days);
+}
+function showPlanSummary(date){
+  validatePlan(date);
+  const g=effTarget(date), t=dayTotals(date);
+  const remK=g.kcal-t.k, remP=g.prot-t.p;
+  const d=days[date]||{}, notes=d.notes||{};
+  const rowOf=slot=>{const sl=SLOTS.find(x=>x.k===slot);const it=slotItems(date,slot);
+    const txt= it.length ? it.map(x=>x.n.replace(/ \(.*?\)/,'')).join(', ') : (notes[slot]||'—');
+    return `<div class="li"><span>${sl.ic} ${sl.l}</span><span class="muted" style="font-size:.8rem;max-width:60%;text-align:right">${it.length?round(sumItems(it).k)+' kcal':txt}</span></div>`;};
+  openSheet('Souhrn plánu dne');document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="card"><div style="font-size:1.2rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal · B ${round(t.p)} / ${g.prot} g</div>
+      <div class="muted" style="font-size:.84rem">Zbývá ${remK>=0?round(remK)+' kcal':'0 kcal (jsi +'+round(-remK)+')'} · ${remP>0?round(remP)+' g bílkovin':'bílkoviny pokryté'}</div></div>
+    <div class="card">${SLOTS.map(s=>rowOf(s.k)).join('')}</div>
+    ${(remK>250||remP>20)&&!SLOTS.every(s=>slotItems(date,s.k).length||notes[s.k]||(d.skip||{})[s.k])?'<div class="muted" style="font-size:.8rem">Zbývající kcal/bílkoviny doplň přes ＋ u slotů.</div>':''}`;
 }
 
 /* AKTIVITA */
@@ -1838,7 +1902,7 @@ function planSingleDay(date){
   PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);}});
   const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);
   const d=dayObj(date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=[{n:p.n,q:day.factor,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
-  DB.save('kt_days',days);renderDash();const t=dayTotals(date);toast('✨ Naplánováno: '+round(t.k)+' kcal · '+round(t.p)+' g B');
+  completeDay(date);DB.save('kt_days',days);renderDash();showPlanSummary(date);
 }
 document.getElementById('autoPlanBtn').onclick=()=>{
   const has=SLOTS.some(s=>slotItems(selDate,s.k).length);
