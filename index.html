@@ -205,9 +205,15 @@
   <div class="card" id="stepsCard"></div>
 
   <div class="card waterCard">
-    <div class="card-h"><h3>💧 Pitný režim</h3><button class="iconbtn" id="waterPlus" style="background:#fff">＋</button></div>
-    <div class="bigrow"><div><span class="v" id="waterV">0</span> <span class="l">/ <span id="waterGoal">3.5</span> l</span></div></div>
-    <div class="pbar"><span id="waterBar" style="background:var(--blue)"></span></div>
+    <div class="card-h"><h3>💧 Hydratace</h3></div>
+    <div id="waterStatus" style="font-size:.86rem;line-height:1.55"></div>
+    <div class="pbar" style="margin:8px 0"><span id="waterBar" style="background:var(--blue)"></span></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="qbtn" onclick="quickWater(250)">+250 ml</button>
+      <button class="qbtn" onclick="quickWater(300)">+300 ml</button>
+      <button class="qbtn" onclick="quickWater(500)">+500 ml</button>
+      <button class="qbtn" onclick="quickWaterCustom()">vlastní</button>
+    </div>
   </div>
 
   <div class="card weightCard">
@@ -909,6 +915,35 @@ function restoreProtected(date,snap){ const d=dayObj(date); Object.keys(snap||{}
 function dayFlags(date){ const d=days[date]||{}; const o={}; ['mode','train','highAct','simple','dietv','satiety','goals','skip','notes'].forEach(k=>{if(d[k]!=null)o[k]=JSON.parse(JSON.stringify(d[k]));}); return o; }
 function toggleLock(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; it.locked=!it.locked; DB.save('kt_days',days); renderDash(); toast(it.locked?'🔒 Jídlo zamčeno':'🔓 Jídlo odemčeno'); }
 function toggleEaten(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; it.eaten=!it.eaten; if(it.eaten&&lockCfg.autoLockEaten)it.locked=true; DB.save('kt_days',days); renderDash(); toast(it.eaten?'✓ Označeno jako snědené'+(it.locked?' a zamčeno':''):'Snědené zrušeno'); }
+/* ===== HYDRATACE – pevné časové prahy ===== */
+function hydration(date){
+  const goalMl=Math.round((effTarget(date).water||3)*1000);
+  const cur=water[date]||0;
+  const isToday=date===todayISO;
+  const mins=(new Date()).getHours()*60+(new Date()).getMinutes();
+  let timeGoal,label,evening=false;
+  if(!isToday){ timeGoal=goalMl; label='denní cíl '+(goalMl/1000).toString().replace('.',',')+' l'; }
+  else if(mins<630){ timeGoal=Math.min(1000,goalMl); label='1,0 l do 10:30'; }
+  else if(mins<780){ timeGoal=Math.min(2000,goalMl); label='2,0 l do 13:00'; }
+  else if(mins<1080){ timeGoal=Math.min(3000,goalMl); label='3,0 l do 18:00'; }
+  else { timeGoal=goalMl; label='denní cíl '+(goalMl/1000).toString().replace('.',',')+' l'; evening=true; }
+  const missing=Math.max(0,timeGoal-cur);
+  let state;
+  if(cur>=timeGoal) state= cur>=goalMl?'splněno':'v pohodě';
+  else if(evening) state='pod cílem';
+  else if(missing<=500) state='mírně pozadu';
+  else if(missing<=1000) state='pozadu';
+  else state='výrazně pozadu';
+  const r50=x=>Math.round(x/50)*50;
+  let action;
+  if(cur>=timeGoal) action= cur>=goalMl?'cíl splněn, udržuj příjem':'jsi v plánu, pokračuj';
+  else if(evening) action='doplň menšími dávkami, ne těsně před spaním';
+  else if(missing<=500) action='dej '+Math.max(200,r50(missing-100))+'–'+r50(missing+100)+' ml';
+  else { const half=r50(missing/2); const later=mins<780?'do oběda':'později'; action=half+' ml teď + '+(missing-half)+' ml '+later; }
+  return {goalMl,cur,timeGoal,label,missing,state,evening,action};
+}
+function quickWater(ml){ water[selDate]=Math.max(0,(water[selDate]||0)+ml); DB.save('kt_water',water); renderDash(); }
+function quickWaterCustom(){ const v=prompt('Kolik ml?'); const ml=parseInt(v); if(ml>0)quickWater(ml); }
 /* pracovní hotová jídla pro daný slot (snídaně/oběd/svačina), filtr na dostupnost a dietu */
 function workMealsFor(slot){ return PREP.filter(p=>p.work && !mealViol(p) && (p.slots||[]).includes(slot) && workFoodAvailable(p.n)); }
 /* je jídlo vhodné pro noc/cestování (lehčí protein, bez těžkých tuků a moc cukru) */
@@ -1202,11 +1237,18 @@ function renderDash(){
       ${items.length?`<div class="macs" style="margin-top:2px">B ${round(t.p)} g · S ${round(t.c)} g · T ${round(t.f)} g</div>`:''}
       ${collapsed?(items.length?'':emptyCollapsed):(items.length?`<div class="items">${lis}</div>`:emptyBody)}
       </div><button class="plus" onclick="event.stopPropagation();openAdd('${s.k}')">＋</button></div>`;}).join('');
-  // water
-  const w=(water[selDate]||0)/1000;
-  document.getElementById('waterV').textContent=w.toFixed(2).replace(/\.?0+$/,'');
-  document.getElementById('waterGoal').textContent=gT.water;
-  document.getElementById('waterBar').style.width=Math.min(100,w/gT.water*100)+'%';
+  // water – stručný bodový stav (detail je v Analýze)
+  const hy=hydration(selDate);
+  const lit=ml=>(ml/1000).toFixed(1).replace('.',',');
+  const stColor=hy.state==='splněno'||hy.state==='v pohodě'?'#36b06a':(hy.state==='mírně pozadu'?'#f0b400':'#e0533f');
+  const goalRow=hy.evening||selDate!==todayISO?`Denní cíl: ${lit(hy.goalMl)} l`:`Cíl teď: ${hy.label}`;
+  document.getElementById('waterStatus').innerHTML=
+    `<div>Voda: <b>${lit(hy.cur)} / ${lit(hy.goalMl)} l</b></div>
+     <div>${goalRow}</div>
+     <div>Chybí: <b>${hy.missing} ml</b></div>
+     <div>Stav: <b style="color:${stColor}">${hy.state}</b></div>
+     <div>Akce: ${hy.action}</div>`;
+  const wbar=document.getElementById('waterBar'); if(wbar)wbar.style.width=Math.min(100,hy.cur/hy.goalMl*100)+'%';
   // weight
   const lastW=weights.length?weights[weights.length-1].v:null;
   document.getElementById('weightV').textContent=lastW!=null?lastW:'—';
@@ -2072,6 +2114,12 @@ function dayAnalysis(){
   if(sCnt<=stepCfg.threshold)stepLine=`Kroky (${sCnt.toLocaleString('cs-CZ')}) jsou zatím pod prahem ${stepCfg.threshold.toLocaleString('cs-CZ')} — nezvyšují plán spalování.`;
   else stepLine=`Kroky nad prahem zvýšily odhad spalování o +${sBurn} kcal.`;
   stepLine+= actIntake.on?` Do jídelního cíle bylo přidáno ${sIntake} kcal z aktivity.`:' Denní jídelní cíl se kvůli krokům nezměnil.';
+  // detailní hydratace (jen v analýze)
+  const hy=hydration(selDate);
+  let hydLine=`Vypito ${(hy.cur/1000).toFixed(1).replace('.',',')} l z denního cíle ${(hy.goalMl/1000).toFixed(1).replace('.',',')} l. Aktuální časový cíl: ${hy.label}. `;
+  hydLine+= hy.cur>=hy.timeGoal?'Jsi v plánu podle času.':`Podle času ti chybí ${hy.missing} ml (${hy.state}).`;
+  if(!hy.evening && hy.missing>0) hydLine+=` Návrh: ${hy.action}.`;
+  if(hy.evening && hy.cur<hy.goalMl) hydLine+=' Je večer — doplň menšími dávkami a nedoháněj velké množství najednou před spaním.';
   openSheet('Analýza dne');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card" style="${isTrain?'background:var(--green-soft)':wk?'background:#eef4ff':''}">
@@ -2079,6 +2127,7 @@ function dayAnalysis(){
       <div class="muted" style="font-size:.82rem">${dayStatusLabel(selDate)[0].toUpperCase()+dayStatusLabel(selDate).slice(1)}. B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
     </div>
     <div class="card"><b>Shrnutí:</b> ${summary}</div>
+    <div class="card"><b>💧 Hydratace:</b> ${hydLine}</div>
     <div class="card"><b>👟 Kroky:</b> ${stepLine}</div>
     <div class="card"><b>Co doplnit:</b> ${rec}</div>
     ${concrete?`<div class="card">${concrete}</div>`:''}
@@ -2086,7 +2135,7 @@ function dayAnalysis(){
 }
 
 /* VODA */
-document.getElementById('waterPlus').onclick=()=>{
+function waterSheet(){
   openSheet('Pitný režim');document.getElementById('sheetTabs').innerHTML='';
   const cur=()=>(water[selDate]||0);
   const draw=()=>{document.getElementById('wNow').textContent=(cur()/1000).toFixed(2).replace(/\.?0+$/,'')+' l';};
@@ -2099,7 +2148,7 @@ document.getElementById('waterPlus').onclick=()=>{
   window.addWater=ml=>{water[selDate]=Math.max(0,(water[selDate]||0)+ml);DB.save('kt_water',water);draw();renderDash();};
   window.addWaterCustom=()=>{const v=prompt('Kolik ml?');const ml=parseInt(v);if(ml>0)addWater(ml);};
   draw();
-};
+}
 
 /* HMOTNOST */
 function weightFlow(){
@@ -2618,7 +2667,7 @@ refreshNakupChips();
     if(p.has('w')){const ml=parseInt(p.get('w'),10);
       if(ml){water[todayISO]=Math.max(0,(water[todayISO]||0)+ml);DB.save('kt_water',water);selDate=todayISO;document.getElementById('datePick').value=selDate;renderDash();toast('💧 Přidáno '+ml+' ml vody');openWater=true;}}
     if(p.get('screen')==='water')openWater=true;
-    if(openWater)document.getElementById('waterPlus').click();
+    if(openWater)waterSheet();
   }catch(e){}
 })();
 
