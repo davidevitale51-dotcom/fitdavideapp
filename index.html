@@ -400,15 +400,17 @@
     <p class="muted" style="font-size:.82rem;margin-bottom:2px" id="shopSubtitle">Suroviny z naplánovaných jídel</p>
     <div class="sumbar" id="shopSum"></div>
     <div id="shopList"></div>
-    <details class="setblk" style="margin-top:10px"><summary><b style="font-size:.9rem">＋ Přidat vlastní položku</b></summary>
+    <details class="setblk" id="shopAddBox" style="margin-top:10px"><summary><b style="font-size:.9rem">＋ Přidat položku</b></summary>
       <input id="shopAdd" placeholder="Název položky" style="margin-top:8px">
       <div style="display:flex;gap:6px;margin-top:6px">
         <input id="shopAddQ" type="number" placeholder="Množství" style="flex:1">
-        <select id="shopAddU" style="flex:1">${['ks','g','kg','ml','l','balení','plechovka','láhev','svazek','hrst','plátek','porce'].map(u=>`<option${u==='ks'?' selected':''}>${u}</option>`).join('')}</select>
+        <select id="shopAddGrp" style="flex:1"><option value="ks">ks</option><option value="kgl">kg/l</option><option value="gml">g/ml</option></select>
+        <select id="shopAddSub" style="flex:0.8;display:none"></select>
       </div>
       <input id="shopAddNote" placeholder="Poznámka (volitelné)" style="margin-top:6px">
+      <input id="shopAddCat" placeholder="Kategorie (volitelné)" style="margin-top:6px">
       <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" id="shopAddLock" checked style="width:auto"> Zamčeno (zůstane při přepočtu)</label>
-      <button class="btn block" id="shopAddBtn" style="margin-top:8px">Přidat položku</button>
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn block" id="shopAddBtn">Uložit</button><button class="btn ghost" id="shopAddCancel" style="padding:0 16px">Zrušit</button></div>
     </details>
   </div>
   <div class="card">
@@ -3088,11 +3090,26 @@ document.getElementById('importFile').onchange=function(){const f=this.files[0];
 document.getElementById('datePick').value=selDate;
 loadTargets();renderDietOpts();renderDash();renderMyMeals();
 /* záložka Nákup – statická tlačítka */
+/* skupiny jednotek: ks / kg-l / g-ml s podvolbou */
+function shopUnitSync(){const grp=document.getElementById('shopAddGrp'),sub=document.getElementById('shopAddSub');if(!grp||!sub)return;
+  if(grp.value==='ks'){sub.style.display='none';sub.innerHTML='';}
+  else{const opts=grp.value==='kgl'?['kg','l']:['g','ml'];sub.style.display='';sub.innerHTML=opts.map((u,i)=>`<option${i===0?' selected':''}>${u}</option>`).join('');}}
+{const grp=document.getElementById('shopAddGrp');if(grp)grp.onchange=shopUnitSync;
+ const box=document.getElementById('shopAddBox');if(box)box.addEventListener('toggle',()=>{if(box.open){shopUnitSync();const ni=document.getElementById('shopAdd');if(ni&&ni.focus)try{ni.focus();}catch(e){}}});
+ const cancel=document.getElementById('shopAddCancel');if(cancel)cancel.onclick=()=>{const box=document.getElementById('shopAddBox');if(box)box.open=false;['shopAdd','shopAddQ','shopAddNote','shopAddCat'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});};}
 document.getElementById('shopAddBtn').onclick=()=>{const el=document.getElementById('shopAdd');const v=el.value.trim();if(!v){toast('Název nesmí být prázdný');return;}
-  const qel=document.getElementById('shopAddQ'),uel=document.getElementById('shopAddU'),nel=document.getElementById('shopAddNote'),lel=document.getElementById('shopAddLock');
-  const qn=parseFloat((qel.value||'').replace(',','.'));const now=new Date().toISOString().slice(0,16).replace('T',' ');
-  shopState.push({n:v,q:isNaN(qn)?'':qn,u:(uel.value||'ks'),note:(nel.value||'').trim(),done:false,cat:shopCat(v),source:'manual',locked:!!lel.checked,manual_override:true,created_at:now,updated_at:now});
-  el.value='';qel.value='';if(nel)nel.value='';saveShop();renderNakup();toast('Přidáno'+(lel.checked?' (zamčené 🔒)':''));};
+  const qel=document.getElementById('shopAddQ'),grp=document.getElementById('shopAddGrp'),sub=document.getElementById('shopAddSub'),nel=document.getElementById('shopAddNote'),cel=document.getElementById('shopAddCat'),lel=document.getElementById('shopAddLock');
+  const grpV=grp.value; const unit = grpV==='ks'?'ks':(sub.value||(grpV==='kgl'?'kg':'g'));
+  const unitGroup = grpV==='ks'?'ks':(grpV==='kgl'?'kg/l':'g/ml');
+  let qn=parseFloat((qel.value||'').replace(',','.'));
+  if(isNaN(qn)){ if(grpV==='ks')qn=1; else{toast('U '+unitGroup+' zadej množství');return;} }
+  if(qn<0){toast('Množství nedává smysl');return;}
+  const now=new Date().toISOString().slice(0,16).replace('T',' ');
+  shopState.push({n:v,q:qn,u:unit,unit_group:unitGroup,note:(nel.value||'').trim(),cat:(cel&&cel.value.trim())||shopCat(v),done:false,source:'manual',locked:!!lel.checked,manual_override:true,created_at:now,updated_at:now});
+  el.value='';qel.value='';if(nel)nel.value='';if(cel)cel.value='';
+  saveShop();renderNakup();toast('Přidáno'+(lel.checked?' (zamčené 🔒)':''));
+  // znovu připrav pole pro rychlé zadávání
+  const box=document.getElementById('shopAddBox');if(box)box.open=true;const ni=document.getElementById('shopAdd');if(ni&&ni.focus)try{ni.focus();}catch(e){}};
 document.getElementById('copyAnydo').onclick=copyAnydo;
 document.getElementById('shareAnydo').onclick=shareAnydo;
 document.getElementById('tglUnchecked').onclick=()=>shopTgl('uc');
