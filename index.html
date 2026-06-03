@@ -2131,17 +2131,41 @@ function completeDay(date){
     if(slotItems(date,slot).length){ delete d.notes[slot]; return; }
     const sk=(d.skip||{})[slot];
     if(sk){ d.notes[slot]= sk==='manual' ? 'Večeři vyřešíš doma ručně.' : 'Označeno: tohle jídlo dnes nechceš.'; return; }
-    const g=effTarget(date), t=dayTotals(date);
+    const g=effTarget(date), t=dayTotals(date);     // t = pevné (snědené+zamčené) + případné odemčené plánované, počítané jen jednou
     const remK=g.kcal-t.k, remP=g.prot-t.p;
-    if(remK<-100){ d.notes[slot]='Další jídlo není nutné, pokud nemáš hlad.'; return; }
-    if(remK<250 && remP<20){ d.notes[slot]= remP>=10 ? 'Chybí hlavně bílkoviny — lehký doplněk: proteinový shake.' : 'Není potřeba doplňovat, pokud nemáš hlad.'; return; }
-    // dost kcal/bílkovin → zkus doplnit konkrétní jídlo do slotu
+    const saltHigh=t.salt>g.salt*1.1;
+    // kalorický prostor nízký → nedoplňuj velké jídlo
+    if(remK<=0){ d.notes[slot]='Další jídlo není nutné, pokud nemáš hlad. Doplň vodu a zbytek dne drž jednoduše.'; return; }
+    if(remK<150){ d.notes[slot]= remP>=20 ? 'Den je kaloricky skoro plný, ale chybí bílkoviny — proteinový shake ve vodě.' : 'Den je kaloricky téměř naplněný — stačí voda nebo zelenina.'; return; }
+    if(remK<400 && remP>35){ d.notes[slot]='Do kalorického prostoru se už nevejde ideální doplnění všech bílkovin. Doplň co nejvíc proteinu bez přejídání: shake ve vodě, tuňák, kuřecí/krůtí maso'+(saltHigh?'':', vejce/šunka')+'.'; return; }
+    // doplň konkrétní jídlo – priorita bílkovin při nedostatku
     const budget=Math.max(150, slot==='vecere'?remK:Math.min(remK, remK*0.65));
-    const idx=pickPrepB(slot,used,budget,ctx);
-    if(idx>=0){ const p=PREP[idx]; dayObj(date)[slot]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}]; used.add(idx); delete d.notes[slot]; }
+    let cands=slotCandidates(date,slot).filter(i=>!used.has(i));
+    if(saltHigh){const ls=cands.filter(i=>PREP[i].salt<=g.salt*0.5);if(ls.length)cands=ls;}
+    if(remP>40){const hp=cands.filter(i=>PREP[i].p>=20);if(hp.length)cands=hp;cands.sort((a,b)=>PREP[b].p-PREP[a].p);}
+    else cands.sort((a,b)=>Math.abs(PREP[a].k-budget)-Math.abs(PREP[b].k-budget));
+    const idx=cands.length?cands[Math.floor(Math.random()*Math.min(3,cands.length))]:-1;
+    if(idx>=0){ dayObj(date)[slot]=[mealItemFromPrep(PREP[idx])]; used.add(idx); delete d.notes[slot]; }
     else { d.notes[slot]= remP>20 ? 'Chybí bílkoviny — přidej proteinový shake nebo větší porci masa.' : 'Zbývá hodně kcal — doporučená večeře: maso/vejce/tuňák + zelenina + příloha.'; }
   });
   DB.save('kt_days',days);
+}
+/* krátký stav doplnění dne – „Už zapsáno / Zbývá / Stav / Doporučení" */
+function dayFillStatus(date){
+  const g=effTarget(date), t=dayTotals(date);
+  const remK=Math.round(g.kcal-t.k), remP=Math.round(g.prot-t.p);
+  const pState = remP<=5?'protein splněn' : (remP<=20?'protein skoro splněn':'protein chybí');
+  let rec;
+  if(remK<=0) rec='bez dalšího jídla (lehký zbytek dne)';
+  else if(remK<150) rec= remP>20?'jen proteinové doplnění':'bez dalšího velkého jídla';
+  else if(remK<400 && remP>35) rec='co nejvíc proteinu bez přejídání';
+  else if(remP>40) rec='hlavní jídlo s vysokým proteinem';
+  else if(remK>700) rec='plnohodnotné hlavní jídlo';
+  else if(remK>=400) rec='střední jídlo s důrazem na bílkoviny';
+  else rec='malé proteinové / vlákninové doplnění';
+  const text=`Už máš ${round(t.k)} kcal a ${round(t.p)} g bílkovin. Do cíle zbývá ${Math.max(0,remK)} kcal a ${Math.max(0,remP)} g bílkovin.`
+    + (remK<400&&remP>35?' Ideál už dnes nepůjde dohnat bez překročení kcal — doplň protein a zbytek nehoň za každou cenu.':'');
+  return {writtenK:round(t.k),writtenP:round(t.p),remK,remP,proteinState:pState,recommendation:rec,text};
 }
 /* uživatel: odpolední svačinu nechci / večeři řeším doma */
 function skipSlot(slot,val){ const d=dayObj(selDate); d.skip=d.skip||{}; if(val)d.skip[slot]=val; else delete d.skip[slot];
@@ -2167,10 +2191,12 @@ function showPlanSummary(date){
   const rowOf=slot=>{const sl=SLOTS.find(x=>x.k===slot);const it=slotItems(date,slot);
     const txt= it.length ? it.map(x=>x.n.replace(/ \(.*?\)/,'')).join(', ') : (notes[slot]||'—');
     return `<div class="li"><span>${sl.ic} ${sl.l}</span><span class="muted" style="font-size:.8rem;max-width:60%;text-align:right">${it.length?round(sumItems(it).k)+' kcal':txt}</span></div>`;};
+  const st=dayFillStatus(date);
   openSheet('Souhrn plánu dne');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card"><div style="font-size:1.2rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal · B ${round(t.p)} / ${g.prot} g</div>
-      <div class="muted" style="font-size:.84rem">Zbývá ${remK>=0?round(remK)+' kcal':'0 kcal (jsi +'+round(-remK)+')'} · ${remP>0?round(remP)+' g bílkovin':'bílkoviny pokryté'}</div></div>
+      <div class="muted" style="font-size:.84rem">Zbývá ${remK>=0?round(remK)+' kcal':'0 kcal (jsi +'+round(-remK)+')'} · ${remP>0?round(remP)+' g bílkovin':'bílkoviny pokryté'}</div>
+      <div class="muted" style="font-size:.8rem;margin-top:4px">Stav: <b>${st.proteinState}</b> · Doporučení: ${st.recommendation}</div></div>
     <div class="card">${SLOTS.map(s=>rowOf(s.k)).join('')}</div>
     ${(remK>250||remP>20)&&!SLOTS.every(s=>slotItems(date,s.k).length||notes[s.k]||(d.skip||{})[s.k])?'<div class="muted" style="font-size:.8rem">Zbývající kcal/bílkoviny doplň přes ＋ u slotů.</div>':''}`;
 }
