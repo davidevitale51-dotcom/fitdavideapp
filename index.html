@@ -2887,6 +2887,39 @@ refreshNakupChips();
   }catch(e){}
 })();
 
+/* ===== JEDNORÁZOVÉ NAPLNĚNÍ DENÍKU 3.6. (snídaně + dopolední svačina, eaten+locked) ===== */
+(function seed_20260603(){
+  if(localStorage.getItem('kt_seed_20260603'))return;
+  const D='2026-06-03';
+  const ensureFood=(name,per100,aller)=>{ if(FOODS.some(f=>f.n===name))return 'exist';
+    const f=Object.assign({n:name,cat:'⭐ Moje potraviny'},per100); if(aller)f.aller=aller;
+    FOODS.push(f); const cust=DB.load('kt_eanfoods',[]); cust.push(f); DB.save('kt_eanfoods',cust); return 'new'; };
+  const p100=(per,g)=>{const o={};['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]=+( (per[kk]||0)/g*100 ).toFixed(2));return o;};
+  // [slot, name, grams, unit, perPortion(jen u nových), aller]
+  const items=[
+    ['snidane','Vepřová šunka',45,'g',{k:50,p:8.5,f:1.5,c:0.5,sug:0.3,fib:0,salt:1.0},[]],
+    ['snidane','Schwarzwaldská šunka',30,'g',{k:75,p:8,f:4.5,c:0.3,sug:0,fib:0,salt:1.6},[]],
+    ['snidane','Vejce natvrdo',55,'g',null,[]],
+    ['snidane','Párky',100,'g',{k:280,p:12,f:24,c:2,sug:1,fib:0,salt:2.0},[]],
+    ['snidane','Uzený losos',40,'g',null,[]],
+    ['snidane','Baby okurky',150,'g',{k:20,p:1,f:0,c:4,sug:2.5,fib:1,salt:0},[]],
+    ['snidane','Chléb',45,'g',{k:105,p:3.5,f:1,c:21,sug:1.5,fib:2.5,salt:0.5},['en:gluten']],
+    ['svacina1','Veganský proteinový prášek',25,'g',null,[]],
+    ['svacina1','Sójové müsli',30,'g',{k:115,p:12,f:3,c:8,sug:2,fib:3,salt:0.2},['en:soybeans']],
+    ['svacina1','Běžné müsli',30,'g',{k:115,p:3,f:3,c:19,sug:6,fib:3,salt:0.1},['en:gluten']],
+    ['svacina1','Sójový proteinový drink',250,'ml',{k:160,p:20,f:5,c:8,sug:5,fib:1,salt:0.5},['en:soybeans']]
+  ];
+  const created=[],used=[];
+  items.forEach(([slot,name,g,unit,per,aller])=>{
+    if(per){ const st=ensureFood(name,Object.assign(p100(per,g),(g&&unit!=='ml'?{g:g}:{})),aller); (st==='new'?created:used).push(name); }
+    else used.push(name);
+    const d=days[D]||(days[D]={}); if(!d[slot])d[slot]=[]; d[slot].push({n:name,q:g,u:unit,eaten:true,locked:true});
+  });
+  DB.save('kt_days',days);
+  localStorage.setItem('kt_seed_20260603',JSON.stringify({created,used}));
+  try{selDate=D;if(typeof renderDash==='function')renderDash();}catch(e){}
+})();
+
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
 </script>
 </body>
