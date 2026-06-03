@@ -326,7 +326,12 @@
     </details>
   </div>
   <div class="card"><h3 style="margin-bottom:8px">Aktualizace</h3>
-    <p class="muted" style="font-size:.78rem;margin:0">Tlačítko <b>„🔄 Aktualizovat appku"</b> najdeš nahoře. Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
+    <p class="muted" style="font-size:.78rem;margin:0 0 10px">Tlačítko <b>„🔄 Aktualizovat appku"</b> najdeš nahoře. Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
+    <div style="border-top:1px solid var(--line);padding-top:10px">
+      <div class="muted" style="font-size:.74rem;margin-bottom:4px">Technicke informace</div>
+      <pre id="buildInfo" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;line-height:1.5;white-space:pre-wrap;margin:0"></pre>
+      <div id="buildManual"></div>
+    </div>
   </div>
   <div class="card">
     <details class="setblk"><summary><h3 style="display:inline;margin:0">Záloha a import dat</h3></summary>
@@ -831,6 +836,14 @@ function shopCat(n){const x=n.toLowerCase();
 
 /* ====== STORAGE ====== */
 const DB={load:(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},save:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
+/* ===== CENTRALNI BUILD METADATA (jedine misto pravdy pro verzi) ===== */
+const BUILD_INFO={
+  buildNumber: 56,                 // pocet commitu / cislo buildu
+  commitHash: "",                  // kratky git hash, pokud je k dispozici (jinak doplnit rucne)
+  buildLabel: "lock-meals",        // kratky technicky nazev zmeny bez diakritiky
+  buildDate: "2026-06-03 18:42"    // datum a cas buildu (jinak doplnit rucne)
+};
+BUILD_INFO.version="v0."+BUILD_INFO.buildNumber; // bez automatickeho preklopeni na v1.00
 let days   = DB.load('kt_days', {});       // {date:{slot:[{n,q,u}]}}
 let water  = DB.load('kt_water', {});      // {date: ml}
 let acts   = DB.load('kt_acts', {});       // {date:[{n,min,kcal}]}
@@ -2472,6 +2485,30 @@ function renderWorkSettings(){
 }
 document.getElementById('saveWork').onclick=()=>{workCfg.repeat=document.getElementById('wkRepeat').checked;DB.save('kt_work',workCfg);renderDash();toast('Pracovní nastavení uloženo');};
 document.getElementById('saveTrain').onclick=()=>{trainCfg={kcal:+gv('trKcal').value||0,p:+gv('trP').value||0,c:+gv('trC').value||0,f:+gv('trF').value||0};DB.save('kt_train',trainCfg);renderDash();toast('Nastavení tréninku uloženo');};
+/* ===== TECHNICKE INFORMACE (verze/build) – bez diakritiky ===== */
+function buildMeta(){const o=DB.load('kt_buildmeta',{});return {commitHash:BUILD_INFO.commitHash||o.commitHash||'',buildDate:BUILD_INFO.buildDate||o.buildDate||''};}
+function renderBuildInfo(){
+  const el=document.getElementById('buildInfo'); if(!el)return;
+  const m=buildMeta();
+  el.textContent=
+    'Version:     '+BUILD_INFO.version+'\n'+
+    'Build:       '+BUILD_INFO.buildNumber+'\n'+
+    'Commit:      '+(m.commitHash||'-')+'\n'+
+    'Build label: '+BUILD_INFO.buildLabel+'\n'+
+    'Build date:  '+(m.buildDate||'-');
+  const man=document.getElementById('buildManual');
+  const needC=!m.commitHash, needD=!m.buildDate;
+  man.innerHTML=(needC||needD)?
+   `<div class="muted" style="font-size:.74rem;margin:8px 0 4px">Doplnit rucne:</div>
+    ${needC?`<input id="bmCommit" placeholder="commit hash (napr. a7f3c9d)" style="margin-bottom:6px">`:''}
+    ${needD?`<input id="bmDate" placeholder="build date YYYY-MM-DD HH:mm" style="margin-bottom:6px">`:''}
+    <button class="btn sec block" id="bmSave">Ulozit</button>`:'';
+  const sv=document.getElementById('bmSave');
+  if(sv)sv.onclick=()=>{const o=DB.load('kt_buildmeta',{});const c=document.getElementById('bmCommit');const d=document.getElementById('bmDate');
+    if(c&&c.value.trim())o.commitHash=c.value.trim(); if(d&&d.value.trim())o.buildDate=d.value.trim();
+    DB.save('kt_buildmeta',o);renderBuildInfo();toast('Build info ulozeno');};
+}
+renderBuildInfo();
 document.getElementById('saveSteps').onclick=()=>{stepCfg={goal:+gv('stGoal').value||10000,threshold:+gv('stThr').value||7000,perK:+gv('stPerK').value||40,max:+gv('stMax').value||250};DB.save('kt_stepcfg',stepCfg);
   actIntake={on:document.getElementById('aiOn').checked,pct:Math.max(0,Math.min(100,+gv('aiPct').value||0))};DB.save('kt_actintake',actIntake);renderDash();toast('Nastavení kroků uloženo');};
 document.getElementById('saveTargets').onclick=()=>{target={kcal:+gv('tKcal').value||1800,prot:+gv('tProt').value||160,carb:+gv('tCarb').value||165,fat:+gv('tFat').value||60,fib:+gv('tFib').value||30,sugar:+gv('tSugar').value||90,salt:+gv('tSalt').value||6,water:+gv('tWater').value||3.5,weight:+gv('tWeight').value||95};DB.save('kt_target',target);renderDash();toast('Cíle uloženy');};
