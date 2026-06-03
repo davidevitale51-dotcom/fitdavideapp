@@ -864,16 +864,35 @@ function stepBurn(date){           // odhad spalování navíc z kroků nad prá
 function stepIntakeBonus(date){    // kolik z bonusu se případně přičte do jídelního cíle
   return actIntake.on ? Math.round(stepBurn(date)*((+actIntake.pct||0)/100)) : 0;
 }
-/* ====== PRACOVNÍ DEN ====== */
-let workCfg = DB.load('kt_work', {days:[1,2,3,4,5], repeat:true, avail:null, favs:[]});
+/* ====== REŽIM DNE ====== */
+let workCfg = DB.load('kt_work', {days:[1,2,3,4,5], repeat:true, avail:null, favs:[], shift:{start:'20:00',end:'08:00',countTo:'start'}});
 if(workCfg.avail==null) workCfg.avail = null; // null = vše dostupné
+if(!workCfg.shift) workCfg.shift={start:'20:00',end:'08:00',countTo:'start'};
+const DAY_MODES=[['volno','🏠 Volno / domácí'],['prace','👜 Pracovní den'],['denni','🌞 Denní směna'],['nocni','🌙 Noční směna'],['cestovani','🧳 Cestování'],['special','✨ Speciální den'],['vlastni','⚙️ Vlastní režim']];
+const DAY_TOGGLES=[['train','🏋️ Silový trénink'],['highAct','👟 Vyšší aktivita / hodně kroků'],['simple','🔁 Jednoduchý opakovaný jídelníček'],['dietv','🥗 Dietnější varianta'],['satiety','🍽️ Větší sytost']];
+function dayMode(date){ const d=days[date]||{}; if(d.mode)return d.mode; try{return workCfg.days.includes(new Date(date).getDay())?'prace':'volno';}catch(e){return'volno';} }
+function setDayMode(m){ dayObj(selDate).mode=m; DB.save('kt_days',days); renderDash(); toast('Režim dne: '+(DAY_MODES.find(x=>x[0]===m)||[])[1]); }
+function dayOpt(date,k){ return !!(days[date]||{})[k]; }
+function toggleDayOpt(k){ const d=dayObj(selDate); d[k]=!d[k]; DB.save('kt_days',days); renderDash(); }
+const WORK_MODES=['prace','denni'];
+function isWork(date){ return WORK_MODES.includes(dayMode(date)); }
+function modeLabel(m){ return (DAY_MODES.find(x=>x[0]===m)||['',m])[1]; }
+function dayStatusLabel(date){ let s=modeLabel(dayMode(date)).replace(/^[^ ]+ /,''); const ex=[]; if(dayOpt(date,'train'))ex.push('trénink'); if(dayOpt(date,'highAct'))ex.push('vyšší aktivita'); if(dayOpt(date,'simple'))ex.push('opakovaný'); if(dayOpt(date,'dietv'))ex.push('dietnější'); if(dayOpt(date,'satiety'))ex.push('sytost'); return s+(ex.length?' · '+ex.join(', '):''); }
+function toggleWork(){ const m=dayMode(selDate); setDayMode(WORK_MODES.includes(m)?'volno':'prace'); }
 function workFoodAvailable(n){ return !workCfg.avail || workCfg.avail.includes(n); }
-function isWork(date){ const d=days[date]||{}; if(d.work!=null)return d.work; try{return workCfg.days.includes(new Date(date).getDay());}catch(e){return false;} }
-function dayStatusLabel(date){ const tr=(days[date]||{}).train, wk=isWork(date);
-  if(wk&&tr)return'pracovní + tréninkový den'; if(wk)return'pracovní den'; if(tr)return'tréninkový den'; return'běžný den'; }
-function toggleWork(){ const d=dayObj(selDate); d.work=!isWork(selDate); DB.save('kt_days',days); renderDash(); toast(d.work?'👜 Pracovní den zapnut':'Pracovní den vypnut'); }
 /* pracovní hotová jídla pro daný slot (snídaně/oběd/svačina), filtr na dostupnost a dietu */
 function workMealsFor(slot){ return PREP.filter(p=>p.work && !mealViol(p) && (p.slots||[]).includes(slot) && workFoodAvailable(p.n)); }
+/* je jídlo vhodné pro noc/cestování (lehčí protein, bez těžkých tuků a moc cukru) */
+function nightOK(p){ return p.p>=12 && p.f<=22 && p.sug<=18; }
+function portableOK(p){ return p.work || /shake|tyčinka|salát|bowl|vejce|šunka|losos|ovoce/i.test(p.n); }
+/* fáze noční směny podle času (start/end) */
+function nightShiftPhase(h){ const sh=workCfg.shift; const sH=parseInt(sh.start)||20, eH=parseInt(sh.end)||8;
+  const inShift=(sH<eH)?(h>=sH&&h<eH):(h>=sH||h<eH);
+  if(!inShift)return 'mimo';
+  // začátek 2h, konec 2h, jinak průběh
+  if((sH<=h&&h<sH+2)||(sH>=22&&h>=sH&&h<sH+2))return 'pred';
+  const endApproach=(eH-2+24)%24; if(h===endApproach||h===(endApproach+1)%24)return 'po';
+  if(h>=0&&h<5)return 'hluboke'; return 'prubeh'; }
 function renderSteps(){
   const el=document.getElementById('stepsCard'); if(!el)return;
   const s=stepCount(selDate), burn=stepBurn(selDate), intake=stepIntakeBonus(selDate);
@@ -1102,16 +1121,28 @@ function renderDash(){
   ring.style.cursor='pointer'; ring.onclick=()=>nutrientBreakdown('k','Energie','kcal');
   // tréninkový den – přepínač + informace o navýšení
   const tw=document.getElementById('trainWrap');
-  if(tw){const man=dayHasManualGoals(selDate);const wk=isWork(selDate);
-    tw.innerHTML=`<div class="card" style="margin-bottom:10px;${wk?'background:#eef4ff':''}">
+  if(tw){const man=dayHasManualGoals(selDate);const mode=dayMode(selDate);const sh=workCfg.shift;
+    tw.innerHTML=`<div class="card">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1"><b>👜 Pracovní den</b><div class="muted" style="font-size:.78rem">Stav dne: <b>${dayStatusLabel(selDate)}</b></div>${wk?`<div class="muted" style="font-size:.74rem">Návrhy preferují jídla bez vaření, dostupná v práci.</div>`:''}</div>
-        <button class="btn ${wk?'':'sec'}" style="${wk?'background:#c0392b':''}" onclick="toggleWork()">${wk?'Vypnout':'Zapnout'}</button>
-      </div></div>
-      <div class="card" style="display:flex;align-items:center;gap:10px;${isTrain?'background:var(--green-soft)':''}">
-      <div style="flex:1"><b>🏋️ Silový trénink</b>${isTrain?`<div class="muted" style="font-size:.78rem">Cíl navýšen o +${trainCfg.kcal} kcal (B +${trainCfg.p} · S +${trainCfg.c} · T +${trainCfg.f} g)</div>`:`<div class="muted" style="font-size:.78rem">Zapni u tréninkového dne – navýší denní cíl</div>`}${man?`<div class="muted" style="font-size:.72rem;color:var(--green-d)">Tento den má ručně upravené cíle</div>`:''}</div>
-      <button class="btn ${isTrain?'':'sec'}" style="${isTrain?'background:#c0392b':''}" onclick="toggleTrain()">${isTrain?'Vypnout':'Zapnout'}</button>
-      <button class="btn ghost" style="padding:0 12px" onclick="editDayGoals()" title="Upravit cíle dne">✎</button></div>`;}
+        <div style="flex:1"><b>📅 Režim dne</b><div class="muted" style="font-size:.74rem">${dayStatusLabel(selDate)}</div></div>
+        <select id="dayModeSel" style="flex:0 0 auto;max-width:55%">${DAY_MODES.map(([k,l])=>`<option value="${k}"${k===mode?' selected':''}>${l}</option>`).join('')}</select>
+      </div>
+      ${mode==='nocni'?`<div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end">
+        <div style="flex:1"><label style="font-size:.74rem">Začátek směny</label><input type="time" id="shStart" value="${sh.start}"></div>
+        <div style="flex:1"><label style="font-size:.74rem">Konec směny</label><input type="time" id="shEnd" value="${sh.end}"></div>
+        <select id="shCount" style="flex:1.2"><option value="start"${sh.countTo==='start'?' selected':''}>počítat do dne startu</option><option value="wake"${sh.countTo==='wake'?' selected':''}>do dne po probuzení</option></select>
+      </div>`:''}
+      <div class="chips" style="flex-wrap:wrap;margin-top:8px">${DAY_TOGGLES.map(([k,l])=>`<button class="chip ${dayOpt(selDate,k)?'on':''}" onclick="toggleDayOpt('${k}')">${l}</button>`).join('')}</div>
+      <div style="display:flex;gap:8px;margin-top:8px">
+        ${isTrain?`<div class="muted" style="font-size:.74rem;flex:1">🏋️ Cíl navýšen o +${trainCfg.kcal} kcal (B +${trainCfg.p}·S +${trainCfg.c}·T +${trainCfg.f})${man?' · ručně upravené cíle':''}</div>`:`<div class="muted" style="font-size:.74rem;flex:1">${man?'Ručně upravené cíle dne':'Vyber režim a přepínače pro tento den'}</div>`}
+        <button class="btn ghost" style="padding:0 12px" onclick="editDayGoals()" title="Upravit cíle dne">✎ cíle</button>
+        <button class="btn sec" style="padding:0 12px" onclick="applyModeTemplate()" title="Naplnit den šablonou režimu">📋 šablona</button>
+      </div></div>`;
+    const ms=document.getElementById('dayModeSel'); if(ms)ms.onchange=()=>setDayMode(ms.value);
+    const ss=document.getElementById('shStart'),se=document.getElementById('shEnd'),sc=document.getElementById('shCount');
+    const saveShift=()=>{workCfg.shift={start:ss.value||'20:00',end:se.value||'08:00',countTo:sc.value};DB.save('kt_work',workCfg);};
+    if(ss)ss.onchange=saveShift; if(se)se.onchange=saveShift; if(sc)sc.onchange=saveShift;
+  }
   // nutrients
   const N=[['Bílkoviny',tot.p,gT.prot,'var(--prot)',0,'p'],['Sacharidy',tot.c,gT.carb,'var(--carb)',0,'c'],
     ['Tuky',tot.f,gT.fat,'var(--fat)',0,'f'],['Vláknina',tot.fib,gT.fib,'var(--fib)',0,'fib'],
@@ -1761,6 +1792,28 @@ function startScan(msg){
 // znovu načti EAN potraviny při startu
 DB.load('kt_eanfoods',[]).forEach(f=>{if(!findFood(f.n))FOODS.push(f);});
 
+/* výchozí šablony podle režimu dne */
+const MODE_TEMPLATES={
+ denni:{snidane:"Vejce natvrdo + šunka + zelenina + ovoce",obed:"Dean & David salát s dvojitým kuřetem (1/2 Tahini)",svacina1:"Veganský proteinový shake + banán"},
+ prace:{snidane:"Vejce natvrdo + šunka + zelenina + ovoce",obed:"Dean & David salát s dvojitým masem",svacina1:"Proteinová tyčinka + ovoce"},
+ nocni:{vecere:"Japanese Beef Bowl – extra beef, 1/2 teriyaki",vecere2:"Veganský proteinový shake + banán",svacina2:"Vejce natvrdo + šunka + zelenina + ovoce"},
+ cestovani:{snidane:"Veganský proteinový shake + banán",obed:"Dean & David salát s grilovanými kuřecími prsy",svacina1:"Proteinová tyčinka + ovoce"}
+};
+function applyModeTemplate(){
+  const mode=dayMode(selDate);
+  const filled=SLOTS.some(s=>slotItems(selDate,s.k).length);
+  if(['volno','special','vlastni'].includes(mode)){
+    if(filled&&!confirm('Přepsat den novým návrhem (domácí vaření)?'))return;
+    const keep=days[selDate]||{};days[selDate]={};['mode','train','highAct','simple','dietv','satiety','goals'].forEach(k=>{if(keep[k]!=null)days[selDate][k]=keep[k];});
+    planSingleDay(selDate);return;
+  }
+  const tpl=MODE_TEMPLATES[mode]; if(!tpl){toast('Pro tento režim zatím není šablona');return;}
+  if(filled&&!confirm('Přepsat obsah dne šablonou režimu?'))return;
+  const keep=days[selDate]||{};const nd={};['mode','train','highAct','simple','dietv','satiety','goals'].forEach(k=>{if(keep[k]!=null)nd[k]=keep[k];});days[selDate]=nd;
+  Object.keys(tpl).forEach(slot=>{const p=PREP.find(x=>x.n===tpl[slot]);if(p)dayObj(selDate)[slot]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
+  DB.save('kt_days',days);renderDash();toast('📋 Šablona režimu „'+modeLabel(mode).replace(/^[^ ]+ /,'')+'" vložena');
+}
+
 /* AKTIVITA */
 const ACTS=[["Chůze (svižná)",4.3],["Chůze (běžná)",3],["Běh",9.8],["Kolo",7.5],["Silový trénink",5],["Plavání",7],["Kardio stroj",5],["Domácí práce",3.5],["Jóga",2.5]];
 function bodyW(){return weights.length?weights[weights.length-1].v:95;}
@@ -1780,9 +1833,9 @@ function actFlow(){
 
 /* ANALÝZA */
 function planSingleDay(date){
-  const wd=isWork(date);
+  const ctx=dayCtx(date);
   const used=new Set();const slots={};
-  PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),wd);if(idx>=0){slots[s]=idx;used.add(idx);}});
+  PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);}});
   const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);
   const d=dayObj(date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=[{n:p.n,q:day.factor,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
   DB.save('kt_days',days);renderDash();const t=dayTotals(date);toast('✨ Naplánováno: '+round(t.k)+' kcal · '+round(t.p)+' g B');
@@ -1863,7 +1916,8 @@ function dayAnalysis(){
   }else{
     rec=remP>15?'Pozdě večer: nepřejídej se kvůli číslu. Když chybí bílkoviny, dej si jen lehké — proteinový šejk, vejce nebo šunku.':'Pozdě večer: už nic netřeba, kcal i bílkoviny jsou v pohodě. Doplň vodu a odpočiň si.';
   }
-  // pracovní den – doporuč pracovní potraviny, ne domácí vaření
+  // režim dne – přizpůsob doporučení
+  const mode=dayMode(selDate);
   const wk=isWork(selDate);
   const saltHigh=t.salt>g.salt*1.1;
   if(wk && !over){
@@ -1871,7 +1925,21 @@ function dayAnalysis(){
     else if(remK<300)rec='V práci a málo zbývajících kcal — lehká proteinová varianta: salát s dvojitým kuřetem a 1/2 omáčky, vejce + zelenina, nebo proteinový shake bez ovoce.';
     else rec='V práci a zbývá dost kcal — dej si hlavní pracovní jídlo: salát s dvojitým masem nebo Japanese Beef Bowl s extra beef.';
     if(g.fib&&t.fib<g.fib*0.6)rec+=' Vlákninu dožeň okurkou, rajčaty, kedlubnou nebo ovocem.';
+  } else if(mode==='nocni' && !over){
+    const np=(selDate===todayISO)?nightShiftPhase(new Date().getHours()):'pred';
+    if(np==='pred')rec='Před noční směnou: dej si hlavní jídlo s vyšším proteinem (700–900 kcal, 50–70 g B) — např. Japanese Beef Bowl s extra beef.';
+    else if(np==='prubeh')rec='Během směny: lehčí proteinové jídlo nebo svačina — proteinový shake + ovoce, nebo vejce/šunka se zeleninou. Žádná těžká tučná jídla.';
+    else if(np==='hluboke')rec='Hluboká noc: jen lehké — proteinový shake, vejce, šunka, zelenina nebo menší ovoce. Nepřejídej se a vyhni se sladkému a tučnému.';
+    else if(np==='po')rec='Po směně: jen malé jídlo (200–400 kcal), pokud máš hlad — nedoháněj všechny kcal před spaním. Pak spánek.';
+    else rec='Noční režim: drž bílkoviny a sytost, večer/v noci se vyhni těžkým tučným a hodně sladkým jídlům.';
+    rec+=' Při hodně kávě doplň vodu a hlídej cukr v kávě.';
+  } else if(mode==='cestovani' && !over){
+    rec='Na cestách: sáhni po přenosných jídlech bez vaření — proteinová tyčinka, shake, ovoce, šunka, vejce, salát nebo bowl.';
+  } else if((mode==='volno'||mode==='special'||mode==='vlastni') && !over && (phase==='obed'||phase==='vecer')){
+    rec='Doma: klidně si uvař teplé jídlo — bílkovina (maso/ryba/tofu) + příloha + zelenina. Můžeš víc variovat.';
   }
+  if(dayOpt(selDate,'satiety') && !over) rec+=' Pro větší sytost vol bílkoviny + zeleninu/vlákninu.';
+  if(dayOpt(selDate,'dietv') && !over) rec+=' V dietnější variantě uber tuky a přílohu, drž bílkoviny.';
   // 5) varování
   const warns=[];
   if(t.f>g.fat*1.15)warns.push('Tuky jsou nad cílem — odlehči olej, ořechy, tučné maso.');
@@ -1882,7 +1950,11 @@ function dayAnalysis(){
   // 6) konkrétní návrh
   let concrete='';
   if(!over && remK>120){
-    let pool=PREP.filter(p=>!mealViol(p)); if(wk)pool=pool.filter(p=>p.work&&workFoodAvailable(p.n));
+    let pool=PREP.filter(p=>!mealViol(p));
+    if(wk)pool=pool.filter(p=>p.work&&workFoodAvailable(p.n));
+    else if(mode==='nocni')pool=pool.filter(nightOK);
+    else if(mode==='cestovani')pool=pool.filter(portableOK);
+    else if(mode==='volno'||mode==='special'||mode==='vlastni')pool=pool.filter(p=>!p.work);
     if(remP>15)pool=pool.filter(p=>p.p>=18);
     if(saltHigh)pool=pool.filter(p=>p.salt<=g.salt*0.5);
     pool=pool.filter(p=>p.k<=remK+150).sort((a,b)=>b.p-a.p);
@@ -1900,7 +1972,7 @@ function dayAnalysis(){
   openSheet('Analýza dne');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card" style="${isTrain?'background:var(--green-soft)':wk?'background:#eef4ff':''}">
-      <div style="font-size:1.25rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal ${isTrain?'🏋️':''}${wk?'👜':''}</div>
+      <div style="font-size:1.25rem;font-weight:850">${round(t.k)} / ${g.kcal} kcal ${(modeLabel(mode).match(/^\S+/)||[''])[0]}${isTrain?' 🏋️':''}</div>
       <div class="muted" style="font-size:.82rem">${dayStatusLabel(selDate)[0].toUpperCase()+dayStatusLabel(selDate).slice(1)}. B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
     </div>
     <div class="card"><b>Shrnutí:</b> ${summary}</div>
@@ -2101,39 +2173,43 @@ function pickPrep(slot,usedIdx){
 const PLAN_SLOTS=['snidane','svacina1','obed','svacina2','vecere'];
 const SLOT_W={snidane:0.20,svacina1:0.12,obed:0.30,svacina2:0.12,vecere:0.26};
 /* picker, který vybere jídlo s kcal blízko rozpočtu daného slotu */
-function pickPrepB(slot,used,budget,workDay){
-  const suitable=PREP.filter(p=>!mealViol(p));
-  let pool;
-  // pracovní den: snídani, oběd a svačiny ber primárně z pracovních jídel (bez vaření)
-  if(workDay && ['snidane','obed','svacina1','svacina2'].includes(slot)){
-    const wm=workMealsFor(slot); if(wm.length)pool=wm;
-  }
-  if(!pool){ pool=suitable.filter(p=>p.slots.includes(slot));
-    const pref=[...planPrefSet].filter(pr=>pr!=='bez mléka');
-    const wp=pool.filter(p=>pref.every(pr=>p.tags.includes(pr))); if(wp.length)pool=wp;
-    if(!pool.length)pool=suitable.filter(p=>p.slots.includes(slot));
-    if(!pool.length)pool=suitable; }
+/* výběr jídel pro slot podle režimu dne */
+function modePool(slot,mode){
+  const suitable=PREP.filter(p=>!mealViol(p)&&(p.slots||[]).includes(slot));
+  if(WORK_MODES.includes(mode)&&['snidane','obed','svacina1','svacina2'].includes(slot)){const wm=workMealsFor(slot);if(wm.length)return wm;return suitable;}
+  if(mode==='nocni'){const n=suitable.filter(nightOK);return n.length?n:suitable;}
+  if(mode==='cestovani'){const t=suitable.filter(portableOK);return t.length?t:suitable;}
+  if(mode==='volno'||mode==='special'||mode==='vlastni'){const home=suitable.filter(p=>!p.work);return home.length?home:suitable;}
+  return suitable;
+}
+function pickPrepB(slot,used,budget,ctx){
+  ctx=ctx||{}; const mode=ctx.mode||'volno';
+  let pool=modePool(slot,mode);
+  const pref=[...planPrefSet].filter(pr=>pr!=='bez mléka');
+  if(pref.length){const wp=pool.filter(p=>pref.every(pr=>p.tags.includes(pr)));if(wp.length)pool=wp;}
+  if(ctx.dietv){const lo=pool.filter(p=>p.tags.includes('redukce')||p.k<=budget);if(lo.length)pool=lo;}
+  if(ctx.satiety){const hi=pool.filter(p=>p.p>=20||p.fib>=6);if(hi.length)pool=hi;}
+  if(!pool.length)pool=PREP.filter(p=>!mealViol(p));
   if(!pool.length)return -1;
-  // pracovní den s povoleným opakováním nevylučuje už použitá jídla
-  let fresh=(workDay&&workCfg.repeat)?pool:pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
+  const allowRepeat=ctx.simple||(WORK_MODES.includes(mode)&&workCfg.repeat);
+  let fresh=allowRepeat?pool:pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
   fresh=fresh.slice().sort((a,b)=>Math.abs(a.k-budget)-Math.abs(b.k-budget));
   const top=fresh.slice(0,3); const p=top[Math.floor(Math.random()*top.length)];
   return PREP.indexOf(p);
 }
+function dayCtx(date){return {mode:dayMode(date),simple:dayOpt(date,'simple'),dietv:dayOpt(date,'dietv'),satiety:dayOpt(date,'satiety')};}
 /* faktor porcí, aby se celkové kcal blížilo dennímu cíli (±10 %), omezeno 0.8–1.3× */
 function recalcFactor(day){let base=0;Object.values(day.slots).forEach(i=>base+=PREP[i].k);if(base<=0)return 1;
   let f=target.kcal/base; f=Math.max(0.8,Math.min(1.3,f)); return Math.round(f*20)/20;}
 /* dorovná bílkoviny: vymění nejslabší slot za vysokoproteinové vhodné jídlo, kcal drží faktorem */
 function balanceDay(day){
-  const wd=day.date?isWork(day.date):false;
+  const mode=day.date?dayMode(day.date):'volno';
   for(let pass=0;pass<3;pass++){
     const m=planDayMacros(day); if(m.p>=target.prot-12) break;
     let worst=null,worstP=1e9;
     PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const pp=PREP[idx].p;if(pp<worstP){worstP=pp;worst=s;}});
     if(!worst)break;
-    let cand;
-    if(wd&&['snidane','obed','svacina1','svacina2'].includes(worst)){const wm=workMealsFor(worst);cand=(wm.length?wm:PREP.filter(p=>!mealViol(p)&&p.slots.includes(worst))).slice().sort((a,b)=>b.p-a.p);}
-    else cand=PREP.filter(p=>!mealViol(p)&&p.slots.includes(worst)).sort((a,b)=>b.p-a.p);
+    const cand=modePool(worst,mode).slice().sort((a,b)=>b.p-a.p);
     const pick=cand.find(p=>PREP.indexOf(p)!==day.slots[worst]);
     if(!pick||pick.p<=PREP[day.slots[worst]].p)break;
     day.slots[worst]=PREP.indexOf(pick); day.factor=recalcFactor(day);
@@ -2143,7 +2219,7 @@ function genPlan(){
   const from=document.getElementById('planFrom').value||todayISO;
   const out=[];const used=new Set();
   for(let d=0;d<planDaysN;d++){const dt=new Date(from);dt.setDate(dt.getDate()+d);const date=iso(dt);
-    const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2));if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});
+    const ctx=dayCtx(date);const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});
     const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);out.push(day);}
   lastPlan={from,days:out};renderPlanOut();
 }
@@ -2180,7 +2256,7 @@ function planDayChanged(di){const day=lastPlan.days[di];
   const real=PLAN_SLOTS.map(s=>(slotItems(day.date,s).map(it=>it.n).join(','))).join('|');
   return sugg!==real;
 }
-function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2));if(idx>=0)day.slots[slot]=idx;day.factor=recalcFactor(day);renderPlanOut();}
+function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2),dayCtx(day.date));if(idx>=0)day.slots[slot]=idx;day.factor=recalcFactor(day);renderPlanOut();}
 function acceptDay(di){const day=lastPlan.days[di];const fac=day.factor||1;const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=[{n:p.n,q:fac,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
 
 /* ====== NÁKUPNÍ SEZNAM (samostatná záložka, perzistentní) ====== */
