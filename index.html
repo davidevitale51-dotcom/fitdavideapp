@@ -44,10 +44,11 @@
   .card-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
   .card-h h3{font-size:1rem}
   .linkbtn{background:none;border:none;color:var(--green-d);font-weight:700;font-size:.84rem;cursor:pointer}
-  .setblk>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;font-weight:700}
+  .setblk>summary{cursor:pointer;list-style:none;display:block;position:relative;padding-right:20px;font-weight:700}
   .setblk>summary::-webkit-details-marker{display:none}
-  .setblk>summary::after{content:'▾';color:var(--green-d);font-size:.9rem;margin-left:8px}
+  .setblk>summary::after{content:'▾';color:var(--green-d);font-size:.9rem;position:absolute;right:0;top:0}
   .setblk[open]>summary::after{content:'▴'}
+  .setdesc{display:block;font-size:.72rem;color:var(--muted);font-weight:400;margin-top:2px}
 
   /* energy ring */
   .energy{display:flex;align-items:center;justify-content:space-around;gap:8px}
@@ -274,25 +275,25 @@
 <!-- ============ VÍCE ============ -->
 <section class="screen" id="scr-vice"><div class="wrap">
   <div class="topbar"><span class="title">⚙️ Více</span></div>
-  <button class="btn block" id="forceUpd" style="margin-bottom:12px">🔄 Aktualizovat appku</button>
-  <div class="card">
-    <details class="setblk"><summary><h3 style="display:inline;margin:0">Denní cíle</h3></summary>
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
-      <div><label>Kalorie (kcal)</label><input type="number" id="tKcal"></div>
-      <div><label>Bílkoviny (g)</label><input type="number" id="tProt"></div>
-      <div><label>Sacharidy (g)</label><input type="number" id="tCarb"></div>
-      <div><label>Tuky (g)</label><input type="number" id="tFat"></div>
-      <div><label>Vláknina (g)</label><input type="number" id="tFib"></div>
-      <div><label>Cukry max (g)</label><input type="number" id="tSugar"></div>
-      <div><label>Sůl max (g)</label><input type="number" step="0.1" id="tSalt"></div>
-      <div><label>Voda (l)</label><input type="number" step="0.1" id="tWater"></div>
-      <div><label>Cílová hmotnost (kg)</label><input type="number" step="0.1" id="tWeight"></div>
-    </div>
-    <button class="btn block" id="saveTargets" style="margin-top:12px">Uložit cíle</button>
+
+  <!-- A) Profil a denní cíle -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">👤 Profil a denní cíle</h3><span class="setdesc">Kcal, makra, voda, trénink, kroky, alergeny</span></summary>
+    <details class="setblk" style="margin-top:10px"><summary><b>Denní cíle</b></summary>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px">
+        <div><label>Kalorie (kcal)</label><input type="number" id="tKcal"></div>
+        <div><label>Bílkoviny (g)</label><input type="number" id="tProt"></div>
+        <div><label>Sacharidy (g)</label><input type="number" id="tCarb"></div>
+        <div><label>Tuky (g)</label><input type="number" id="tFat"></div>
+        <div><label>Vláknina (g)</label><input type="number" id="tFib"></div>
+        <div><label>Cukry max (g)</label><input type="number" id="tSugar"></div>
+        <div><label>Sůl max (g)</label><input type="number" step="0.1" id="tSalt"></div>
+        <div><label>Voda (l)</label><input type="number" step="0.1" id="tWater"></div>
+        <div><label>Cílová hmotnost (kg)</label><input type="number" step="0.1" id="tWeight"></div>
+      </div>
+      <button class="btn block" id="saveTargets" style="margin-top:12px">Uložit cíle</button>
     </details>
-    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
-      <summary><h3 style="display:inline;margin:0">🏋️ Tréninkový den (silový trénink)</h3></summary>
-      <div class="muted" style="font-size:.8rem;margin:8px 0">O kolik se navýší denní cíl, když u dne zapneš silový trénink. Navýšení kcal se rozdělí do makroživin (důraz na bílkoviny).</div>
+    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><summary><b>🏋️ Tréninkový bonus kcal</b></summary>
+      <div class="muted" style="font-size:.8rem;margin:8px 0">Navýšení cíle v tréninkový den, rozděleno do maker (důraz na bílkoviny).</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label>Navýšení kalorií (kcal)</label><input type="number" id="trKcal"></div>
         <div><label>+ Bílkoviny (g)</label><input type="number" id="trP"></div>
@@ -301,9 +302,8 @@
       </div>
       <button class="btn sec block" id="saveTrain" style="margin-top:10px">Uložit nastavení tréninku</button>
     </details>
-    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
-      <summary><h3 style="display:inline;margin:0">👟 Kroky a spalování</h3></summary>
-      <div class="muted" style="font-size:.8rem;margin:8px 0">Kroky navyšují jen odhad spalování nad práh — denní jídelní cíl nemění (pokud níže nezapneš přičítání části aktivity).</div>
+    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><summary><b>👟 Kroky a spalování</b></summary>
+      <div class="muted" style="font-size:.8rem;margin:8px 0">Kroky navyšují jen odhad spalování nad práh.</div>
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
         <div><label>Denní cíl kroků</label><input type="number" id="stGoal"></div>
         <div><label>Práh pro spalování</label><input type="number" id="stThr"></div>
@@ -314,58 +314,83 @@
       <div style="margin-top:6px"><label>Kolik % bonusu spalování přidat do příjmu</label><input type="number" id="aiPct" min="0" max="100"></div>
       <button class="btn sec block" id="saveSteps" style="margin-top:10px">Uložit nastavení kroků</button>
     </details>
-    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
-      <summary><h3 style="display:inline;margin:0">👜 Pracovní den</h3></summary>
-      <div class="muted" style="font-size:.8rem;margin:8px 0">Které dny jdeš do práce? V pracovní dny návrhy preferují jednoduchá jídla bez vaření, dostupná v práci.</div>
+    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><summary><b>🥗 Diety, alergeny a preference</b></summary>
+      <p class="muted" style="font-size:.78rem;margin:10px 0">Platí všude — návrhy, hotová jídla, vyhledávání i nákup nikdy nenavrhnou nevhodné jídlo (preference milk-free).</p>
+      <div id="dietOpts"></div>
+      <label style="margin-top:10px">Vlastní vyloučené suroviny (oddělené čárkou)</label>
+      <input type="text" id="dietExcl" placeholder="např. cibule, houby">
+      <button class="btn block" id="saveDiet" style="margin-top:12px">Uložit dietní profil</button>
+    </details>
+  </details></div>
+
+  <!-- B) Režim dne a plánování -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">📅 Režim dne a plánování</h3><span class="setdesc">Pracovní dny, opakování jídel, zámek jídel</span></summary>
+    <details class="setblk" style="margin-top:10px"><summary><b>👜 Pracovní dny</b></summary>
+      <div class="muted" style="font-size:.8rem;margin:8px 0">Které dny jdeš do práce? V pracovní dny návrhy preferují jednoduchá jídla bez vaření.</div>
       <div id="workDayChips" class="chips" style="flex-wrap:wrap"></div>
       <label style="display:flex;align-items:center;gap:8px;margin-top:10px"><input type="checkbox" id="wkRepeat" style="width:auto"> Povolit opakování stejné pracovní snídaně/oběda</label>
       <div class="muted" style="font-size:.78rem;margin-top:10px;margin-bottom:4px">Dostupné v práci (★ = oblíbené):</div>
       <div id="workFoodList"></div>
       <button class="btn sec block" id="saveWork" style="margin-top:10px">Uložit pracovní nastavení</button>
     </details>
-    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px">
-      <summary><h3 style="display:inline;margin:0">🔒 Zámek jídel</h3></summary>
-      <div class="muted" style="font-size:.8rem;margin:8px 0">Zamčená a snědená jídla se nikdy nezmění při přeplánování ani automatickém dopočítání dne. Zámek/snědeno přepínáš ikonami 🔒 / ☐ u každého jídla v přehledu.</div>
+    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><summary><b>🔒 Zámek jídel</b></summary>
+      <div class="muted" style="font-size:.8rem;margin:8px 0">Zamčená/snědená jídla se nikdy nezmění při přeplánování. Přepínáš ikonami 🔒 / ☐ u jídel v přehledu.</div>
       <label style="display:flex;align-items:center;gap:8px"><input type="checkbox" id="autoLockEaten" style="width:auto"> Automaticky zamknout snědená jídla</label>
       <button class="btn sec block" id="saveLock" style="margin-top:10px">Uložit</button>
     </details>
-  </div>
-  <div class="card">
-    <details class="setblk"><summary><h3 style="display:inline;margin:0">🥗 Diety a omezení</h3></summary>
-    <p class="muted" style="font-size:.78rem;margin:10px 0">Tato pravidla platí všude — návrhy jídelníčku, hotová jídla, vyhledávání i nákupní seznam nikdy nenavrhnou nevhodné jídlo.</p>
-    <div id="dietOpts"></div>
-    <label style="margin-top:10px">Vlastní vyloučené suroviny (oddělené čárkou)</label>
-    <input type="text" id="dietExcl" placeholder="např. cibule, houby">
-    <button class="btn block" id="saveDiet" style="margin-top:12px">Uložit dietní profil</button>
-    </details>
-  </div>
-  <div class="card"><h3 style="margin-bottom:8px">📦 Import produktů</h3>
-    <button class="btn block" id="openImport">📦 Import z Open Food Facts</button>
-    <details class="setblk" style="margin-top:8px"><summary><span class="muted" style="font-size:.8rem">O importu</span></summary>
-      <p class="muted" style="font-size:.76rem;margin:8px 0 0">Načte značkové a balené výrobky z otevřené databáze Open Food Facts (vyžaduje internet). Nevhodné dle profilu se označí, duplicity přeskočí.</p>
-    </details>
-  </div>
-  <div class="card">
-    <details class="setblk"><summary><h3 style="display:inline;margin:0">Aktualizace</h3></summary>
-    <p class="muted" style="font-size:.78rem;margin:10px 0">Tlačítko <b>„🔄 Aktualizovat appku"</b> najdeš nahoře. Stáhne nejnovější verzi z webu (vymaže cache). Tvoje data zůstanou. Vyžaduje internet.</p>
-    <div style="border-top:1px solid var(--line);padding-top:10px">
-      <div class="muted" style="font-size:.74rem;margin-bottom:4px">Technicke informace</div>
-      <pre id="buildInfo" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;line-height:1.5;white-space:pre-wrap;margin:0"></pre>
-      <div id="buildManual"></div>
-    </div>
-    </details>
-  </div>
-  <div class="card">
-    <details class="setblk"><summary><h3 style="display:inline;margin:0">Záloha a import dat</h3></summary>
+    <div class="muted" style="font-size:.78rem;margin-top:10px">Typy dnů (volno, pracovní, denní/noční směna, cestování…) a přepínače dne nastavuješ přímo na Přehledu v kartě „Režim dne".</div>
+  </details></div>
+
+  <!-- C) Databáze potravin -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">🥦 Databáze potravin</h3><span class="setdesc" id="descFoods">Vlastní potraviny, import, štítky</span></summary>
+    <button class="btn block" id="openImport" style="margin-top:10px">📦 Import z Open Food Facts</button>
+    <button class="btn sec block" style="margin-top:8px" onclick="document.querySelector('.bnav button[data-scr=jidla]').click()">🍽️ Otevřít databázi a vlastní potraviny</button>
+    <p class="muted" style="font-size:.76rem;margin-top:8px">Import načte balené výrobky z Open Food Facts (vyžaduje internet). Vlastní potraviny, nutrienty, štítky a alergeny spravuješ v záložce Jídla.</p>
+  </details></div>
+
+  <!-- D) Databáze hlavních jídel -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">🍲 Databáze hlavních jídel</h3><span class="setdesc" id="descMeals">Hotová jídla, composite, Lekkeray, D&D</span></summary>
+    <button class="btn sec block" style="margin-top:10px" onclick="document.querySelector('.bnav button[data-scr=jidla]').click()">🍽️ Otevřít hlavní jídla a recepty</button>
+    <p class="muted" style="font-size:.76rem;margin-top:8px">Hotová jídla, složená jídla (hlavní část + příloha), Lekkeray a Dean & David najdeš při přidávání jídla v sekci „Hotová jídla". Komponenty složeného jídla upravíš procentuálně po klepnutí na jídlo v deníku.</p>
+  </details></div>
+
+  <!-- E) Restaurace a pracovní jídla -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">🍱 Restaurace a pracovní jídla</h3><span class="setdesc">Lekkeray cyklus, Dean & David, předobjednávky</span></summary>
+    <div id="lekCfgBox" style="margin-top:10px"></div>
+    <button class="btn sec block" style="margin-top:8px" onclick="preorderPicker()">📦 Předobjednat Dean & David na vybraný den</button>
+    <p class="muted" style="font-size:.76rem;margin-top:8px">Lekkeray je dostupné jen Po–Pá podle cyklu. O víkendu Dean & David jen pokud je předobjednané. Pracovní/nouzová jídla a dostupnost v práci nastavíš v „Režim dne a plánování".</p>
+  </details></div>
+
+  <!-- F) Nákupní seznam -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">🛒 Nákupní seznam</h3><span class="setdesc">Generování z plánu, zamčené položky</span></summary>
+    <button class="btn sec block" style="margin-top:10px" onclick="document.querySelector('.bnav button[data-scr=nakup]').click()">🛒 Otevřít nákupní seznam</button>
+    <p class="muted" style="font-size:.76rem;margin-top:8px">Seznam vytvoříš z plánu (Plán → Sestavit návrh). Ručně přidané položky jsou zamčené (🔒) a při přepočtu zůstanou. Odemčené automatické položky se mění podle jídelníčku.</p>
+  </details></div>
+
+  <!-- G) Data a zálohy -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">💾 Data a zálohy</h3><span class="setdesc">Záloha, obnova, reset, lokální úložiště</span></summary>
     <div style="margin-top:10px">
       <button class="btn block" id="shareBackup" style="margin-bottom:8px">☁️ Záloha do iCloud / Soubory</button>
       <button class="btn ghost block" id="exportData" style="margin-bottom:8px">⬇️ Stáhnout zálohu (soubor)</button>
       <button class="btn ghost block" id="importData">⬆️ Import dat</button>
       <input type="file" id="importFile" accept="application/json" style="display:none">
-      <p class="muted" style="font-size:.78rem;margin-top:10px">Profil: muž, 34 let, 181 cm. Bezmléčný režim. Data jsou uložená jen v tomto zařízení.</p>
+      <button class="btn ghost block" id="wipeData" style="margin-top:8px;color:#c0392b">🗑️ Vymazat všechna data (reset)</button>
+      <p class="muted" style="font-size:.78rem;margin-top:10px">Data jsou uložená jen v tomto zařízení (offline). Reset smaže vše a vyžaduje potvrzení.</p>
     </div>
-    </details>
-  </div>
+  </details></div>
+
+  <!-- H) Aktualizace -->
+  <div class="card"><details class="setblk" id="updSection"><summary><h3 style="display:inline;margin:0">🔄 Aktualizace</h3><span class="setdesc">Version, build, commit, update</span></summary>
+    <pre id="buildInfo" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.82rem;line-height:1.5;white-space:pre-wrap;margin:10px 0 0"></pre>
+    <div id="buildManual"></div>
+    <div id="updStatus" class="muted" style="font-size:.8rem;margin-top:8px"></div>
+    <button class="btn block" id="forceUpd" style="margin-top:10px">🔄 Aktualizovat appku</button>
+  </details></div>
+
+  <!-- I) Technické informace -->
+  <div class="card"><details class="setblk"><summary><h3 style="display:inline;margin:0">🛠️ Technické informace</h3><span class="setdesc">Debug, počty, cache</span></summary>
+    <pre id="techInfo" style="font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.8rem;line-height:1.5;white-space:pre-wrap;margin:10px 0 0"></pre>
+  </details></div>
 </div></section>
 
 <!-- ============ NÁKUP ============ -->
@@ -375,7 +400,16 @@
     <p class="muted" style="font-size:.82rem;margin-bottom:2px" id="shopSubtitle">Suroviny z naplánovaných jídel</p>
     <div class="sumbar" id="shopSum"></div>
     <div id="shopList"></div>
-    <div style="display:flex;gap:8px;margin-top:10px"><input id="shopAdd" placeholder="Přidat vlastní položku…" style="flex:1"><button class="btn" id="shopAddBtn">＋</button></div>
+    <details class="setblk" style="margin-top:10px"><summary><b style="font-size:.9rem">＋ Přidat vlastní položku</b></summary>
+      <input id="shopAdd" placeholder="Název položky" style="margin-top:8px">
+      <div style="display:flex;gap:6px;margin-top:6px">
+        <input id="shopAddQ" type="number" placeholder="Množství" style="flex:1">
+        <select id="shopAddU" style="flex:1">${['ks','g','kg','ml','l','balení','plechovka','láhev','svazek','hrst','plátek','porce'].map(u=>`<option${u==='ks'?' selected':''}>${u}</option>`).join('')}</select>
+      </div>
+      <input id="shopAddNote" placeholder="Poznámka (volitelné)" style="margin-top:6px">
+      <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" id="shopAddLock" checked style="width:auto"> Zamčeno (zůstane při přepočtu)</label>
+      <button class="btn block" id="shopAddBtn" style="margin-top:8px">Přidat položku</button>
+    </details>
   </div>
   <div class="card">
     <div class="chips" style="flex-wrap:wrap;margin-bottom:8px">
@@ -2685,8 +2719,9 @@ function mergeAgg(agg){
 }
 /* přepočet seznamu: zachová zamčené, přegeneruje jen odemčené automatické; vrátí shrnutí */
 function recomputeShop(newItems,rangeLabel){
-  const locked=shopState.filter(it=>it.locked);
-  const prevUnlocked=shopState.filter(it=>!it.locked).length;
+  const keep=it=>it.locked||it.manual_override; // zamčené i ručně upravené zůstanou
+  const locked=shopState.filter(keep);
+  const prevUnlocked=shopState.filter(it=>!keep(it)).length;
   const lockedKeys=new Set(locked.map(it=>_n((it.n||'').replace(/ \(.*?\)/,''))+'|'+(it.u||'')));
   let dup=0; newItems.forEach(it=>{const kk=_n((it.n||'').replace(/ \(.*?\)/,''))+'|'+(it.u||'');if(lockedKeys.has(kk)){dup++;it.maybeDup=true;}});
   shopState=locked.concat(newItems);
@@ -2744,21 +2779,21 @@ function renderNakup(){
   if(!shopState.length){list.innerHTML='<p class="muted" style="padding:14px 0">Seznam je prázdný. Vytvoř ho v záložce Plán → „Vytvořit nákupní seznam", nebo přidej položku ručně.</p>';return;}
   // řádek nekoupené položky (s checkboxem a menu)
   const srcTag=it=>it.source==='manual'?'<span class="tg">ručně</span>':(it.source==='meal_plan'?'<span class="tg" style="background:#eef4ff;color:#3b6ea5">z plánu</span>':'');
-  const lockBtn=i=>{const it=shopState[i];return `<button class="menu" title="${it.locked?'Zamčeno — zůstane při přepočtu zachované.':'Odemčeno — aplikace ji může při přepočtu změnit.'}" onclick="shopLock(${i})">${it.locked?'🔒':'🔓'}</button>`;};
-  const rowOpen=i=>{const it=shopState[i];const viol=dietViolation(it.n);
+  const lockBtn=i=>{const it=shopState[i];return `<button class="menu" title="${it.locked?'Zamčeno — zůstane při přepočtu zachované.':'Odemčeno — může se při přepočtu změnit.'}" onclick="shopLock(${i})">${it.locked?'🔒':'🔓'}</button>`;};
+  const rowOpen=i=>{const it=shopState[i];const viol=dietViolation(it.n);const qtxt=(it.q!==''&&it.q!=null)?fmtQ(it.q,it.u):(it.u||'množství');
     return `<div class="shopit">
       <input type="checkbox" onchange="shopToggle(${i})">
-      <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')} ${srcTag(it)}${it.maybeDup?'<span class="tg" style="background:#fff3d6;color:#9a7400">možná duplicita</span>':''}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</div>
-        ${(it.q!==''&&it.q!=null)?`<div class="q">${fmtQ(it.q,it.u)}</div>`:''}</div>
-      ${lockBtn(i)}<button class="menu" onclick="shopMenu(${i})">⋯</button></div>
-      ${shopMenuIdx===i?`<div class="shopacts"><button class="btn sec" onclick="shopEdit(${i})">Upravit</button><button class="btn ghost" onclick="shopDel(${i})">Smazat</button></div>`:''}`;};
-  // řádek koupené položky (přeškrtnutá, s křížkem na smazání vpravo)
+      <div class="txt">
+        <div class="nm" onclick="shopEditName(${i})" style="cursor:text">${it.n.replace(/ \(.*?\)/,'')} ${srcTag(it)}${it.maybeDup?'<span class="tg" style="background:#fff3d6;color:#9a7400">možná duplicita</span>':''}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</div>
+        <div class="q" onclick="shopEditQty(${i})" style="cursor:text;color:var(--green-d)">${qtxt} ›</div></div>
+      ${lockBtn(i)}<button class="menu" style="color:#c0392b;font-size:1.1rem" onclick="shopDel(${i})">🗑</button></div>`;};
+  // řádek koupené položky (přeškrtnutá)
   const rowDone=i=>{const it=shopState[i];
     return `<div class="shopit done">
       <input type="checkbox" checked onchange="shopToggle(${i})">
       <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')}</div>
         ${(it.q!==''&&it.q!=null)?`<div class="q">${fmtQ(it.q,it.u)}</div>`:''}</div>
-      <button class="menu" style="color:#c0392b;font-size:1.15rem" onclick="shopDel(${i})">✕</button></div>`;};
+      ${lockBtn(i)}<button class="menu" style="color:#c0392b;font-size:1.1rem" onclick="shopDel(${i})">🗑</button></div>`;};
   // NEKOUPENÉ – seskupené dle kategorií
   const cats={};shopState.forEach((it,i)=>{if(it.done)return;(cats[it.cat]=cats[it.cat]||[]).push(i);});
   const order=CAT_ORDER_SHOP.filter(c=>cats[c]).concat(Object.keys(cats).filter(c=>!CAT_ORDER_SHOP.includes(c)));
@@ -2774,10 +2809,10 @@ function renderNakup(){
   list.innerHTML=h;
 }
 window.shopToggle=i=>{shopState[i].done=!shopState[i].done;saveShop();renderNakup();};
-window.shopMenu=i=>{shopMenuIdx=shopMenuIdx===i?-1:i;renderNakup();};
-window.shopLock=i=>{const it=shopState[i];it.locked=!it.locked;saveShop();renderNakup();toast(it.locked?'🔒 Položka zamčená — zůstane při přepočtu':'🔓 Odemčeno');};
-window.shopDel=i=>{const it=shopState[i];if(it.locked&&!confirm('Tato položka je zamčená. Opravdu ji chceš odstranit?'))return;shopState.splice(i,1);shopMenuIdx=-1;saveShop();renderNakup();};
-window.shopEdit=i=>{const it=shopState[i];const v=prompt('Množství (číslo) pro "'+it.n.replace(/ \(.*?\)/,'')+'":', it.q);if(v===null)return;const qn=parseFloat(v);it.q=isNaN(qn)?'':qn;const u=prompt('Jednotka (g / ks / lžíce / prázdné):', it.u||'g');if(u!==null)it.u=u.trim();shopMenuIdx=-1;saveShop();renderNakup();};
+window.shopLock=i=>{const it=shopState[i];it.locked=!it.locked;saveShop();renderNakup();toast(it.locked?'🔒 Zamčeno — zůstane při přepočtu':'🔓 Odemčeno');};
+window.shopDel=i=>{const it=shopState[i];if(it.locked&&!confirm('Tato položka je zamčená. Opravdu ji chceš odstranit?'))return;shopState.splice(i,1);saveShop();renderNakup();};
+window.shopEditName=i=>{const it=shopState[i];const v=prompt('Název položky:', it.n.replace(/ \(.*?\)/,''));if(v===null)return;const nm=v.trim();if(!nm){toast('Název nesmí být prázdný');return;}it.n=nm;it.cat=shopCat(nm);if(it.source!=='manual')it.manual_override=true;it.updated_at=new Date().toISOString().slice(0,16).replace('T',' ');saveShop();renderNakup();toast('Uloženo');};
+window.shopEditQty=i=>{const it=shopState[i];const v=prompt('Množství (číslo):', it.q);if(v===null)return;const qn=parseFloat((''+v).replace(',','.'));it.q=isNaN(qn)?'':qn;const u=prompt('Jednotka (ks, g, kg, ml, l, balení…):', it.u||'ks');if(u!==null)it.u=u.trim();if(it.source!=='manual')it.manual_override=true;it.updated_at=new Date().toISOString().slice(0,16).replace('T',' ');saveShop();renderNakup();toast('Uloženo');};
 window.shopClearDone=()=>{shopState=shopState.filter(it=>!it.done);saveShop();renderNakup();};
 window.shopTgl=k=>{if(k==='uc')shopOnlyUnchecked=!shopOnlyUnchecked;else if(k==='cat')shopCats=!shopCats;else if(k==='hide')shopHideDone=!shopHideDone;refreshNakupChips();renderNakup();};
 function refreshNakupChips(){const u=document.getElementById('tglUnchecked'),c=document.getElementById('tglCats');if(u)u.classList.toggle('on',shopOnlyUnchecked);if(c)c.classList.toggle('on',shopCats);}
@@ -2796,7 +2831,7 @@ function fallbackCopyModal(t){
 document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.bnav button').forEach(x=>x.classList.toggle('active',x===b));
   const scr=b.dataset.scr;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-'+scr));
-  if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}
+  if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}if(scr==='vice'){if(typeof renderTech==='function')renderTech();if(typeof renderLekCfgBox==='function')renderLekCfgBox();if(typeof renderBuildInfo==='function')renderBuildInfo();}
 });
 document.getElementById('genPlan').onclick=genPlan;
 /* ===== NÁVRH NA DEN – 2 varianty na sekci ===== */
@@ -2939,7 +2974,8 @@ function renderBuildInfo(){
     'Build:       '+BUILD_INFO.buildNumber+'\n'+
     'Commit:      '+(m.commitHash||'-')+'\n'+
     'Build label: '+BUILD_INFO.buildLabel+'\n'+
-    'Build date:  '+(m.buildDate||'-');
+    'Build date:  '+(m.buildDate||'-')+'\n'+
+    'Last update: '+(DB.load('kt_lastupdate','')||'-');
   const man=document.getElementById('buildManual');
   const needC=!m.commitHash, needD=!m.buildDate;
   man.innerHTML=(needC||needD)?
@@ -2975,14 +3011,47 @@ document.getElementById('saveDiet').onclick=()=>{
 /* export / import */
 document.getElementById('openImport').onclick=openImport;
 async function doForceUpd(){
-  toast('Aktualizuji…');
+  const st=document.getElementById('updStatus'); if(st)st.textContent='⏳ Aktualizuji…';
+  try{const s=document.getElementById('updSection');if(s)s.open=true;}catch(e){}
+  localStorage.setItem('kt_returnScreen','vice');           // zůstaň ve Více po reloadu
+  localStorage.setItem('kt_updating','1');
   try{ if(window.caches){const ks=await caches.keys();await Promise.all(ks.map(k=>caches.delete(k)));}
     if(navigator.serviceWorker){const regs=await navigator.serviceWorker.getRegistrations();await Promise.all(regs.map(r=>r.unregister()));}
-  }catch(e){}
+  }catch(e){ if(st)st.textContent='❌ Aktualizace selhala — zkontroluj internet.'; localStorage.removeItem('kt_updating'); return; }
+  localStorage.setItem('kt_lastupdate', new Date().toISOString().slice(0,16).replace('T',' '));
   location.reload();
 }
 document.getElementById('forceUpd').onclick=doForceUpd;
-{const f2=document.getElementById('forceUpd2');if(f2)f2.onclick=doForceUpd;}
+/* po reloadu: vrať se do Více a ukaž stav */
+(function restoreAfterUpdate(){ try{
+  if(localStorage.getItem('kt_returnScreen')==='vice'){ localStorage.removeItem('kt_returnScreen');
+    const b=document.querySelector('.bnav button[data-scr=vice]'); if(b)b.click();
+    if(localStorage.getItem('kt_updating')){ localStorage.removeItem('kt_updating');
+      const s=document.getElementById('updSection'); if(s)s.open=true;
+      const st=document.getElementById('updStatus'); if(st)st.textContent='✅ Aktualizace dokončena ('+(DB.load('kt_lastupdate','')||'')+')'; } }
+}catch(e){} })();
+/* reset / vymazání dat */
+{const w=document.getElementById('wipeData'); if(w)w.onclick=()=>{ if(!confirm('Opravdu vymazat VŠECHNA data appky? Tohle nelze vrátit.'))return; if(!confirm('Poslední potvrzení — smazat vše?'))return; try{localStorage.clear();}catch(e){} location.reload(); };}
+/* technické informace + Lekkeray box */
+function renderTech(){const el=document.getElementById('techInfo');if(!el)return;
+  let cacheTxt='n/a'; const lek=PREP.filter(p=>p.labels&&p.labels.includes('lekkeray')).length;
+  el.textContent=
+    'DB verze:        '+BUILD_INFO.version+'\n'+
+    'Potraviny:       '+FOODS.length+'\n'+
+    'Hlavní jídla:    '+PREP.length+' (z toho Lekkeray '+lek+', složená '+PREP.filter(p=>p.composite).length+')'+'\n'+
+    'Uložené dny:     '+Object.keys(days).length+'\n'+
+    'Uložené koncepty:'+Object.keys(dayDrafts||{}).length+'\n'+
+    'Šablony dní:     '+(templates?templates.length:0)+'\n'+
+    'Nákup. položky:  '+shopState.length+'\n'+
+    'Service worker:  '+(('serviceWorker' in navigator)?'aktivní':'nedostupný')+'\n'+
+    'Offline cache:   '+(window.caches?'podporováno':'n/a');
+}
+function renderLekCfgBox(){const el=document.getElementById('lekCfgBox');if(!el)return;
+  const n=lekkerayNumber(selDate);
+  el.innerHTML=`<div class="muted" style="font-size:.8rem">Lekkeray cyklus — referenční den ${lekCfg.refDate} = menu ${pad3(lekCfg.refNum)}, posun ${lekCfg.offset||0}.</div>
+    <div class="muted" style="font-size:.8rem;margin-top:2px">Vybraný den (${selDate}): ${isWeekendDate(selDate)?'víkend — bez Lekkeray':(n?'Lekkeray '+pad3(n):'zavřeno / mimo')}</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip" onclick="lekShiftCycle()">Posunout cyklus</button><button class="chip" onclick="lekChangeMenu()">Změnit menu dne</button><button class="chip" onclick="lekToggleClosed()">Zavřeno (tento den)</button></div>`;
+}
 function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,workCfg,lockCfg,lekCfg,preorders,dayDrafts,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
@@ -3019,7 +3088,11 @@ document.getElementById('importFile').onchange=function(){const f=this.files[0];
 document.getElementById('datePick').value=selDate;
 loadTargets();renderDietOpts();renderDash();renderMyMeals();
 /* záložka Nákup – statická tlačítka */
-document.getElementById('shopAddBtn').onclick=()=>{const el=document.getElementById('shopAdd');const v=el.value.trim();if(!v)return;const now=new Date().toISOString().slice(0,16).replace('T',' ');shopState.push({n:v,u:'',q:'',done:false,cat:shopCat(v),source:'manual',locked:true,created_at:now,updated_at:now});el.value='';saveShop();renderNakup();toast('Přidáno (ručně, zamčené 🔒)');};
+document.getElementById('shopAddBtn').onclick=()=>{const el=document.getElementById('shopAdd');const v=el.value.trim();if(!v){toast('Název nesmí být prázdný');return;}
+  const qel=document.getElementById('shopAddQ'),uel=document.getElementById('shopAddU'),nel=document.getElementById('shopAddNote'),lel=document.getElementById('shopAddLock');
+  const qn=parseFloat((qel.value||'').replace(',','.'));const now=new Date().toISOString().slice(0,16).replace('T',' ');
+  shopState.push({n:v,q:isNaN(qn)?'':qn,u:(uel.value||'ks'),note:(nel.value||'').trim(),done:false,cat:shopCat(v),source:'manual',locked:!!lel.checked,manual_override:true,created_at:now,updated_at:now});
+  el.value='';qel.value='';if(nel)nel.value='';saveShop();renderNakup();toast('Přidáno'+(lel.checked?' (zamčené 🔒)':''));};
 document.getElementById('copyAnydo').onclick=copyAnydo;
 document.getElementById('shareAnydo').onclick=shareAnydo;
 document.getElementById('tglUnchecked').onclick=()=>shopTgl('uc');
