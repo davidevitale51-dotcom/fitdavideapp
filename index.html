@@ -193,6 +193,7 @@
     <div class="nutgrid" id="nutGrid"></div>
   </div>
 
+  <div id="trainWrap"></div>
   <div id="lekWrap"></div>
 
   <div class="card">
@@ -222,8 +223,6 @@
     <div class="card-h"><h3>⚖️ Hmotnost</h3><button class="iconbtn" id="weightEdit" style="background:#fff">✏️</button></div>
     <div class="bigrow"><div><span class="v" id="weightV">—</span> <span class="l">kg · cíl <span id="weightGoal">—</span></span></div></div>
   </div>
-
-  <div id="trainWrap"></div>
 </div></section>
 
 <!-- ============ PROGRES ============ -->
@@ -1029,25 +1028,30 @@ function renderLek(){
   // předobjednávky (zobraz vždy v jejich den)
   if(pos.length){ h+=`<div class="card" style="background:#fff6e6"><b>📦 Předobjednáno na dnešek</b>`+
     pos.map((po,pi)=>`<div class="row"><div class="info"><div class="n">${po.n} <span class="tg">preordered</span></div>${po.note?`<div class="m">${po.note}</div>`:''}</div><button class="add" onclick="addPreorderToDiary('${selDate}',${pi})">＋</button></div>`).join('')+`</div>`; }
+  // Polední menu – jen u pracovní směny, defaultně sbalené
+  const ddMeals=PREP.map((p,i)=>({p,i})).filter(x=>/Dean & David|Japanese Beef Bowl/i.test(x.p.n)&&!mealViol(x.p));
+  const ddBlock=()=>`<div style="border-top:1px solid var(--line);margin-top:8px;padding-top:8px"><b style="font-size:.85rem">Dean & David</b>`+
+    ddMeals.slice(0,5).map(x=>`<div class="row"><div class="info"><div class="n">${x.p.n}</div><div class="m">${round(x.p.k)} kcal · B ${round(x.p.p)}</div></div><button class="add" onclick="addPrep(${x.i})">＋</button></div>`).join('')+`</div>`;
+  let lunch='';
   if(!weekend && isWorkMode(selDate)){
     const n=lekkerayNumber(selDate);
     if(n){ const lm=lekkerayMeals(n);
       const variantRow=(x,lbl)=>{ if(!x)return ''; const milk=x.p.labels.includes('contains-milk');
         return `<div class="row"><div class="info"><div class="n">${lbl}: ${x.p.n.replace(/^\d+ /,'')}</div><div class="m">${round(x.p.k)} kcal · B ${round(x.p.p)} · ${milk?'⚠ obsahuje mléko':'bez mléka'}</div></div><button class="add" ${milk?'style="background:#c0392b"':''} onclick="addPrep(${x.i})">＋</button></div>`;};
-      h+=`<div class="card" style="background:#eef4ff"><div style="display:flex;justify-content:space-between;align-items:center"><b>🍱 Lekkeray ${pad3(n)}</b><span class="muted" style="font-size:.72rem">polední menu</span></div>
+      lunch=`<div><b style="font-size:.85rem">🍱 Lekkeray ${pad3(n)}</b>
         ${variantRow(lm.fleisch,'Fleisch')}${variantRow(lm.vege,'Vege')}
-        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip" onclick="lekChangeMenu()">Změnit menu</button><button class="chip" onclick="lekToggleClosed()">Zavřeno</button><button class="chip" onclick="lekShiftCycle()">Posunout cyklus</button></div></div>`;
-    } else { h+=`<div class="card" style="background:#eef4ff"><b>🍱 Lekkeray</b><div class="muted" style="font-size:.8rem">Dnes zavřeno / menu neznámé. <button class="chip" onclick="lekChangeMenu()">Zadat menu</button> <button class="chip" onclick="lekToggleClosed()">Zrušit zavřeno</button></div></div>`; }
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip" onclick="lekChangeMenu()">Změnit menu</button><button class="chip" onclick="lekToggleClosed()">Zavřeno</button><button class="chip" onclick="lekShiftCycle()">Posunout cyklus</button></div></div>${ddBlock()}`;
+    } else { lunch=`<div class="muted" style="font-size:.8rem">🍱 Lekkeray dnes zavřeno / menu neznámé. <button class="chip" onclick="lekChangeMenu()">Zadat menu</button> <button class="chip" onclick="lekToggleClosed()">Zrušit zavřeno</button></div>${ddBlock()}`; }
   } else if(weekend && work){
-    h+=`<div class="card" style="background:#fdeee6"><b>📅 Víkendová směna</b>
-      <div class="muted" style="font-size:.8rem;margin:4px 0">Vikendova smena: Lekkeray neni dostupne. Dean & David pouze pokud je predobjednane.</div>
+    lunch=`<div class="muted" style="font-size:.8rem;margin-bottom:4px">Vikendova smena: Lekkeray neni dostupne. Dean & David pouze pokud je predobjednane.</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
         <button class="chip" onclick="preorderPicker()">Předobjednat Dean & David</button>
         <button class="chip" onclick="openAdd('obed')">Vlastní / nouzové jídlo</button>
         <button class="chip" onclick="addSlot='svacina1';addWithQty('Veganský proteinový prášek')">Proteinový shake</button>
         <button class="chip" onclick="openAdd('obed')">Ručně zadat</button>
-      </div></div>`;
+      </div>`;
   }
+  if(lunch){ h+=`<div class="card"><details class="setblk"><summary><b>🍱 Polední menu</b> <span class="muted" style="font-size:.74rem">Lekkeray / Dean & David</span></summary><div style="margin-top:8px">${lunch}</div></details></div>`; }
   el.innerHTML=h;
 }
 /* ===== HYDRATACE – pevné časové prahy ===== */
@@ -1345,20 +1349,22 @@ function renderDash(){
   if(tw){const man=dayHasManualGoals(selDate);const mode=dayMode(selDate);const sh=workCfg.shift;
     tw.innerHTML=`<div class="card">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1"><b>📅 Režim dne</b><div class="muted" style="font-size:.74rem">${dayStatusLabel(selDate)}</div></div>
-        <select id="dayModeSel" style="flex:0 0 auto;max-width:55%">${DAY_MODES.map(([k,l])=>`<option value="${k}"${k===mode?' selected':''}>${l}</option>`).join('')}</select>
+        <div style="flex:1"><b>📅 Režim dne</b></div>
+        <select id="dayModeSel" style="flex:0 0 auto;max-width:60%">${DAY_MODES.map(([k,l])=>`<option value="${k}"${k===mode?' selected':''}>${l}</option>`).join('')}</select>
       </div>
-      ${mode==='nocni'?`<div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end">
-        <div style="flex:1"><label style="font-size:.74rem">Začátek směny</label><input type="time" id="shStart" value="${sh.start}"></div>
-        <div style="flex:1"><label style="font-size:.74rem">Konec směny</label><input type="time" id="shEnd" value="${sh.end}"></div>
-        <select id="shCount" style="flex:1.2"><option value="start"${sh.countTo==='start'?' selected':''}>počítat do dne startu</option><option value="wake"${sh.countTo==='wake'?' selected':''}>do dne po probuzení</option></select>
-      </div>`:''}
-      <div class="chips" style="flex-wrap:wrap;margin-top:8px">${DAY_TOGGLES.map(([k,l])=>`<button class="chip ${dayOpt(selDate,k)?'on':''}" onclick="toggleDayOpt('${k}')">${l}</button>`).join('')}</div>
-      <div style="display:flex;gap:8px;margin-top:8px">
-        ${isTrain?`<div class="muted" style="font-size:.74rem;flex:1">🏋️ Cíl navýšen o +${trainCfg.kcal} kcal (B +${trainCfg.p}·S +${trainCfg.c}·T +${trainCfg.f})${man?' · ručně upravené cíle':''}</div>`:`<div class="muted" style="font-size:.74rem;flex:1">${man?'Ručně upravené cíle dne':'Vyber režim a přepínače pro tento den'}</div>`}
-        <button class="btn ghost" style="padding:0 12px" onclick="editDayGoals()" title="Upravit cíle dne">✎ cíle</button>
-        <button class="btn sec" style="padding:0 12px" onclick="applyModeTemplate()" title="Naplnit den šablonou režimu">📋 šablona</button>
-      </div></div>`;
+      <details class="setblk" style="margin-top:6px"><summary><span class="muted" style="font-size:.78rem">${dayStatusLabel(selDate)} · další nastavení</span></summary>
+        ${mode==='nocni'?`<div style="display:flex;gap:8px;margin-top:8px;align-items:flex-end">
+          <div style="flex:1"><label style="font-size:.74rem">Začátek směny</label><input type="time" id="shStart" value="${sh.start}"></div>
+          <div style="flex:1"><label style="font-size:.74rem">Konec směny</label><input type="time" id="shEnd" value="${sh.end}"></div>
+          <select id="shCount" style="flex:1.2"><option value="start"${sh.countTo==='start'?' selected':''}>počítat do dne startu</option><option value="wake"${sh.countTo==='wake'?' selected':''}>do dne po probuzení</option></select>
+        </div>`:''}
+        <div class="chips" style="flex-wrap:wrap;margin-top:8px">${DAY_TOGGLES.map(([k,l])=>`<button class="chip ${dayOpt(selDate,k)?'on':''}" onclick="toggleDayOpt('${k}')">${l}</button>`).join('')}</div>
+        <div style="display:flex;gap:8px;margin-top:8px">
+          ${isTrain?`<div class="muted" style="font-size:.74rem;flex:1">🏋️ Cíl navýšen o +${trainCfg.kcal} kcal (B +${trainCfg.p}·S +${trainCfg.c}·T +${trainCfg.f})${man?' · ručně upravené cíle':''}</div>`:`<div class="muted" style="font-size:.74rem;flex:1">${man?'Ručně upravené cíle dne':'Přepínače pro tento den'}</div>`}
+          <button class="btn ghost" style="padding:0 12px" onclick="editDayGoals()" title="Upravit cíle dne">✎ cíle</button>
+          <button class="btn sec" style="padding:0 12px" onclick="applyModeTemplate()" title="Naplnit den šablonou režimu">📋 šablona</button>
+        </div>
+      </details></div>`;
     const ms=document.getElementById('dayModeSel'); if(ms)ms.onchange=()=>setDayMode(ms.value);
     const ss=document.getElementById('shStart'),se=document.getElementById('shEnd'),sc=document.getElementById('shCount');
     const saveShift=()=>{workCfg.shift={start:ss.value||'20:00',end:se.value||'08:00',countTo:sc.value};DB.save('kt_work',workCfg);};
