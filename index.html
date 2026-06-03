@@ -921,12 +921,13 @@ function hydration(date){
   const cur=water[date]||0;
   const isToday=date===todayISO;
   const mins=(new Date()).getHours()*60+(new Date()).getMinutes();
+  const up50=x=>Math.ceil(x/50)*50; const litS=ml=>(ml/1000).toFixed(1).replace('.',',');
   let timeGoal,label,evening=false;
-  if(!isToday){ timeGoal=goalMl; label='denní cíl '+(goalMl/1000).toString().replace('.',',')+' l'; }
-  else if(mins<630){ timeGoal=Math.min(1000,goalMl); label='1,0 l do 10:30'; }
-  else if(mins<780){ timeGoal=Math.min(2000,goalMl); label='2,0 l do 13:00'; }
-  else if(mins<1080){ timeGoal=Math.min(3000,goalMl); label='3,0 l do 18:00'; }
-  else { timeGoal=goalMl; label='denní cíl '+(goalMl/1000).toString().replace('.',',')+' l'; evening=true; }
+  if(!isToday){ timeGoal=goalMl; label='denní cíl '+litS(goalMl)+' l'; }
+  else if(mins<630){ timeGoal=up50(goalMl/3); label=litS(timeGoal)+' l do 10:30'; }      // 1/3
+  else if(mins<780){ timeGoal=up50(goalMl*2/3); label=litS(timeGoal)+' l do 13:00'; }    // 2/3
+  else if(mins<1080){ timeGoal=up50(goalMl*0.9); label=litS(timeGoal)+' l do 18:00'; }   // 9/10
+  else { timeGoal=goalMl; label='denní cíl '+litS(goalMl)+' l'; evening=true; }           // celý příjem
   const missing=Math.max(0,timeGoal-cur);
   let state;
   if(cur>=timeGoal) state= cur>=goalMl?'splněno':'v pohodě';
