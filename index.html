@@ -193,6 +193,8 @@
     <div class="nutgrid" id="nutGrid"></div>
   </div>
 
+  <div id="lekWrap"></div>
+
   <div class="card">
     <div class="card-h"><h3>Jídelníček</h3><div><button class="linkbtn" id="autoPlanBtn">✨ Naplánovat den</button> · <button class="linkbtn" id="analyzaBtn">Analýza</button></div></div>
     <div id="mealsWrap"></div>
@@ -837,13 +839,57 @@ function CM(n,ic,cat,slots,tags,comps){
     k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
     srvG:0,conf:'estimated',cd:components.some(c=>/milk|mlék|mlec/.test((c.aller||[]).join(' ').toLowerCase())),gl:components.some(c=>/gluten|lepek/.test((c.aller||[]).join(' ').toLowerCase())),ingr:[]};
 }
+/* Lekkeray polední menu – složená jídla (hlavní část + příloha) */
+function lkTags(L){const t=['lekkeray','lunch-menu'];if(L.includes('milk-free'))t.push('bez mléka');if(L.includes('high-protein'))t.push('high protein');if(L.includes('vegan'))t.push('veganské');else if(L.includes('vegetarian'))t.push('vegetariánské');return t;}
+function LKc(name,labels,mainName,mainNut,sideName,sideNut){
+  const comps=[{component_id:'main',name:mainName,component_type:'main',pct:100,per:mainNut,aller:[]},
+               {component_id:'side',name:sideName,component_type:'side',pct:100,per:sideNut,aller:[]}];
+  const sum=k=>comps.reduce((a,c)=>a+(c.per[k]||0),0);
+  return {n:name,ic:'🍱',cat:'Složená jídla',slots:['obed','vecere'],tags:lkTags(labels),composite:true,components:comps,labels:labels,menu:name.slice(0,3),
+    k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
+    srvG:0,conf:'estimated',cd:labels.includes('contains-milk'),gl:labels.includes('contains-gluten'),ingr:[]};
+}
+function LKsimple(name,labels,nut){const m=M(name,'🍱','Složená jídla',['obed','vecere'],lkTags(labels),0,nut.k,nut.p,nut.c,nut.f,nut.fib,nut.sug,nut.salt,labels.includes('contains-milk'),labels.includes('contains-gluten'),[]);m.labels=labels;m.menu=name.slice(0,3);return m;}
+const BR={k:280,p:6,c:58,f:2,sug:1,fib:4,salt:0};        // Brown Rice
+const BAS={k:260,p:5,c:58,f:0.5,sug:0,fib:1,salt:0};     // Basmati Rice
+const SPM={k:230,p:3,c:45,f:4,sug:12,fib:6,salt:0.6};    // Sweet Potato Mash
+const ROV={k:370,p:5,c:38,f:22,sug:4,fib:5,salt:1.1};    // Rosti with Vegetables
+const ROS={k:360,p:4,c:36,f:22,sug:2,fib:4,salt:1.0};    // Rosti
 const COMPOSITE_MEALS=[
- CM("Teriyaki Salmon + Sweet Potato Mash","🐟","Složená jídla",["obed","vecere"],["high protein","složené","bez mléka"],[
-   ["main","Teriyaki Salmon","main",100,{k:390,p:35,c:17,f:20,sug:5,fib:2,salt:1.9},["fish","soy"]],
-   ["side","Sweet Potato Mash","side",100,{k:230,p:3,c:45,f:4,sug:12,fib:6,salt:0.6},[]]
- ])
+ LKc("001 Samlar Kari + Brown Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","coconut-milk","high-protein","rice-side"],"Samlar Kari chicken main",{k:440,p:37,c:24,f:24,sug:13,fib:6,salt:2.5},"Brown Rice",BR),
+ LKc("001 Samlar Kari Vegan + Brown Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","coconut-milk","rice-side"],"Samlar Kari Vegan main",{k:340,p:7,c:42,f:18,sug:17,fib:10,salt:2.2},"Brown Rice",BR),
+ LKc("002 Chicken Panang-Curry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","coconut-milk","high-protein","rice-side"],"Chicken Panang-Curry main",{k:470,p:40,c:18,f:29.5,sug:10,fib:6,salt:2.8},"Basmati Rice",BAS),
+ LKc("002 Tofu Panang-Curry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","contains-soy","coconut-milk","rice-side"],"Tofu Panang-Curry main",{k:420,p:23,c:20,f:29.5,sug:10,fib:7,salt:2.8},"Basmati Rice",BAS),
+ LKc("003 Teriyaki Salmon + Sweet Potato Mash",["lekkeray","lunch-menu","composite-meal","main-meal","fish","contains-fish","contains-soy","contains-sesame","milk-free","high-protein","mash-side"],"Teriyaki Salmon main",{k:390,p:35,c:17,f:20,sug:5,fib:2,salt:1.9},"Sweet Potato Mash",SPM),
+ LKc("003 Teriyaki Aubergine + Sweet Potato Mash",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","contains-soy","contains-sesame","high-fat","mash-side"],"Teriyaki Aubergine main",{k:490,p:9,c:47,f:28,sug:8,fib:6,salt:2.2},"Sweet Potato Mash",SPM),
+ LKc("004 Chicken-Vegetable Stir-Fry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","contains-peanuts","coconut-milk","high-protein","rice-side"],"Chicken-Vegetable Stir-Fry main",{k:500,p:40,c:17,f:33.5,sug:9,fib:7,salt:2.8},"Basmati Rice",BAS),
+ LKc("004 Vegetable Stir-Fry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","contains-peanuts","coconut-milk","high-fat","rice-side"],"Vegetable Stir-Fry main",{k:420,p:10,c:27,f:30.5,sug:11,fib:10,salt:2.5},"Basmati Rice",BAS),
+ LKc("005 Indian Beef Curry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","coconut-milk","high-protein","rice-side"],"Indian Beef Curry main",{k:500,p:37,c:18,f:33.5,sug:9,fib:6,salt:2.8},"Basmati Rice",BAS),
+ LKc("005 Indian Vegetable Curry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","coconut-milk","rice-side"],"Indian Vegetable Curry main",{k:390,p:8,c:30,f:26.5,sug:13,fib:10,salt:2.5},"Basmati Rice",BAS),
+ LKc("006 Butter Chicken + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","contains-milk","coconut-milk","high-protein","rice-side"],"Butter Chicken main",{k:520,p:40,c:14,f:35.5,sug:9,fib:5,salt:3.0},"Basmati Rice",BAS),
+ LKc("006 Butter Vegetables + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegetarian","contains-milk","coconut-milk","rice-side"],"Butter Vegetables main",{k:420,p:9,c:28,f:30.5,sug:13,fib:9,salt:2.7},"Basmati Rice",BAS),
+ LKc("008 African Coconut Chicken Curry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","coconut-milk","high-protein","rice-side"],"African Coconut Chicken Curry main",{k:480,p:39,c:18,f:30.5,sug:12,fib:7,salt:2.8},"Basmati Rice",BAS),
+ LKc("008 Vegetable Mango Curry + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","coconut-milk","rice-side"],"Vegetable Mango Curry main",{k:410,p:8,c:36,f:26.5,sug:20,fib:9,salt:2.4},"Basmati Rice",BAS),
+ LKc("009 Korean Beef Mince Bowl + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","contains-soy","contains-sesame","high-protein","rice-side"],"Korean Beef Mince Bowl main",{k:460,p:33,c:24,f:26.5,sug:10,fib:6,salt:3.3},"Basmati Rice",BAS),
+ LKc("009 Korean Vegan Mince Bowl + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","contains-soy","contains-sesame","rice-side"],"Korean Vegan Mince Bowl main",{k:390,p:23,c:26,f:22.5,sug:10,fib:8,salt:3.2},"Basmati Rice",BAS),
+ LKc("010 Poulet a la Creme + Rosti with Vegetables",["lekkeray","lunch-menu","composite-meal","main-meal","meat","contains-milk","high-protein","high-fat","rosti-side"],"Poulet a la Creme main",{k:490,p:41,c:10,f:28,sug:3,fib:1,salt:2.2},"Rosti with Vegetables",ROV),
+ LKc("010 Soy Mince a la Creme + Rosti with Vegetables",["lekkeray","lunch-menu","composite-meal","main-meal","vegetarian","contains-milk","contains-soy","high-fat","rosti-side"],"Soy Mince a la Creme main",{k:430,p:27,c:14,f:28,sug:3,fib:3,salt:2.1},"Rosti with Vegetables",ROV),
+ LKc("011 Chicken Korma + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","contains-milk","coconut-milk","high-protein","rice-side"],"Chicken Korma main",{k:500,p:40,c:16,f:32.5,sug:10,fib:6,salt:2.8},"Basmati Rice",BAS),
+ LKc("011 Indian Dal + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","coconut-milk","high-fiber","rice-side"],"Indian Dal main",{k:420,p:19,c:50,f:16.5,sug:10,fib:15,salt:2.5},"Basmati Rice",BAS),
+ LKc("012 Lok Lak + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","contains-soy","high-protein","rice-side"],"Lok Lak main",{k:430,p:37,c:20,f:23.5,sug:10,fib:6,salt:3.4},"Basmati Rice",BAS),
+ LKc("012 Lok Lak Vegan + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","contains-soy","rice-side"],"Lok Lak Vegan main",{k:380,p:23,c:22,f:22.5,sug:10,fib:7,salt:3.4},"Basmati Rice",BAS),
+ LKc("013 Chinese Kung Pao-Style Chicken + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","milk-free","contains-soy","contains-sesame","contains-peanuts","high-protein","rice-side"],"Chinese Kung Pao-Style Chicken main",{k:500,p:40,c:20,f:31.5,sug:9,fib:7,salt:3.3},"Basmati Rice",BAS),
+ LKc("013 Chinese Kung Pao-Style Tofu + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegetarian","milk-free","contains-soy","contains-sesame","contains-peanuts","rice-side"],"Chinese Kung Pao-Style Tofu main",{k:440,p:25,c:20,f:30.5,sug:9,fib:8,salt:3.2},"Basmati Rice",BAS),
+ LKc("014 Beef Tikka Masala + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","meat","contains-milk","high-protein","high-fat","rice-side"],"Beef Tikka Masala main",{k:540,p:37,c:16,f:37.5,sug:9,fib:6,salt:3.0},"Basmati Rice",BAS),
+ LKc("014 Vegetables Masala + Basmati Rice",["lekkeray","lunch-menu","composite-meal","main-meal","vegan","milk-free","coconut-cream","rice-side"],"Vegetables Masala main",{k:440,p:9,c:30,f:31.5,sug:13,fib:10,salt:2.7},"Basmati Rice",BAS),
+ LKc("015 Creamy Lemon Chicken + Rosti",["lekkeray","lunch-menu","composite-meal","main-meal","meat","contains-milk","high-protein","high-fat","rosti-side"],"Creamy Lemon Chicken main",{k:470,p:41,c:12,f:26,sug:3,fib:1,salt:2.1},"Rosti",ROS),
+ LKc("015 Creamy Lemon Vegetables + Rosti",["lekkeray","lunch-menu","composite-meal","main-meal","vegetarian","contains-milk","high-fat","rosti-side"],"Creamy Lemon Vegetables main",{k:400,p:10,c:20,f:28,sug:6,fib:4,salt:2.0},"Rosti",ROS)
 ];
 COMPOSITE_MEALS.forEach(m=>PREP.push(m));
+/* 007 Lasagne – jednoduchá hlavní jídla (jedna část) */
+[ LKsimple("007 Lasagne",["lekkeray","lunch-menu","main-meal","meat","contains-milk","contains-gluten"],{k:720,p:38,c:65,f:34,sug:10,fib:6,salt:3.2}),
+  LKsimple("007 Vegetarian Lasagne",["lekkeray","lunch-menu","main-meal","vegetarian","contains-milk","contains-gluten"],{k:650,p:24,c:70,f:30,sug:11,fib:7,salt:3.0})
+].forEach(m=>PREP.push(m));
 
 /* ====== SLOTY JÍDEL ====== */
 const SLOTS=[
@@ -931,6 +977,79 @@ function restoreProtected(date,snap){ const d=dayObj(date); Object.keys(snap||{}
 function dayFlags(date){ const d=days[date]||{}; const o={}; ['mode','train','highAct','simple','dietv','satiety','goals','skip','notes'].forEach(k=>{if(d[k]!=null)o[k]=JSON.parse(JSON.stringify(d[k]));}); return o; }
 function toggleLock(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; it.locked=!it.locked; DB.save('kt_days',days); renderDash(); toast(it.locked?'🔒 Jídlo zamčeno':'🔓 Jídlo odemčeno'); }
 function toggleEaten(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; it.eaten=!it.eaten; if(it.eaten&&lockCfg.autoLockEaten)it.locked=true; DB.save('kt_days',days); renderDash(); toast(it.eaten?'✓ Označeno jako snědené'+(it.locked?' a zamčeno':''):'Snědené zrušeno'); }
+/* ===== LEKKERAY CYKLUS (3 prac. týdny, jen Po–Pá) ===== */
+let lekCfg = DB.load('kt_lek', {refDate:'2026-06-03', refNum:3, offset:0, closed:{}, override:{}});
+let preorders = DB.load('kt_preorders', {}); // {date:[{...}]}
+function isWeekendDate(dISO){const x=new Date(dISO+'T00:00:00').getDay();return x===0||x===6;}
+function pad3(n){return String(n).padStart(3,'0');}
+function countWD(fromISO,toISO){ // znaménkový počet pracovních dnů (Po–Pá, mimo zavřené) z from (exkl.) do to (inkl.)
+  if(fromISO===toISO)return 0;
+  const dir=toISO>fromISO?1:-1; let cnt=0; const d=new Date(fromISO+'T00:00:00');
+  for(let g=0;g<2000;g++){ d.setDate(d.getDate()+dir); const cur=iso(d);
+    if(!isWeekendDate(cur)&&!lekCfg.closed[cur]) cnt+=dir;
+    if(cur===toISO) break; }
+  return cnt;
+}
+function lekkerayNumber(dISO){
+  if(isWeekendDate(dISO))return null;
+  if(lekCfg.override[dISO]) return lekCfg.override[dISO]==='closed'?null:lekCfg.override[dISO];
+  if(lekCfg.closed[dISO])return null;
+  const wd=countWD(lekCfg.refDate,dISO);
+  return ((lekCfg.refNum-1+lekCfg.offset+wd)%15+15)%15 +1;
+}
+function lekkerayMeals(n){ const code=pad3(n);
+  const list=PREP.map((p,i)=>({p,i})).filter(x=>x.p.menu===code&&x.p.labels&&x.p.labels.includes('lekkeray'));
+  const fleisch=list.find(x=>x.p.labels.includes('meat')||x.p.labels.includes('fish'));
+  const vege=list.find(x=>x.p.labels.includes('vegan')||x.p.labels.includes('vegetarian'));
+  return {fleisch,vege,all:list};
+}
+function isWorkMode(date){return ['prace','denni','nocni'].includes(dayMode(date));}
+function isWeekendShift(date){return isWeekendDate(date)&&(isWork(date)||dayMode(date)==='nocni');}
+/* předobjednávky */
+function dayPreorders(date){return (preorders[date]||[]);}
+function addPreorderMeal(date,prepIdx,note){const p=PREP[prepIdx];if(!p)return;
+  (preorders[date]=preorders[date]||[]).push({date,meal_slot:'obed',source:'dean_and_david',restaurant:'Dean & David',prepIdx,status:'preordered',note:note||'',n:p.n});
+  DB.save('kt_preorders',preorders);renderDash();toast('Předobjednáno na '+date+': '+p.n);}
+function addPreorderToDiary(date,pi){const po=(preorders[date]||[])[pi];if(!po)return;addSlot='obed';selDate=date;
+  if(PREP[po.prepIdx]&&PREP[po.prepIdx].composite)addCompositeToDay(po.prepIdx);else addPrep(po.prepIdx);
+  po.status='available';DB.save('kt_preorders',preorders);}
+/* manuální výjimky cyklu */
+function lekChangeMenu(){const v=prompt('Lekkeray menu pro tento den (1–15):',lekkerayNumber(selDate)||'');const n=parseInt(v,10);if(n>=1&&n<=15){lekCfg.override[selDate]=n;DB.save('kt_lek',lekCfg);renderDash();toast('Menu pro '+selDate+' = Lekkeray '+pad3(n));}}
+function lekToggleClosed(){lekCfg.closed[selDate]=!lekCfg.closed[selDate];if(!lekCfg.closed[selDate])delete lekCfg.closed[selDate];DB.save('kt_lek',lekCfg);renderDash();toast(lekCfg.closed[selDate]?'Lekkeray: zavřeno (nepočítá se do cyklu)':'Zavřeno zrušeno');}
+function lekShiftCycle(){const v=prompt('Posunout celý cyklus od tohoto dne o kolik menu? (např. 1 nebo -1):','1');const k=parseInt(v,10);if(!isNaN(k)){lekCfg.offset=(lekCfg.offset||0)+k;DB.save('kt_lek',lekCfg);renderDash();toast('Cyklus posunut o '+k);}}
+/* picker pro předobjednání Dean & David */
+function preorderPicker(){openSheet('Předobjednat Dean & David');document.getElementById('sheetTabs').innerHTML='';
+  const list=PREP.map((p,i)=>({p,i})).filter(x=>/Dean & David|Japanese Beef Bowl/i.test(x.p.n));
+  document.getElementById('sheetBody').innerHTML=`<div class="muted" style="font-size:.8rem;margin-bottom:6px">Vyber jídlo pro ${selDate} (oběd):</div>`+
+    list.map(x=>`<div class="row"><div class="info"><div class="n">${x.p.n}</div><div class="m">${round(x.p.k)} kcal · B ${round(x.p.p)}</div></div><button class="add" onclick="addPreorderMeal('${selDate}',${x.i});closeSheet()">＋</button></div>`).join('')||'<p class="muted">Žádná Dean & David jídla.</p>';}
+function renderLek(){
+  const el=document.getElementById('lekWrap'); if(!el)return;
+  const weekend=isWeekendDate(selDate); const work=isWork(selDate)||dayMode(selDate)==='nocni';
+  const pos=dayPreorders(selDate); let h='';
+  // předobjednávky (zobraz vždy v jejich den)
+  if(pos.length){ h+=`<div class="card" style="background:#fff6e6"><b>📦 Předobjednáno na dnešek</b>`+
+    pos.map((po,pi)=>`<div class="row"><div class="info"><div class="n">${po.n} <span class="tg">preordered</span></div>${po.note?`<div class="m">${po.note}</div>`:''}</div><button class="add" onclick="addPreorderToDiary('${selDate}',${pi})">＋</button></div>`).join('')+`</div>`; }
+  if(!weekend && isWorkMode(selDate)){
+    const n=lekkerayNumber(selDate);
+    if(n){ const lm=lekkerayMeals(n);
+      const variantRow=(x,lbl)=>{ if(!x)return ''; const milk=x.p.labels.includes('contains-milk');
+        return `<div class="row"><div class="info"><div class="n">${lbl}: ${x.p.n.replace(/^\d+ /,'')}</div><div class="m">${round(x.p.k)} kcal · B ${round(x.p.p)} · ${milk?'⚠ obsahuje mléko':'bez mléka'}</div></div><button class="add" ${milk?'style="background:#c0392b"':''} onclick="addPrep(${x.i})">＋</button></div>`;};
+      h+=`<div class="card" style="background:#eef4ff"><div style="display:flex;justify-content:space-between;align-items:center"><b>🍱 Lekkeray ${pad3(n)}</b><span class="muted" style="font-size:.72rem">polední menu</span></div>
+        ${variantRow(lm.fleisch,'Fleisch')}${variantRow(lm.vege,'Vege')}
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"><button class="chip" onclick="lekChangeMenu()">Změnit menu</button><button class="chip" onclick="lekToggleClosed()">Zavřeno</button><button class="chip" onclick="lekShiftCycle()">Posunout cyklus</button></div></div>`;
+    } else { h+=`<div class="card" style="background:#eef4ff"><b>🍱 Lekkeray</b><div class="muted" style="font-size:.8rem">Dnes zavřeno / menu neznámé. <button class="chip" onclick="lekChangeMenu()">Zadat menu</button> <button class="chip" onclick="lekToggleClosed()">Zrušit zavřeno</button></div></div>`; }
+  } else if(weekend && work){
+    h+=`<div class="card" style="background:#fdeee6"><b>📅 Víkendová směna</b>
+      <div class="muted" style="font-size:.8rem;margin:4px 0">Vikendova smena: Lekkeray neni dostupne. Dean & David pouze pokud je predobjednane.</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="chip" onclick="preorderPicker()">Předobjednat Dean & David</button>
+        <button class="chip" onclick="openAdd('obed')">Vlastní / nouzové jídlo</button>
+        <button class="chip" onclick="addSlot='svacina1';addWithQty('Veganský proteinový prášek')">Proteinový shake</button>
+        <button class="chip" onclick="openAdd('obed')">Ručně zadat</button>
+      </div></div>`;
+  }
+  el.innerHTML=h;
+}
 /* ===== HYDRATACE – pevné časové prahy ===== */
 function hydration(date){
   const goalMl=Math.round((effTarget(date).water||3)*1000);
@@ -1114,7 +1233,7 @@ function itemMacro(it){
 const COMP_TYPES={main:{l:'hlavní část',q:[50,75,100,125]},side:{l:'příloha',q:[0,25,50,75,100]},sauce:{l:'omáčka',q:[0,25,50,100]},topping:{l:'topping',q:[0,50,100]},vegetable:{l:'zelenina',q:[50,100,150]}};
 function compNutr(c){const fr=(c.pct!=null?c.pct:100)/100;const per=c.per||{};const o={};['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]=(per[kk]||0)*fr);return o;}
 /* labely složeného jídla z alergenů komponent */
-function compositeLabels(it){const set=new Set();let milk=false;
+function compositeLabels(it){ if(it.labels&&it.labels.length)return it.labels; const set=new Set();let milk=false;
   (it.components||[]).forEach(c=>{const a=(c.aller||[]).join(' ').toLowerCase();
     if(/milk|mlék|mlek|mléč/.test(a)){milk=true;set.add('contains-milk');}
     if(/soy|sój|soj/.test(a))set.add('contains-soy');
@@ -1207,6 +1326,7 @@ function renderDash(){
   const st=dayState(selDate);
   const isTrain=(days[selDate]||{}).train;
   if(typeof renderSteps==='function')renderSteps();
+  if(typeof renderLek==='function')renderLek();
   const aT=document.getElementById('aTrain');
   if(aT){aT.style.background=isTrain?'#e0533f':'#36b06a';aT.style.color='#fff';aT.title=isTrain?'Silový trénink zapnut – klepni pro vypnutí':'Silový trénink vypnut – klepni pro zapnutí';}
   const eatLabel= st==='future'?'Naplánováno':'Snědeno';
@@ -1457,7 +1577,7 @@ function fillAddList(){
   if(q){
     /* GLOBÁLNÍ vyhledávání napříč celou databází (hotová jídla + potraviny + značky + recepty) */
     h='<div class="muted" style="font-size:.74rem;padding:4px 0">Hledám v celé databázi…</div>';
-    PREP.filter(p=>norm(p.n).includes(q)).slice(0,40).forEach(p=>{const viol=mealViol(p);const idx=PREP.indexOf(p);
+    PREP.filter(p=>norm(p.n).includes(q)||(p.labels&&p.labels.some(l=>norm(l).includes(q)))).slice(0,40).forEach(p=>{const viol=mealViol(p);const idx=PREP.indexOf(p);
       h+=gate(viol,()=>rowHTML('🍽️ '+p.n,`Hotové jídlo · ${round(p.k)} kcal · B ${round(p.p)} S ${round(p.c)} T ${round(p.f)}`,[],`addPrep(${idx})`,`prepDetail(${idx})`,viol,p.n));});
     FOODS.filter(f=>norm(f.n).includes(q)).slice(0,120).forEach(f=>{const viol=dietViolation(f.n);const u=f.unit?f.unit:(f.g?'ks':'g');const q0=f.unit?1:(f.g?1:100);const m=macroOne(f.n,q0,u);const src=(f.barcode||f.source)?'Značka':'Potravina';
       h+=gate(viol,()=>rowHTML(f.n,`${src} · ${q0} ${u} · ${round(m.k)} kcal · B ${round(m.p)} S ${round(m.c)} T ${round(m.f)}`,[],`addFoodChecked('${esc(f.n)}',${q0},'${u}')`,`addWithQty('${esc(f.n)}')`,viol,f.n));});
@@ -1546,7 +1666,7 @@ function addPrep(idx){ const p=PREP[idx]; const v=mealViol(p);
 }
 function addCompositeToDay(idx){const p=PREP[idx];const slot=addSlot;const d=dayObj(selDate);if(!d[slot])d[slot]=[];
   const comps=JSON.parse(JSON.stringify(p.components));
-  d[slot].push({n:p.n,u:'porce',q:1,meal:true,composite:true,components:comps,ic:p.ic});
+  d[slot].push({n:p.n,u:'porce',q:1,meal:true,composite:true,components:comps,ic:p.ic,labels:p.labels});
   if(d.notes)delete d.notes[slot];DB.save('kt_days',days);expandSlot(selDate,slot);bumpFreq(p.n);renderDash();closeSheet();
   toast('Přidáno: '+p.n); compositeDetail(slot,d[slot].length-1);
 }
@@ -2208,6 +2328,13 @@ function dayAnalysis(){
   hydLine+= hy.cur>=hy.timeGoal?'Jsi v plánu podle času.':`Podle času ti chybí ${hy.missing} ml (${hy.state}).`;
   if(!hy.evening && hy.missing>0) hydLine+=` Návrh: ${hy.action}.`;
   if(hy.evening && hy.cur<hy.goalMl) hydLine+=' Je večer — doplň menšími dávkami a nedoháněj velké množství najednou před spaním.';
+  // Lekkeray / víkendová směna / předobjednávky
+  let lekLine='';
+  if(!isWeekendDate(selDate) && isWorkMode(selDate)){ const n=lekkerayNumber(selDate);
+    if(n)lekLine=`Dnes je dostupné Lekkeray ${pad3(n)}. Můžeš přidat Fleisch nebo Vege variantu jako oběd.`; }
+  else if(isWeekendDate(selDate) && (isWork(selDate)||dayMode(selDate)==='nocni')){
+    lekLine = dayPreorders(selDate).length ? 'Máš předobjednané Dean & David jídlo pro dnešní oběd. Můžeš ho přidat do jídelníčku.'
+      : 'Víkendová směna: Lekkeray není dostupné a Dean & David není předobjednané. Doporučuji nouzové pracovní jídlo s vyšším proteinem.'; }
   openSheet('Analýza dne');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card" style="${isTrain?'background:var(--green-soft)':wk?'background:#eef4ff':''}">
@@ -2215,6 +2342,7 @@ function dayAnalysis(){
       <div class="muted" style="font-size:.82rem">${dayStatusLabel(selDate)[0].toUpperCase()+dayStatusLabel(selDate).slice(1)}. B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
     </div>
     <div class="card"><b>Shrnutí:</b> ${summary}</div>
+    ${lekLine?`<div class="card" style="background:#eef4ff"><b>🍱 Oběd / směna:</b> ${lekLine}</div>`:''}
     <div class="card"><b>💧 Hydratace:</b> ${hydLine}</div>
     <div class="card"><b>👟 Kroky:</b> ${stepLine}</div>
     <div class="card"><b>Co doplnit:</b> ${rec}</div>
@@ -2704,7 +2832,7 @@ async function doForceUpd(){
 }
 document.getElementById('forceUpd').onclick=doForceUpd;
 {const f2=document.getElementById('forceUpd2');if(f2)f2.onclick=doForceUpd;}
-function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,workCfg,lockCfg,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
+function buildBackup(){return {days,water,acts,weights,favs,myMeals,target,trainCfg,steps,stepCfg,actIntake,workCfg,lockCfg,lekCfg,preorders,diet,shop:shopState,templates,eanfoods:DB.load('kt_eanfoods',[]),_app:'kalorie',_at:new Date().toISOString()};}
 function backupFilename(){return 'kalorie-zaloha-'+todayISO+'.json';}
 function markBackup(){DB.save('kt_lastbackup',new Date().toISOString());if(typeof renderBackupBar==='function')renderBackupBar();}
 document.getElementById('exportData').onclick=()=>{const blob=new Blob([JSON.stringify(buildBackup(),null,1)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=backupFilename();a.click();markBackup();toast('Záloha stažena');};
@@ -2732,7 +2860,7 @@ document.getElementById('importFile').onchange=function(){const f=this.files[0];
   if(d.days){days=d.days;DB.save('kt_days',days);}if(d.water){water=d.water;DB.save('kt_water',water);}if(d.acts){acts=d.acts;DB.save('kt_acts',acts);}
   if(d.weights){weights=d.weights;DB.save('kc_weights',weights);}if(d.favs){favs=d.favs;DB.save('kt_favs',favs);}if(d.myMeals){myMeals=d.myMeals;DB.save('kc_meals',myMeals);}
   if(d.target){target=d.target;DB.save('kt_target',target);}if(d.trainCfg){trainCfg=d.trainCfg;DB.save('kt_train',trainCfg);}
-  if(d.steps){steps=d.steps;DB.save('kt_steps',steps);}if(d.stepCfg){stepCfg=d.stepCfg;DB.save('kt_stepcfg',stepCfg);}if(d.actIntake){actIntake=d.actIntake;DB.save('kt_actintake',actIntake);}if(d.workCfg){workCfg=d.workCfg;DB.save('kt_work',workCfg);}if(d.lockCfg){lockCfg=d.lockCfg;DB.save('kt_lockcfg',lockCfg);}
+  if(d.steps){steps=d.steps;DB.save('kt_steps',steps);}if(d.stepCfg){stepCfg=d.stepCfg;DB.save('kt_stepcfg',stepCfg);}if(d.actIntake){actIntake=d.actIntake;DB.save('kt_actintake',actIntake);}if(d.workCfg){workCfg=d.workCfg;DB.save('kt_work',workCfg);}if(d.lockCfg){lockCfg=d.lockCfg;DB.save('kt_lockcfg',lockCfg);}if(d.lekCfg){lekCfg=d.lekCfg;DB.save('kt_lek',lekCfg);}if(d.preorders){preorders=d.preorders;DB.save('kt_preorders',preorders);}
   if(d.diet){diet=d.diet;DB.save('kt_diet',diet);}if(d.shop){shopState=d.shop;saveShop();}if(d.templates){templates=d.templates;DB.save('kt_templates',templates);}if(d.eanfoods){DB.save('kt_eanfoods',d.eanfoods);d.eanfoods.forEach(x=>{if(!findFood(x.n))FOODS.push(x);});}
   loadTargets();renderDietOpts();renderDash();toast('Data naimportována');}catch(e){toast('Soubor se nepodařilo načíst');}};rd.readAsText(f);};
 
