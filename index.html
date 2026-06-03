@@ -828,6 +828,22 @@ const WORK_FOODS=[
  {n:"Kedlubna", k:27,p:1.7,c:6,f:0.1,fib:3.6,sug:2.6,salt:0,g:150}
 ];
 WORK_FOODS.forEach(f=>{if(!FOODS.some(x=>x.n===f.n)){f.cat="👜 Pracovní potraviny";f.work=true;FOODS.push(f);}else{FOODS.find(x=>x.n===f.n).work=true;}});
+/* ====== SLOŽENÁ HLAVNÍ JÍDLA (hlavní část + příloha + …) ====== */
+/* CM(název, ikona, kategorie, sloty, tagy, komponenty[]) – komponenta: [id,name,type,defaultPct,{k,p,c,f,sug,fib,salt},aller[]] */
+function CM(n,ic,cat,slots,tags,comps){
+  const components=comps.map(c=>({component_id:c[0],name:c[1],component_type:c[2],pct:c[3],per:c[4],aller:c[5]||[]}));
+  const sum=k=>components.reduce((a,c)=>a+(c.per[k]||0)*((c.pct||0)/100),0);
+  return {n,ic,cat,slots,tags,composite:true,components,
+    k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
+    srvG:0,conf:'estimated',cd:components.some(c=>/milk|mlék|mlec/.test((c.aller||[]).join(' ').toLowerCase())),gl:components.some(c=>/gluten|lepek/.test((c.aller||[]).join(' ').toLowerCase())),ingr:[]};
+}
+const COMPOSITE_MEALS=[
+ CM("Teriyaki Salmon + Sweet Potato Mash","🐟","Složená jídla",["obed","vecere"],["high protein","složené","bez mléka"],[
+   ["main","Teriyaki Salmon","main",100,{k:390,p:35,c:17,f:20,sug:5,fib:2,salt:1.9},["fish","soy"]],
+   ["side","Sweet Potato Mash","side",100,{k:230,p:3,c:45,f:4,sug:12,fib:6,salt:0.6},[]]
+ ])
+];
+COMPOSITE_MEALS.forEach(m=>PREP.push(m));
 
 /* ====== SLOTY JÍDEL ====== */
 const SLOTS=[
@@ -1088,9 +1104,29 @@ function macroOne(n,q,u){const f=findFood(n);if(!f)return{k:0,p:0,c:0,f:0,fib:0,
   return{k:f.k*b*q,p:f.p*b*q,c:f.c*b*q,f:f.f*b*q,fib,sug,salt};}
 /* macra jedné položky deníku – hotové jídlo (meal) má hodnoty na 1 porci × počet porcí */
 function itemMacro(it){
+  if(it&&it.composite&&it.components){const q=it.q||1;const o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};
+    it.components.forEach(c=>{const fr=(c.pct!=null?c.pct:100)/100;const per=c.per||{};['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]+=(per[kk]||0)*fr);});
+    ['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]*=q); return o;}
   if(it&&it.meal){const q=it.q||1;return{k:(it.k||0)*q,p:(it.p||0)*q,c:(it.c||0)*q,f:(it.f||0)*q,fib:(it.fib||0)*q,sug:(it.sug||0)*q,salt:(it.salt||0)*q};}
   return macroOne(it.n!=null?it.n:it[0], it.q!=null?it.q:it[1], it.u!=null?it.u:it[2]);
 }
+/* ===== SLOŽENÁ JÍDLA (komponenty + procenta) ===== */
+const COMP_TYPES={main:{l:'hlavní část',q:[50,75,100,125]},side:{l:'příloha',q:[0,25,50,75,100]},sauce:{l:'omáčka',q:[0,25,50,100]},topping:{l:'topping',q:[0,50,100]},vegetable:{l:'zelenina',q:[50,100,150]}};
+function compNutr(c){const fr=(c.pct!=null?c.pct:100)/100;const per=c.per||{};const o={};['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]=(per[kk]||0)*fr);return o;}
+/* labely složeného jídla z alergenů komponent */
+function compositeLabels(it){const set=new Set();let milk=false;
+  (it.components||[]).forEach(c=>{const a=(c.aller||[]).join(' ').toLowerCase();
+    if(/milk|mlék|mlek|mléč/.test(a)){milk=true;set.add('contains-milk');}
+    if(/soy|sój|soj/.test(a))set.add('contains-soy');
+    if(/sesam|sezam/.test(a))set.add('contains-sesame');
+    if(/peanut|arašíd|arasid/.test(a))set.add('contains-peanuts');
+    if(/fish|ryb|losos|tuňák|tunak/.test(a))set.add('contains-fish');
+    if(/gluten|lepek|pšenic|psenic/.test(a))set.add('contains-gluten');});
+  set.add(milk?'contains-milk':'milk-free'); set.add('composite-meal'); set.add('main-meal');
+  return [...set];}
+function compPortionLabel(c){const t=COMP_TYPES[c.component_type]||{l:c.component_type};const pct=c.pct!=null?c.pct:100;
+  if(c.component_type==='side'&&pct===0)return 'bez přílohy';
+  return t.l+' '+pct+' %';}
 function sumItems(items){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};(items||[]).forEach(it=>{const m=itemMacro(it);o.k+=m.k;o.p+=m.p;o.c+=m.c;o.f+=m.f;o.fib+=m.fib;o.sug+=m.sug;o.salt+=m.salt;});return o;}
 /* hotová jídla – pomocné funkce */
 function mealMac(p,factor){const q=factor||1;return{k:p.k*q,p:p.p*q,c:p.c*q,f:p.f*q,fib:p.fib*q,sug:p.sug*q,salt:p.salt*q};}
@@ -1277,8 +1313,39 @@ function nutrientBreakdown(key,label,unit){
    : `<p class="muted" style="padding:14px 0">Dnes zatím nic do kategorie ${label} nepřispělo.</p>`;
   document.getElementById('sheetBody').innerHTML=body;
 }
+/* editor procent komponent u složeného jídla */
+function setCompPct(slot,i,ci,pct){const it=slotItems(selDate,slot)[i];if(!it||!it.components)return;
+  if((it.locked||it.eaten)){const why=it.locked&&it.eaten?'zamčené a snědené':(it.locked?'zamčené':'snědené');
+    if(!confirm('Jídlo je '+why+'. Opravdu změnit porci komponenty?'))return;}
+  it.components[ci].pct=Math.max(0,pct||0); DB.save('kt_days',days); compositeDetail(slot,i); renderDash();}
+function compCustomPct(slot,i,ci){const it=slotItems(selDate,slot)[i];if(!it)return;const v=prompt('Vlastní procento porce (%):',it.components[ci].pct);const n=parseInt(v,10);if(!isNaN(n))setCompPct(slot,i,ci,n);}
+function compositeDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it||!it.components)return;
+  openSheet(it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
+  const protBadge=(it.locked?'🔒 ':'')+(it.eaten?'✅ ':'');
+  const comps=it.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type,q:[0,50,100]};const m=compNutr(c);
+    const btns=t.q.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="setCompPct('${slot}',${i},${ci},${p})">${p} %</button>`).join('')+`<button class="chip" onclick="compCustomPct('${slot}',${i},${ci})">vlastní…</button>`;
+    return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between"><b>${c.name}</b><span class="muted" style="font-size:.78rem">${compPortionLabel(c)}</span></div>
+      <div class="chips" style="flex-wrap:wrap;margin:6px 0">${btns}</div>
+      <div class="muted" style="font-size:.78rem">${round(m.k)} kcal · B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)}${m.fib?' · vlák '+round(m.fib):''}${m.salt?' · sůl '+(m.salt).toFixed(1):''}</div></div>`;}).join('');
+  const tot=itemMacro(it);const labels=compositeLabels(it);
+  document.getElementById('sheetBody').innerHTML=
+   `${protBadge?`<div class="muted" style="font-size:.78rem;margin-bottom:4px">${protBadge}složené jídlo</div>`:''}
+    <label>Sekce dne</label><select id="ciSlot">${SLOTS.map(s=>`<option value="${s.k}"${s.k===slot?' selected':''}>${s.ic} ${s.l}</option>`).join('')}</select>
+    <div style="margin-top:10px">${comps}</div>
+    <div class="card" style="background:var(--green-soft)"><b>Celkem:</b> ${round(tot.k)} kcal · B ${round(tot.p)} · S ${round(tot.c)} · T ${round(tot.f)} · vláknina ${round(tot.fib)} · sůl ${tot.salt.toFixed(1)} g
+      <div class="muted" style="font-size:.7rem;margin-top:4px">${labels.join(' · ')}</div></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn block" onclick="(function(){var ns=document.getElementById('ciSlot').value;if(ns!=='${slot}')moveCompositeSlot('${slot}',${i},ns);else closeSheet();})()">Uložit</button>
+      <button class="btn ghost" style="color:#c0392b" onclick="rmItem('${slot}',${i});closeSheet()">Smazat</button></div>`;}
+function moveCompositeSlot(slot,i,newSlot){const it=slotItems(selDate,slot)[i];if(!it)return;
+  if(it.locked&&!confirm('Toto jídlo je zamčené. Chceš ho přesunout do jiné sekce a ponechat zamčené?'))return;
+  if(it.eaten&&!confirm('Toto jídlo je označené jako snědené. Chceš jen změnit jeho sekci?'))return;
+  const arr=dayObj(selDate)[slot];arr.splice(i,1);if(!arr.length)delete dayObj(selDate)[slot];
+  const d=dayObj(selDate);if(!d[newSlot])d[newSlot]=[];d[newSlot].push(it);if(d.notes)delete d.notes[newSlot];
+  DB.save('kt_days',days);renderDash();closeSheet();toast('Jídlo přesunuto do sekce: '+(SLOTS.find(s=>s.k===newSlot)||{}).l);}
 /* úprava skutečně snědeného množství u jakékoli položky deníku */
 function editItemAmt(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
+  if(it.composite&&it.components){compositeDetail(slot,i);return;}
   openSheet('Kolik jsi snědl: '+it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
   const gMode=(it.u==='g'||it.u==='ml');
   const slotLabel=k=>{const s=SLOTS.find(x=>x.k===k);return s?s.ic+' '+s.l:k;};
@@ -1336,7 +1403,7 @@ ovl.onclick=e=>{if(e.target===ovl)closeSheet();};
 
 /* ====== PŘIDAT JÍDLO ====== */
 let addSlot='snidane', addTab='potraviny', addQuery='', addFilters=new Set(), hotovaCat='';
-const MEAL_CATS=['Práce','Hovězí','Kuřecí & krůtí','Vepřové','Rybí','Bezmasé','Omáčky','Polévky','Saláty','Bowls','Těstoviny','Rizota','Snídaně','Svačiny','Dezerty','Rodinné'];
+const MEAL_CATS=['Práce','Složená jídla','Hovězí','Kuřecí & krůtí','Vepřové','Rybí','Bezmasé','Omáčky','Polévky','Saláty','Bowls','Těstoviny','Rizota','Snídaně','Svačiny','Dezerty','Rodinné'];
 function openAdd(slot){ addSlot=slot||defaultSlotByTime(); addTab='potraviny'; addQuery=''; addFilters.clear(); hotovaCat=''; showUnsuitable=false;
   const sl=SLOTS.find(s=>s.k===slot);
   openSheet('Přidat do: '+(sl?sl.l:'jídlo'));
@@ -1474,7 +1541,14 @@ function addPrep(idx){ const p=PREP[idx]; const v=mealViol(p);
     document.getElementById('sheetBody').innerHTML=`<div class="card" style="background:#fde6e3"><div style="font-weight:800;color:#c0392b;font-size:1.05rem">⚠ ${v}</div><div class="muted" style="margin-top:4px"><b>${p.n}</b> neodpovídá tvému profilu (${dietActiveLabel()}).</div></div>
       <div style="display:flex;gap:8px;margin-top:12px"><button class="btn ghost block" onclick="closeSheet()">Zrušit</button><button class="btn block" style="background:#c0392b" onclick="prepPortion(${idx})">Přidat i přesto</button></div>`;
     return; }
+  if(p.composite){ addCompositeToDay(idx); return; }
   prepPortion(idx);
+}
+function addCompositeToDay(idx){const p=PREP[idx];const slot=addSlot;const d=dayObj(selDate);if(!d[slot])d[slot]=[];
+  const comps=JSON.parse(JSON.stringify(p.components));
+  d[slot].push({n:p.n,u:'porce',q:1,meal:true,composite:true,components:comps,ic:p.ic});
+  if(d.notes)delete d.notes[slot];DB.save('kt_days',days);expandSlot(selDate,slot);bumpFreq(p.n);renderDash();closeSheet();
+  toast('Přidáno: '+p.n); compositeDetail(slot,d[slot].length-1);
 }
 function prepPortion(idx){const p=PREP[idx];
   openSheet('Porce: '+p.n);document.getElementById('sheetTabs').innerHTML='';
@@ -2341,7 +2415,7 @@ const SLOT_W={snidane:0.20,svacina1:0.12,obed:0.30,svacina2:0.12,vecere:0.26};
 /* picker, který vybere jídlo s kcal blízko rozpočtu daného slotu */
 /* výběr jídel pro slot podle režimu dne */
 function modePool(slot,mode){
-  const suitable=PREP.filter(p=>!mealViol(p)&&(p.slots||[]).includes(slot));
+  const suitable=PREP.filter(p=>!mealViol(p)&&!p.composite&&(p.slots||[]).includes(slot));
   if(WORK_MODES.includes(mode)&&['snidane','obed','svacina1','svacina2'].includes(slot)){const wm=workMealsFor(slot);if(wm.length)return wm;return suitable;}
   if(mode==='nocni'){const n=suitable.filter(nightOK);return n.length?n:suitable;}
   if(mode==='cestovani'){const t=suitable.filter(portableOK);return t.length?t:suitable;}
