@@ -251,6 +251,13 @@
 <section class="screen" id="scr-plan"><div class="wrap">
   <div class="topbar"><span class="title">🗓️ Plán jídelníčku</span></div>
   <div class="card">
+    <div class="card-h"><h3>Návrh na den (2 varianty)</h3></div>
+    <label>Den</label><input type="date" id="draftDate">
+    <button class="btn block" id="genDraft" style="margin-top:10px">✨ Sestavit návrh dne</button>
+    <div id="draftOut" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><h3>Více dní najednou</h3></div>
     <label>Na kolik dní</label>
     <div class="seg" id="planLen">
       <button data-d="1">1 den</button><button data-d="3" class="on">3 dny</button><button data-d="5">5 dní</button><button data-d="7">7 dní</button>
@@ -2508,6 +2515,7 @@ let planDaysN=3, planPrefSet=new Set(['bez mléka']);
 const PLAN_PREFS=[['high protein','vyšší bílkoviny'],['rychlé','rychlá příprava'],['rodinné','rodinná jídla'],['bez mléka','bez mléka'],['meal prep','meal prep'],['děti','vhodné pro děti']];
 let lastPlan=null; // {from, days:[{date, slots:{slot:prepIdx}}]}
 function initPlanScreen(){
+  const dd=document.getElementById('draftDate'); if(dd&&!dd.value)dd.value=todayISO;
   document.getElementById('planFrom').value=todayISO;
   document.getElementById('planPrefs').innerHTML=PLAN_PREFS.map(([k,l])=>`<button class="chip ${planPrefSet.has(k)?'on':''}" data-p="${k}">${l}</button>`).join('');
   document.querySelectorAll('#planPrefs .chip').forEach(c=>c.onclick=()=>{const k=c.dataset.p;planPrefSet.has(k)?planPrefSet.delete(k):planPrefSet.add(k);c.classList.toggle('on');});
@@ -2750,6 +2758,69 @@ document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
   if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}
 });
 document.getElementById('genPlan').onclick=genPlan;
+/* ===== NÁVRH NA DEN – 2 varianty na sekci ===== */
+let dayDraft=null;
+function mealItemFromPrep(p){ if(p.composite)return {n:p.n,u:'porce',q:1,meal:true,composite:true,components:JSON.parse(JSON.stringify(p.components)),ic:p.ic,labels:p.labels};
+  return {n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}; }
+function obedCandidates(date){const out=[];const weekend=isWeekendDate(date);
+  if(!weekend && isWorkMode(date)){const n=lekkerayNumber(date);if(n){const lm=lekkerayMeals(n);if(lm.fleisch&&!mealViol(lm.fleisch.p))out.push(lm.fleisch.i);if(lm.vege&&!mealViol(lm.vege.p))out.push(lm.vege.i);}
+    PREP.forEach((p,i)=>{if(/Dean & David|Japanese Beef Bowl/i.test(p.n)&&!mealViol(p))out.push(i);});}
+  return out;}
+function slotCandidates(date,slot){let idxs;
+  if(slot==='obed'){const oc=obedCandidates(date);if(oc.length)idxs=oc;}
+  if(!idxs)idxs=modePool(slot,dayMode(date)).map(p=>PREP.indexOf(p));
+  return idxs.filter(i=>i>=0&&!mealViol(PREP[i]));}
+function genVariantMeal(date,slot,excludeSet,budget){
+  const cands=slotCandidates(date,slot).filter(i=>!excludeSet.has(i));
+  if(!cands.length)return null;
+  cands.sort((a,b)=>Math.abs(PREP[a].k-budget)-Math.abs(PREP[b].k-budget));
+  const top=cands.slice(0,4);const idx=top[Math.floor(Math.random()*top.length)];
+  return {prepIdx:idx, meal:mealItemFromPrep(PREP[idx]), source:(PREP[idx].labels&&PREP[idx].labels.includes('lekkeray'))?'restaurant_cycle':'generated'};}
+function buildDayDraft(date){
+  const sections=PLAN_SLOTS.map(slot=>{
+    const fixed=slotItems(date,slot).filter(itemProtected);
+    if(fixed.length)return {slot,fixed:JSON.parse(JSON.stringify(fixed)),variants:null};
+    const budget=effTarget(date).kcal*(SLOT_W[slot]||0.2);
+    const v1=genVariantMeal(date,slot,new Set(),budget);
+    const v2=genVariantMeal(date,slot,new Set(v1?[v1.prepIdx]:[]),budget);
+    const variants=[]; if(v1)variants.push(Object.assign(v1,{selected:true})); if(v2)variants.push(Object.assign(v2,{selected:false}));
+    return {slot,fixed:null,variants};
+  });
+  dayDraft={date,plan_status:'draft',sections};
+  renderDayDraft();
+}
+function draftSelect(si,vi){const s=dayDraft.sections[si];if(!s.variants)return;s.variants.forEach((v,j)=>v.selected=(j===vi));renderDayDraft();}
+function draftRegen(si,vi){const s=dayDraft.sections[si];if(!s.variants||!s.variants[vi])return;
+  const other=s.variants[vi===0?1:0];const ex=new Set(other?[other.prepIdx]:[]);
+  const budget=effTarget(dayDraft.date).kcal*(SLOT_W[s.slot]||0.2);
+  const sel=s.variants[vi].selected; const nv=genVariantMeal(dayDraft.date,s.slot,ex,budget);
+  if(nv){nv.selected=sel;s.variants[vi]=nv;} renderDayDraft();}
+function draftTotals(){let o={k:0,p:0};(dayDraft.sections||[]).forEach(s=>{
+  if(s.fixed){s.fixed.forEach(it=>{const m=itemMacro(it);o.k+=m.k;o.p+=m.p;});}
+  else{const v=(s.variants||[]).find(x=>x.selected);if(v){const m=itemMacro(v.meal);o.k+=m.k;o.p+=m.p;}}});return o;}
+function renderDayDraft(){const el=document.getElementById('draftOut');if(!el||!dayDraft)return;
+  const sl=k=>(SLOTS.find(s=>s.k===k)||{l:k});
+  const vRow=(si,vi,v)=>{const m=itemMacro(v.meal);
+    return `<div class="row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${v.selected?'checked':''} onclick="draftSelect(${si},${vi})" style="width:auto"><span><div class="n">V${vi+1}: ${v.meal.n.replace(/^\d+ /,'')}</div><div class="m">${round(m.k)} kcal · B ${round(m.p)}</div></span></label><button class="add" title="nový návrh" onclick="draftRegen(${si},${vi})">↻</button></div>`;};
+  let h=dayDraft.sections.map((s,si)=>{
+    if(s.fixed)return `<div class="card" style="background:#f3f3f3"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted" style="font-size:.78rem">Sekce je zamčená / snědená — nebude měněna.</div>${s.fixed.map(it=>`<div class="li"><span>${it.eaten?'✅ ':''}${it.locked?'🔒 ':''}${it.n.replace(/ \(.*?\)/,'')}</span><span>${round(itemMacro(it).k)} kcal</span></div>`).join('')}</div>`;
+    if(!s.variants||!s.variants.length)return `<div class="card"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted">Bez vhodného návrhu.</div></div>`;
+    return `<div class="card"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b>${s.variants.map((v,vi)=>vRow(si,vi,v)).join('')}</div>`;}).join('');
+  const t=draftTotals();const g=effTarget(dayDraft.date);
+  h+=`<div class="card" style="background:var(--green-soft)"><b>Plán (vybrané varianty):</b> ${round(t.k)} kcal · B ${round(t.p)} g
+    <div class="muted" style="font-size:.82rem">Zbývá do cíle: ${round(g.kcal-t.k)} kcal · ${round(g.prot-t.p)} g bílkovin</div></div>
+    <button class="btn block" onclick="draftApply()" style="margin-top:8px">✅ Použít vybrané varianty</button>`;
+  el.innerHTML=h;}
+function draftApply(){if(!dayDraft)return;const date=dayDraft.date;const d=dayObj(date);
+  dayDraft.sections.forEach(s=>{ if(s.fixed)return; // zamčené/snědené nech být
+    const v=(s.variants||[]).find(x=>x.selected); if(!v)return;
+    d[s.slot]=(d[s.slot]||[]).filter(itemProtected); // odeber jen nechráněné
+    d[s.slot].push(JSON.parse(JSON.stringify(v.meal)));
+    if(d.notes)delete d.notes[s.slot];
+  });
+  DB.save('kt_days',days);selDate=date;renderDash();
+  const t=draftTotals();toast('✅ Vybrané varianty zapsány: '+round(t.k)+' kcal');dayDraft=null;document.getElementById('draftOut').innerHTML='';}
+document.getElementById('genDraft').onclick=()=>{const dt=document.getElementById('draftDate').value||todayISO;buildDayDraft(dt);};
 document.getElementById('datePick').onclick=function(){this.showPicker&&this.showPicker();};
 document.getElementById('datePick').onchange=function(){if(this.value){selDate=this.value;renderDash();}};
 document.getElementById('todayBtn').onclick=()=>{selDate=todayISO;document.getElementById('datePick').value=todayISO;renderDash();toast('Dnes');};
