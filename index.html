@@ -2677,23 +2677,35 @@ function fmtQ(q,u){if(u==='g')return q>=1000?(q/1000).toFixed(q%1000?1:0)+' kg':
 function saveShop(){DB.save('kt_shop',shopState);}
 /* sloučí položky (název+jednotka), sečte množství, ignoruje dny */
 function mergeAgg(agg){
-  const items=[];const seen={};
+  const items=[];const seen={};const now=new Date().toISOString().slice(0,16).replace('T',' ');
   Object.keys(agg).forEach(k=>{const[n,u]=k.split('|');const nm=n.replace(/ \(.*?\)/,'').trim();const key=_n(nm)+'|'+u;
     if(seen[key]!=null){const e=items[seen[key]];const qn=parseFloat(agg[k]);if(!isNaN(qn))e.q=(parseFloat(e.q)||0)+qn;}
-    else{seen[key]=items.length;items.push({n:nm,u,q:agg[k],done:false,cat:shopCat(nm)});}});
+    else{seen[key]=items.length;items.push({n:nm,u,q:agg[k],done:false,cat:shopCat(nm),source:'meal_plan',locked:false,created_at:now,updated_at:now});}});
   return items;
 }
+/* přepočet seznamu: zachová zamčené, přegeneruje jen odemčené automatické; vrátí shrnutí */
+function recomputeShop(newItems,rangeLabel){
+  const locked=shopState.filter(it=>it.locked);
+  const prevUnlocked=shopState.filter(it=>!it.locked).length;
+  const lockedKeys=new Set(locked.map(it=>_n((it.n||'').replace(/ \(.*?\)/,''))+'|'+(it.u||'')));
+  let dup=0; newItems.forEach(it=>{const kk=_n((it.n||'').replace(/ \(.*?\)/,''))+'|'+(it.u||'');if(lockedKeys.has(kk)){dup++;it.maybeDup=true;}});
+  shopState=locked.concat(newItems);
+  if(rangeLabel!=null)shopRange=rangeLabel;
+  saveShop();
+  const updated=Math.min(prevUnlocked,newItems.length), added=Math.max(0,newItems.length-prevUnlocked);
+  return {kept:locked.length,updated,added,dup};
+}
+function shopRecomputeToast(r){toast(`Zachováno ${r.kept} zamčených · z plánu ${r.updated+r.added} (${r.added} nových)${r.dup?` · možné duplicity: ${r.dup}`:''}`);}
 function setShopFromPlan(){
   const agg={};
   lastPlan.days.forEach(day=>{const fac=day.factor||1;Object.values(day.slots).forEach(idx=>(PREP[idx].ingr||[]).forEach(([n,q,u])=>{if(!n)return;const key=n+'|'+(u||'');agg[key]=(agg[key]||0)+(parseFloat(q)||0)*fac;}));});
-  shopState=mergeAgg(agg);
-  shopRange=lastPlan.days.length>1?(lastPlan.days[0].date+' – '+lastPlan.days[lastPlan.days.length-1].date):lastPlan.days[0].date;
-  saveShop();gotoNakup();
+  const range=lastPlan.days.length>1?(lastPlan.days[0].date+' – '+lastPlan.days[lastPlan.days.length-1].date):lastPlan.days[0].date;
+  const r=recomputeShop(mergeAgg(agg),range);gotoNakup();shopRecomputeToast(r);
 }
 function shoppingFromDay(date){const agg={};SLOTS.forEach(s=>slotItems(date,s.k).forEach(it=>{
     if(it.meal){(it.ingr||[]).forEach(([n,q,u])=>{if(!n)return;const k=n+'|'+(u||'');agg[k]=(agg[k]||0)+(parseFloat(q)||0)*(it.q||1);});}
     else {const k=it.n+'|'+it.u;agg[k]=(agg[k]||0)+(parseFloat(it.q)||0);}
-  }));if(!Object.keys(agg).length){toast('Den je prázdný');return;}shopState=mergeAgg(agg);shopRange=date;saveShop();gotoNakup();}
+  }));if(!Object.keys(agg).length){toast('Den je prázdný');return;}const r=recomputeShop(mergeAgg(agg),date);gotoNakup();shopRecomputeToast(r);}
 function gotoNakup(){document.querySelectorAll('.bnav button').forEach(x=>x.classList.toggle('active',x.dataset.scr==='nakup'));document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-nakup'));renderNakup();}
 
 /* ====== EXPORT PRO ANY.DO (s odrážkami) ====== */
@@ -2731,12 +2743,14 @@ function renderNakup(){
   const list=document.getElementById('shopList');
   if(!shopState.length){list.innerHTML='<p class="muted" style="padding:14px 0">Seznam je prázdný. Vytvoř ho v záložce Plán → „Vytvořit nákupní seznam", nebo přidej položku ručně.</p>';return;}
   // řádek nekoupené položky (s checkboxem a menu)
+  const srcTag=it=>it.source==='manual'?'<span class="tg">ručně</span>':(it.source==='meal_plan'?'<span class="tg" style="background:#eef4ff;color:#3b6ea5">z plánu</span>':'');
+  const lockBtn=i=>{const it=shopState[i];return `<button class="menu" title="${it.locked?'Zamčeno — zůstane při přepočtu zachované.':'Odemčeno — aplikace ji může při přepočtu změnit.'}" onclick="shopLock(${i})">${it.locked?'🔒':'🔓'}</button>`;};
   const rowOpen=i=>{const it=shopState[i];const viol=dietViolation(it.n);
     return `<div class="shopit">
       <input type="checkbox" onchange="shopToggle(${i})">
-      <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</div>
+      <div class="txt"><div class="nm">${it.n.replace(/ \(.*?\)/,'')} ${srcTag(it)}${it.maybeDup?'<span class="tg" style="background:#fff3d6;color:#9a7400">možná duplicita</span>':''}${viol?` <span class="tg" style="background:#fde6e3;color:#c0392b">⚠ ${viol}</span>`:''}</div>
         ${(it.q!==''&&it.q!=null)?`<div class="q">${fmtQ(it.q,it.u)}</div>`:''}</div>
-      <button class="menu" onclick="shopMenu(${i})">⋯</button></div>
+      ${lockBtn(i)}<button class="menu" onclick="shopMenu(${i})">⋯</button></div>
       ${shopMenuIdx===i?`<div class="shopacts"><button class="btn sec" onclick="shopEdit(${i})">Upravit</button><button class="btn ghost" onclick="shopDel(${i})">Smazat</button></div>`:''}`;};
   // řádek koupené položky (přeškrtnutá, s křížkem na smazání vpravo)
   const rowDone=i=>{const it=shopState[i];
@@ -2761,7 +2775,8 @@ function renderNakup(){
 }
 window.shopToggle=i=>{shopState[i].done=!shopState[i].done;saveShop();renderNakup();};
 window.shopMenu=i=>{shopMenuIdx=shopMenuIdx===i?-1:i;renderNakup();};
-window.shopDel=i=>{shopState.splice(i,1);shopMenuIdx=-1;saveShop();renderNakup();};
+window.shopLock=i=>{const it=shopState[i];it.locked=!it.locked;saveShop();renderNakup();toast(it.locked?'🔒 Položka zamčená — zůstane při přepočtu':'🔓 Odemčeno');};
+window.shopDel=i=>{const it=shopState[i];if(it.locked&&!confirm('Tato položka je zamčená. Opravdu ji chceš odstranit?'))return;shopState.splice(i,1);shopMenuIdx=-1;saveShop();renderNakup();};
 window.shopEdit=i=>{const it=shopState[i];const v=prompt('Množství (číslo) pro "'+it.n.replace(/ \(.*?\)/,'')+'":', it.q);if(v===null)return;const qn=parseFloat(v);it.q=isNaN(qn)?'':qn;const u=prompt('Jednotka (g / ks / lžíce / prázdné):', it.u||'g');if(u!==null)it.u=u.trim();shopMenuIdx=-1;saveShop();renderNakup();};
 window.shopClearDone=()=>{shopState=shopState.filter(it=>!it.done);saveShop();renderNakup();};
 window.shopTgl=k=>{if(k==='uc')shopOnlyUnchecked=!shopOnlyUnchecked;else if(k==='cat')shopCats=!shopCats;else if(k==='hide')shopHideDone=!shopHideDone;refreshNakupChips();renderNakup();};
@@ -3004,7 +3019,7 @@ document.getElementById('importFile').onchange=function(){const f=this.files[0];
 document.getElementById('datePick').value=selDate;
 loadTargets();renderDietOpts();renderDash();renderMyMeals();
 /* záložka Nákup – statická tlačítka */
-document.getElementById('shopAddBtn').onclick=()=>{const el=document.getElementById('shopAdd');const v=el.value.trim();if(!v)return;shopState.push({n:v,u:'',q:'',done:false,cat:shopCat(v)});el.value='';saveShop();renderNakup();};
+document.getElementById('shopAddBtn').onclick=()=>{const el=document.getElementById('shopAdd');const v=el.value.trim();if(!v)return;const now=new Date().toISOString().slice(0,16).replace('T',' ');shopState.push({n:v,u:'',q:'',done:false,cat:shopCat(v),source:'manual',locked:true,created_at:now,updated_at:now});el.value='';saveShop();renderNakup();toast('Přidáno (ručně, zamčené 🔒)');};
 document.getElementById('copyAnydo').onclick=copyAnydo;
 document.getElementById('shareAnydo').onclick=shareAnydo;
 document.getElementById('tglUnchecked').onclick=()=>shopTgl('uc');
