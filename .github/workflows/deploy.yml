@@ -1,0 +1,52 @@
+name: Deploy app to GitHub Pages
+
+# Pri kazdem pushi do main: doplni build metadata do index.html a nasadi na Pages.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - name: Checkout (cela historie kvuli poctu commitu)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Doplnit build metadata do index.html
+        run: |
+          BUILD=$(git rev-list --count HEAD)
+          HASH=$(git rev-parse --short HEAD)
+          DATE=$(TZ='Europe/Prague' date '+%Y-%m-%d %H:%M')
+          echo "buildNumber=$BUILD commit=$HASH date=$DATE"
+          sed -i -E "s/(buildNumber:[[:space:]]*)[0-9]+/\1${BUILD}/" index.html
+          sed -i -E "s/(commitHash:[[:space:]]*\")[^\"]*(\")/\1${HASH}\2/" index.html
+          sed -i -E "s/(buildDate:[[:space:]]*\")[^\"]*(\")/\1${DATE}\2/" index.html
+          echo "---- BUILD_INFO po uprave ----"
+          grep -nE "buildNumber|commitHash|buildLabel|buildDate" index.html | head -n 8
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact (cely web)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Deploy to GitHub Pages
+        id: deploy
+        uses: actions/deploy-pages@v4

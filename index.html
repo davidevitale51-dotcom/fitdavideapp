@@ -840,10 +840,10 @@ function shopCat(n){const x=n.toLowerCase();
 const DB={load:(k,d)=>{try{const v=JSON.parse(localStorage.getItem(k));return v==null?d:v}catch(e){return d}},save:(k,v)=>localStorage.setItem(k,JSON.stringify(v))};
 /* ===== CENTRALNI BUILD METADATA (jedine misto pravdy pro verzi) ===== */
 const BUILD_INFO={
-  buildNumber: 56,                 // pocet commitu / cislo buildu
-  commitHash: "",                  // kratky git hash, pokud je k dispozici (jinak doplnit rucne)
-  buildLabel: "lock-meals",        // kratky technicky nazev zmeny bez diakritiky
-  buildDate: "2026-06-03 18:42"    // datum a cas buildu (jinak doplnit rucne)
+  buildNumber: 57,                 // pocet commitu / cislo buildu  <-- ZVYS pred kazdym commitem
+  commitHash: "",                  // kratky git hash (jinak nech prazdne a doplnis v appce)
+  buildLabel: "shift-meal-plan-full-day", // kratky technicky nazev zmeny bez diakritiky
+  buildDate: "2026-06-03 09:35"    // datum a cas buildu
 };
 BUILD_INFO.version="v0."+BUILD_INFO.buildNumber; // bez automatickeho preklopeni na v1.00
 let days   = DB.load('kt_days', {});       // {date:{slot:[{n,q,u}]}}
