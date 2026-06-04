@@ -1351,6 +1351,11 @@ function suggestMeals(slot){
 }
 const round=x=>Math.round(x);
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),1800);}
+/* zámek – dvě jasně odlišné ikony (tvarem, ne jen barvou) */
+function lockIcon(locked,size){const s=size||18;
+  if(locked) return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" role="img" aria-label="Zamčeno" focusable="false" style="vertical-align:middle"><title>Zamčeno — při přeplánování se nezmění.</title><path d="M7.5 10V7.5a4.5 4.5 0 0 1 9 0V10" fill="none" stroke="#c0392b" stroke-width="2.2" stroke-linecap="round"/><rect x="4.5" y="10" width="15" height="10.5" rx="2.5" fill="#c0392b"/><rect x="11" y="13.5" width="2" height="4" rx="1" fill="#fff"/></svg>`;
+  return `<svg width="${s}" height="${s}" viewBox="0 0 24 24" role="img" aria-label="Odemčeno" focusable="false" style="vertical-align:middle"><title>Odemčeno — aplikace může položku při přeplánování změnit.</title><path d="M7.5 10V7a4.5 4.5 0 0 1 8.7-1.6" fill="none" stroke="#6b7b70" stroke-width="2.2" stroke-linecap="round"/><rect x="4.5" y="10" width="15" height="10.5" rx="2.5" fill="none" stroke="#6b7b70" stroke-width="2.2"/><rect x="11" y="13.5" width="2" height="4" rx="1" fill="#6b7b70"/></svg>`;
+}
 
 /* ====== RING SVG ====== */
 function ringSVG(pct,color,size,stroke){
@@ -1449,7 +1454,7 @@ function renderDash(){
       if(it.eaten){ // snědené = uzavřený historický záznam: jen název, nutrienty, stav, vrátit do plánu
         return `<div class="li"><span style="color:var(--muted)">✅ ${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} <span class="tg" style="background:#e8f3ec;color:#2f7d52">snědeno</span></span><span style="white-space:nowrap"><b>${kc}</b> kcal <button class="add" style="background:#eef0ee;color:var(--green-d);font-size:.78rem;padding:0 8px" title="Vrátit do plánu" onclick="returnToPlan('${s.k}',${i})">↩ do plánu</button></span></div>`; }
       // plánované: editace, mark eaten, zámek, smazání
-      return `<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span onclick="event.stopPropagation();markEaten('${s.k}',${i})" style="cursor:pointer" title="označit jako snědené">☐</span> <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer" title="zamknout / odemknout">${it.locked?'🔒':'🔓'}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`;}).join('');
+      return `<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span onclick="event.stopPropagation();markEaten('${s.k}',${i})" style="cursor:pointer" title="označit jako snědené">☐</span> <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer">${lockIcon(it.locked)}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`;}).join('');
     // doporučení / placeholder pro prázdný slot
     const note=dayNotes[s.k]; const sk=daySkip[s.k];
     const skipBtns = (s.k==='svacina2'||s.k==='vecere') ? `<div style="margin-top:4px">${s.k==='vecere'?`<button class="chip ${sk==='manual'?'on':''}" onclick="event.stopPropagation();skipSlot('vecere',${sk==='manual'?'null':"'manual'"})">večeři řeším doma</button>`:`<button class="chip ${sk==='no'?'on':''}" onclick="event.stopPropagation();skipSlot('svacina2',${sk==='no'?'null':"'no'"})">svačinu nechci</button>`}</div>`:'';
@@ -1509,7 +1514,7 @@ function setCompPct(slot,i,ci,pct){const it=slotItems(selDate,slot)[i];if(!it||!
 function compCustomPct(slot,i,ci){const it=slotItems(selDate,slot)[i];if(!it)return;const v=prompt('Vlastní procento porce (%):',it.components[ci].pct);const n=parseInt(v,10);if(!isNaN(n))setCompPct(slot,i,ci,n);}
 function compositeDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it||!it.components)return;
   openSheet(it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
-  const protBadge=(it.locked?'🔒 ':'')+(it.eaten?'✅ ':'');
+  const protBadge=(it.locked?lockIcon(true)+' ':'')+(it.eaten?'✅ ':'');
   const comps=it.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type,q:[0,50,100]};const m=compNutr(c);
     const btns=t.q.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="setCompPct('${slot}',${i},${ci},${p})">${p} %</button>`).join('')+`<button class="chip" onclick="compCustomPct('${slot}',${i},${ci})">vlastní…</button>`;
     return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between"><b>${c.name}</b><span class="muted" style="font-size:.78rem">${compPortionLabel(c)}</span></div>
@@ -2801,7 +2806,7 @@ function renderNakup(){
   if(!shopState.length){list.innerHTML='<p class="muted" style="padding:14px 0">Seznam je prázdný. Vytvoř ho v záložce Plán → „Vytvořit nákupní seznam", nebo přidej položku ručně.</p>';return;}
   // řádek nekoupené položky (s checkboxem a menu)
   const srcTag=it=>it.source==='manual'?'<span class="tg">ručně</span>':(it.source==='meal_plan'?'<span class="tg" style="background:#eef4ff;color:#3b6ea5">z plánu</span>':'');
-  const lockBtn=i=>{const it=shopState[i];return `<button class="menu" title="${it.locked?'Zamčeno — zůstane při přepočtu zachované.':'Odemčeno — může se při přepočtu změnit.'}" onclick="shopLock(${i})">${it.locked?'🔒':'🔓'}</button>`;};
+  const lockBtn=i=>{const it=shopState[i];return `<button class="menu" style="background:none" onclick="shopLock(${i})">${lockIcon(it.locked)}</button>`;};
   const rowOpen=i=>{const it=shopState[i];const viol=dietViolation(it.n);const qtxt=(it.q!==''&&it.q!=null)?fmtQ(it.q,it.u):(it.u||'množství');
     return `<div class="shopit">
       <input type="checkbox" onchange="shopToggle(${i})">
@@ -2904,7 +2909,7 @@ function draftBodyHTML(){
   const vRow=(si,vi,v)=>{const m=itemMacro(v.meal);const pre=v.source==='restaurant_cycle'?'🍱 ':(v.meal.composite?'🍱 ':'');
     return `<div class="row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${v.selected?'checked':''} onclick="draftSelect(${si},${vi})" style="width:auto"><span><div class="n">V${vi+1}: ${pre}${v.meal.n.replace(/^\d+ /,'')}</div><div class="m">${round(m.k)} kcal · B ${round(m.p)}</div></span></label><button class="add" title="nový návrh" onclick="draftRegen(${si},${vi})">↻</button></div>`;};
   let h=dayDraft.sections.map((s,si)=>{
-    if(s.fixed)return `<div class="card" style="background:#f3f3f3;padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted" style="font-size:.76rem">Sekce obsahuje zamčené/snědené jídlo. Nebude automaticky měněna.</div>${s.fixed.map(it=>`<div class="li"><span>${it.eaten?'✅ ':''}${it.locked?'🔒 ':''}${it.n.replace(/ \(.*?\)/,'')}</span><span>${round(itemMacro(it).k)} kcal</span></div>`).join('')}</div>`;
+    if(s.fixed)return `<div class="card" style="background:#f3f3f3;padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted" style="font-size:.76rem">Sekce obsahuje zamčené/snědené jídlo. Nebude automaticky měněna.</div>${s.fixed.map(it=>`<div class="li"><span>${it.eaten?'✅ ':''}${it.locked?lockIcon(true,14)+' ':''}${it.n.replace(/ \(.*?\)/,'')}</span><span>${round(itemMacro(it).k)} kcal</span></div>`).join('')}</div>`;
     if(!s.variants||!s.variants.length)return `<div class="card" style="padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted">Bez vhodného návrhu.</div></div>`;
     return `<div class="card" style="padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b>${s.variants.map((v,vi)=>vRow(si,vi,v)).join('')}</div>`;}).join('');
   const t=draftTotals();const g=effTarget(dayDraft.date);
