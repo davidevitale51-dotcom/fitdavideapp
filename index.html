@@ -1136,14 +1136,57 @@ const DEFAULT_SUPPS=[
     preferred_time_window:'afternoon',timing_rule:'separate_or_with_food_if_needed',take_with_water:true,water_ml:200,
     serving_size:'1 kapsle',active:{zinc_mg:5.3},
     avoid_same_window_with:['fiber','magnesium','iron','calcium'],min_spacing_minutes:120,
-    labels:['zinc','bisglycinate','mineral','optional'],warning:'Oddělit od vlákniny, hořčíku a železa · dávka je nízká, ale denní užívání stále evidovat.'})
+    labels:['zinc','bisglycinate','mineral','optional'],warning:'Oddělit od vlákniny, hořčíku a železa · dávka je nízká, ale denní užívání stále evidovat.'}),
+  mkSupp({id:'curry_leaf',name:'Curry leaf extract + Vitamin C',category:'optional',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1,2],
+    preferred_time_window:'first_meal',timing_rule:'morning_or_lunch_with_food',take_with_food:true,
+    serving_size:'1 kapsle',active:{curry_leaf_extract_mg:350,curry_leaf_extract_pct:71.8,vitamin_c_mg:'?'},
+    labels:['curry-leaf','vitamin-c-possible','optional','vegan','lactose-free','gluten-free'],warning:'Přesné množství vitaminu C doplnit později · neplánovat jako základní denní doplněk bez důvodu.'}),
+  mkSupp({id:'q10',name:'Q10 (koenzym Q10)',category:'optional',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],
+    preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,
+    serving_size:'1 kapsle',servings_per_package:60,active:{coenzyme_q10_mg:200},
+    labels:['q10','coenzyme-q10','energy','optional'],warning:'Volitelný doplněk · ideálně s jídlem obsahujícím tuk.'}),
+  mkSupp({id:'b12',name:'Vitamin B12 (methylkobalamin)',category:'optional',form:'tablet',default_dose:1,unit:'tableta',dose_options:[1],frequency:'1-2x_weekly',recommended_frequency:'1-2x_weekly',
+    preferred_time_window:'morning',timing_rule:'morning_or_with_food',
+    serving_size:'1 tableta',active:{vitamin_b12_mcg:1000,form:'methylcobalamin'},
+    labels:['vitamin-b12','methylcobalamin','optional'],warning:'Vysoká dávka · neplánovat automaticky denně · pokud bereš stejný den B-komplex, hlídej duplicitu B12.'}),
+  mkSupp({id:'d3k2',name:'Vitamin D3 + K2 (IronMaxx)',category:'daily_base',form:'tablet',default_dose:1,unit:'tableta',dose_options:[1],
+    preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,
+    serving_size:'1 tableta',active:{vitamin_d_mcg:20,vitamin_k_mcg:80},allergens_possible:['gluten','egg','soy','milk'],
+    labels:['vitamin-d','vitamin-k','d3-k2','daily_base'],warning:'Může obsahovat stopy glutenu, vejce, sóji a mléka · nedublovat s D3 Forte ani Lebertranem · pokud je zvolen D3 Forte, tento den neplánovat.'}),
+  mkSupp({id:'maca',name:'Bio Maca + Vitamin C',category:'energy_focus',form:'capsule',default_dose:2,unit:'kapsle',dose_options:[2,4],full_label_dose:4,
+    preferred_time_window:'morning',timing_rule:'morning_or_early_day',
+    serving_size:'4 kapsle',active:{maca_mg:3000,vitamin_c_mg:13,maca_per_capsule_mg:750},
+    labels:['maca','vitamin-c','energy','optional','bio'],warning:'Sledovat individuální reakci · nepreferovat večer.'}),
+  mkSupp({id:'lebertran',name:'Lebertran / Cod liver oil',category:'caution',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],
+    preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,
+    serving_size:'1 kapsle',active:{cod_liver_oil_mg:165,beta_carotene:'ano',vitamin_d:'?',vitamin_a:'?',EPA_DHA:'?'},allergens:['fish','bovine-gelatin'],
+    labels:['lebertran','cod-liver-oil','fish','vitamin-d','beta-carotene','caution'],warning:'Doplnit přesné množství vit. D, A, EPA, DHA · neplánovat s D3+K2 ani D3 Forte · hlídej duplicitu omega-3.'}),
+  mkSupp({id:'guarana',name:'Guarana',category:'energy_focus',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1,2,3],max_label_dose:3,max_caffeine_mg:150,
+    preferred_time_window:'start_of_shift',timing_rule:'morning_or_start_of_shift',
+    serving_size:'1 kapsle',active:{guarana_extract_mg:250,guarana_seed_mg:150,caffeine_mg:50},
+    labels:['guarana','caffeine','stimulant','energy','optional','vegan','lactose-free','gluten-free'],warning:'Počítat jako kofein (50 mg/kapsle, max 150 mg/den) · nebrat v druhé půlce noční směny ani večer · nevhodné pro děti, těhotné a kofein-senzitivní.'}),
+  mkSupp({id:'bcomplex',name:'B-complex + Hericium',category:'energy_focus',form:'capsule',default_dose:2,unit:'kapsle',dose_options:[1,2],
+    preferred_time_window:'start_of_shift',timing_rule:'morning_or_start_of_shift',
+    serving_size:'2 kapsle',active:{B1_mg:6.6,B2_mg:8.4,B3_mg:96,B5_mg:36,B6_mg:8.4,B12_mcg:18,biotin_mcg:300,folate_mcg:750,hericium_mg:500},
+    labels:['b-complex','hericium','energy','focus','optional','vegan','gluten-free','lactose-free','vitamin-b12'],warning:'Nebrat večer ani před spaním · pokud je stejný den B12 1000 µg, hlídej duplicitu B12 · vysoké dávky B vitaminů.'}),
+  mkSupp({id:'myoinositol',name:'Myo-inositol',category:'optional',form:'capsule',default_dose:2,unit:'kapsle',dose_options:[2],
+    preferred_time_window:'any_time',timing_rule:'any_time',
+    serving_size:'2 kapsle',active:{myo_inositol_mg:1000,myo_inositol_per_capsule_mg:500},
+    labels:['myo-inositol','optional','specific'],warning:'Specifický doplněk · neplánovat automaticky jako základ.'}),
+  mkSupp({id:'k2',name:'Vitamin K2 (Vitamaze)',category:'caution',form:'tablet',default_dose:1,unit:'tableta',dose_options:[1],
+    preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,
+    serving_size:'1 tableta',active:{vitamin_k2_mcg:200,form:'menaquinone MK-7'},
+    labels:['vitamin-k','vitamin-k2','mk-7','optional','caution'],warning:'Neplánovat ve stejný den jako D3+K2 bez potvrzení · pozor při lécích na ředění krve (warfarin) · s jídlem s tukem.'})
 ];
 let supps = DB.load('kt_supps', null);
 if(!supps){ supps=DEFAULT_SUPPS; }
 else if(!localStorage.getItem('kt_supps_v2')){ // migrace: nahraď seed novými produkty, vlastní (custom) ponech
   const custom=supps.filter(s=>(s.labels||[]).includes('custom')); supps=DEFAULT_SUPPS.concat(custom);
 }
-function saveSupps(){DB.save('kt_supps',supps);localStorage.setItem('kt_supps_v2','1');}
+if(!localStorage.getItem('kt_supps_v3')){ // doplň nové produkty (podle id), vlastní/úpravy zachovej
+  DEFAULT_SUPPS.forEach(d=>{ if(!supps.some(s=>s.id===d.id)) supps.push(d); });
+}
+function saveSupps(){DB.save('kt_supps',supps);localStorage.setItem('kt_supps_v2','1');localStorage.setItem('kt_supps_v3','1');}
 saveSupps();
 function suppById(id){return supps.find(s=>s.id===id);}
 function enabledSupps(){return supps.filter(s=>s.enabled);}
@@ -1214,7 +1257,10 @@ function suppQuickDose(id,val){const s=suppById(id);const sd=suppDay(selDate);sd
 /* kontrola duplicit a odstupů mezi doplňky */
 function suppConflicts(){const en=enabledSupps();const out=[];const byLabel=k=>en.filter(s=>(s.labels||[]).includes(k));
   if(byLabel('omega3').length>1)out.push('Duplicita omega-3 — neber víc zdrojů omega-3 najednou.');
-  if(byLabel('vitamin-d').length>1)out.push('Duplicita vitaminu D — hlídej celkovou dávku (D3 Forte + D3/K2 + lebertran).');
+  if(byLabel('omega3').length>=1 && en.some(s=>s.id==='lebertran'))out.push('Duplicita omega-3 — Lebertran obsahuje EPA/DHA navíc k Omega-3.');
+  if(byLabel('vitamin-d').length>1)out.push('Duplicita vitaminu D — hlídej celkovou dávku (D3 Forte + D3+K2 + Lebertran).');
+  if(byLabel('vitamin-k').length>1)out.push('Duplicita K2 — Vitamin K2 (Vitamaze) a D3+K2 obsahují K2; neber oba bez potvrzení.');
+  if(byLabel('vitamin-b12').length>1)out.push('Duplicita B12 — B-complex i samostatné B12 obsahují B12.');
   const fiber=en.filter(s=>(s.labels||[]).includes('fiber'));
   const minerals=en.filter(s=>['zinc','magnesium','iron','calcium'].some(m=>(s.labels||[]).includes(m)));
   fiber.forEach(f=>minerals.forEach(m=>{ if(f.preferred_time_window===m.preferred_time_window) out.push(f.name+' a '+m.name+' jsou ve stejném okně ('+suppWinLabel(f.preferred_time_window)+') — oddělit aspoň 2 h.'); }));
