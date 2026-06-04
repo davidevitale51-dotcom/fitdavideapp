@@ -3069,8 +3069,10 @@ function dayAnalysis(){
       if(pend.length)t+=' Zbývá: '+pend.map(s=>s.name+' ('+suppPlannedText(s,suppRec(selDate,s.id))+')').join(', ')+'.';
       const cf=suppConflicts(selDate);
       const rec=suppRecommendation(selDate);
+      const wbrec=suppWellbeingRecommendation(selDate);
       return `<div class="card"><b>💊 Doplňky:</b> ${t}
         ${rec.length?`<ul style="margin:6px 0 0;padding-left:18px">${rec.map(x=>`<li style="margin:2px 0">${x}</li>`).join('')}</ul>`:''}
+        ${wbrec.length?`<div style="background:#f9f9f9;font-size:.8rem;margin-top:8px;padding:6px;border-radius:8px;border-left:3px solid var(--line);color:#666"><b>📊 Efekt:</b><ul style="margin:4px 0 0;padding-left:16px">${wbrec.map(x=>`<li style="margin:2px 0">${x}</li>`).join('')}</ul></div>`:''}
         ${warns.length?`<div style="color:#c0392b;font-size:.8rem;margin-top:4px">⚠ ${warns.map(s=>s.name+': '+s.warning).join(' · ')}</div>`:''}
         ${cf.length?`<div style="color:#c0392b;font-size:.8rem;margin-top:2px">🔁 ${cf.join(' · ')}</div>`:''}</div>`;})()}
     ${lekLine?`<div class="card" style="background:#eef4ff"><b>🍱 Oběd / směna:</b> ${lekLine}</div>`:''}
