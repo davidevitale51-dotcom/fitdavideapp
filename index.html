@@ -1763,6 +1763,7 @@ function addCompositeToDay(idx){const p=PREP[idx];const slot=addSlot;const d=day
   toast('Přidáno: '+p.n); compositeDetail(slot,d[slot].length-1);
 }
 function prepPortion(idx){const p=PREP[idx];
+  if(p.composite){ addCompositeToDay(idx); return; } // složené jídlo → zachovej komponenty
   openSheet('Porce: '+p.n);document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card"><div class="big" style="font-size:1.5rem;font-weight:850">${round(p.k)} kcal <span class="muted" style="font-size:.8rem">/ 1 porce ~${p.srvG} g</span></div>
@@ -1775,6 +1776,7 @@ function prepPortion(idx){const p=PREP[idx];
       <button class="btn" onclick="(function(){var g=parseFloat(document.getElementById('pmG').value);if(g>0)addMealToDay(${idx},g/${p.srvG});})()">Přidat</button></div>`;
 }
 function addMealToDay(idx,factor){const p=PREP[idx];const slEl=document.getElementById('pmSlot');const slot=(slEl&&slEl.value)?slEl.value:addSlot;
+  if(p.composite){ addSlot=slot; addCompositeToDay(idx); return; } // složené jídlo → komponenty
   const d=dayObj(selDate); if(!d[slot])d[slot]=[];
   d[slot].push({n:p.n,q:+(+factor).toFixed(2),u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr});
   if(d.notes)delete d.notes[slot];DB.save('kt_days',days);expandSlot(selDate,slot);bumpFreq(p.n);toast('Přidáno: '+p.n);renderDash();closeSheet();
