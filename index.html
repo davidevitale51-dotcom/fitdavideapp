@@ -1020,7 +1020,6 @@ function dayFlags(date){ const d=days[date]||{}; const o={}; ['mode','train','hi
 function toggleLock(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it||it.eaten)return; it.locked=!it.locked; DB.save('kt_days',days); renderDash(); toast(it.locked?'🔒 Jídlo zamčeno':'🔓 Jídlo odemčeno'); }
 /* označit plánované jídlo jako snědené – uzavřený historický záznam */
 function markEaten(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it||it.eaten)return;
-  if(!confirm('Označit jako snědené? Po potvrzení se jídlo uzavře jako historický záznam a nebude se automaticky měnit.'))return;
   it.snap=itemMacro(it);            // snapshot nutrientů v okamžiku potvrzení
   it.eaten=true; it.locked=true; it.eaten_at=new Date().toISOString().slice(0,16).replace('T',' ');
   DB.save('kt_days',days); renderDash(); toast('✅ Snědeno — uzavřeno jako historie'); }
@@ -1451,10 +1450,10 @@ function renderDash(){
     const collapsed=slotIsCollapsed(selDate,s.k);
     const chev=collapsed?'▾':'▴';
     const lis=items.map((it,i)=>{ const kc=round(itemMacro(it).k);
-      const cb=`<input type="checkbox" ${it.eaten?'checked':''} onclick="event.stopPropagation();toggleEaten('${s.k}',${i})" title="${it.eaten?'snědeno':'označit jako snědené'}" style="width:auto;flex:0 0 auto;margin-right:8px">`;
-      if(it.eaten){ // snědené = uzavřený historický záznam: vlevo zaškrtnuto, vpravo jen zpáteční šipka
-        return `<div class="li">${cb}<span style="flex:1;color:var(--muted)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span style="cursor:pointer;font-size:1.05rem" title="Vrátit do plánu" onclick="event.stopPropagation();returnToPlan('${s.k}',${i})">↩</span></span></div>`; }
-      // plánované: vlevo checkbox (snědeno), vpravo zámek + smazání
+      if(it.eaten){ // snědené = bez checkboxu, vlevo ✅, vpravo jen zpáteční šipka (ptá se na potvrzení)
+        return `<div class="li"><span style="flex:0 0 auto">✅</span><span style="flex:1;color:var(--muted)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span style="cursor:pointer;font-size:1.05rem" title="Vrátit do plánu (nesnědené)" onclick="event.stopPropagation();returnToPlan('${s.k}',${i})">↩</span></span></div>`; }
+      // plánované: vlevo checkbox (označit snědené, bez potvrzení), vpravo zámek + smazání
+      const cb=`<input type="checkbox" onclick="event.stopPropagation();markEaten('${s.k}',${i})" title="označit jako snědené" style="width:auto;flex:0 0 auto;margin-right:8px">`;
       return `<div class="li">${cb}<span onclick="editItemAmt('${s.k}',${i})" style="flex:1;cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer">${lockIcon(it.locked)}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`;}).join('');
     // doporučení / placeholder pro prázdný slot
     const note=dayNotes[s.k]; const sk=daySkip[s.k];
