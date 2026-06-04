@@ -86,7 +86,7 @@
   .meal .body .t{font-weight:750;font-size:.92rem;display:flex;justify-content:space-between;gap:8px}
   .meal .body .t .kc{color:var(--green-d);font-weight:800;white-space:nowrap}
   .meal .items{margin-top:3px}
-  .meal .items .li{font-size:.8rem;color:#55615a;display:flex;justify-content:space-between;gap:8px;padding:2px 0}
+  .meal .items .li{font-size:.8rem;color:#55615a;display:flex;align-items:center;justify-content:space-between;gap:8px;padding:2px 0}
   .meal .items .li .x{color:#c9534a;cursor:pointer;font-weight:800;padding:0 4px}
   .meal .macs{font-size:.72rem;color:var(--muted);margin-top:2px}
   .meal .plus{background:var(--green-soft);color:var(--green-d);border:none;border-radius:50%;width:30px;height:30px;font-size:1.1rem;cursor:pointer;flex:0 0 auto}
@@ -1451,10 +1451,11 @@ function renderDash(){
     const collapsed=slotIsCollapsed(selDate,s.k);
     const chev=collapsed?'▾':'▴';
     const lis=items.map((it,i)=>{ const kc=round(itemMacro(it).k);
-      if(it.eaten){ // snědené = uzavřený historický záznam: jen název, nutrienty, stav, vrátit do plánu
-        return `<div class="li"><span style="color:var(--muted)">✅ ${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} <span class="tg" style="background:#e8f3ec;color:#2f7d52">snědeno</span></span><span style="white-space:nowrap"><b>${kc}</b> kcal <button class="add" style="background:#eef0ee;color:var(--green-d);font-size:.78rem;padding:0 8px" title="Vrátit do plánu" onclick="returnToPlan('${s.k}',${i})">↩ do plánu</button></span></div>`; }
-      // plánované: editace, mark eaten, zámek, smazání
-      return `<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span onclick="event.stopPropagation();markEaten('${s.k}',${i})" style="cursor:pointer" title="označit jako snědené">☐</span> <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer">${lockIcon(it.locked)}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`;}).join('');
+      const cb=`<input type="checkbox" ${it.eaten?'checked':''} onclick="event.stopPropagation();toggleEaten('${s.k}',${i})" title="${it.eaten?'snědeno':'označit jako snědené'}" style="width:auto;flex:0 0 auto;margin-right:8px">`;
+      if(it.eaten){ // snědené = uzavřený historický záznam: vlevo zaškrtnuto, vpravo jen zpáteční šipka
+        return `<div class="li">${cb}<span style="flex:1;color:var(--muted)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u}</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span style="cursor:pointer;font-size:1.05rem" title="Vrátit do plánu" onclick="event.stopPropagation();returnToPlan('${s.k}',${i})">↩</span></span></div>`; }
+      // plánované: vlevo checkbox (snědeno), vpravo zámek + smazání
+      return `<div class="li">${cb}<span onclick="editItemAmt('${s.k}',${i})" style="flex:1;cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer">${lockIcon(it.locked)}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`;}).join('');
     // doporučení / placeholder pro prázdný slot
     const note=dayNotes[s.k]; const sk=daySkip[s.k];
     const skipBtns = (s.k==='svacina2'||s.k==='vecere') ? `<div style="margin-top:4px">${s.k==='vecere'?`<button class="chip ${sk==='manual'?'on':''}" onclick="event.stopPropagation();skipSlot('vecere',${sk==='manual'?'null':"'manual'"})">večeři řeším doma</button>`:`<button class="chip ${sk==='no'?'on':''}" onclick="event.stopPropagation();skipSlot('svacina2',${sk==='no'?'null':"'no'"})">svačinu nechci</button>`}</div>`:'';
