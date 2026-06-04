@@ -932,6 +932,24 @@ COMPOSITE_MEALS.forEach(m=>PREP.push(m));
 [ LKsimple("007 Lasagne",["lekkeray","lunch-menu","main-meal","meat","contains-milk","contains-gluten"],{k:720,p:38,c:65,f:34,sug:10,fib:6,salt:3.2}),
   LKsimple("007 Vegetarian Lasagne",["lekkeray","lunch-menu","main-meal","vegetarian","contains-milk","contains-gluten"],{k:650,p:24,c:70,f:30,sug:11,fib:7,salt:3.0})
 ].forEach(m=>PREP.push(m));
+/* ====== TAKESUSHI – složené restaurant jídlo ====== */
+const Q5=[0,25,50,75,100]; // rychlé volby procent pro všechny komponenty
+(function(){
+  const comps=[
+    {component_id:'ebi',name:'Ebi tempura (3 ks)',component_type:'protein',pct:100,per:{k:300,p:15,c:30,f:14,sug:2,fib:1,salt:1.0},aller:['shellfish','gluten'],qopts:Q5},
+    {component_id:'rice',name:'Bílá rýže',component_type:'side',pct:100,per:{k:220,p:4,c:48,f:0.5,sug:0,fib:1,salt:0},aller:[],qopts:Q5},
+    {component_id:'nigiri',name:'Nigiri (cca 2 ks)',component_type:'sushi',pct:100,per:{k:120,p:8,c:20,f:1.5,sug:2,fib:0.5,salt:0.5},aller:['fish'],qopts:Q5},
+    {component_id:'maki',name:'Maki (cca 4 ks)',component_type:'sushi',pct:100,per:{k:120,p:5,c:22,f:2,sug:2,fib:1,salt:0.5},aller:['fish','soy'],qopts:Q5},
+    {component_id:'salad',name:'Mix salát + dresink',component_type:'vegetable',pct:100,per:{k:80,p:2,c:8,f:4,sug:4,fib:3,salt:0.5},aller:[],qopts:Q5},
+    {component_id:'miso',name:'Miso soup',component_type:'soup',pct:100,per:{k:50,p:4,c:5,f:2,sug:1,fib:1,salt:1.5},aller:['soy'],qopts:Q5}
+  ];
+  const sum=k=>comps.reduce((a,c)=>a+(c.per[k]||0)*((c.pct||0)/100),0);
+  const labels=['takesushi','restaurant','bento','composite-meal','main-meal','shrimp','contains-shellfish','contains-fish','contains-soy','contains-gluten','contains-sesame-possible','milk-free','high-carb','high-salt','manual-estimate'];
+  PREP.push({n:'Takesushi Bento Box Combo Shrimp + Soup',ic:'🍱',cat:'Složená jídla',slots:['obed','vecere'],
+    tags:['takesushi','restaurace','bento','složené'],composite:true,components:comps,labels:labels,restaurant:'Takesushi',source:'restaurant_manual_estimate',
+    k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
+    srvG:0,conf:'estimated',cd:false,gl:true,ingr:[]});
+})();
 
 /* ====== SLOTY JÍDEL ====== */
 const SLOTS=[
@@ -1290,7 +1308,7 @@ function itemMacro(it){
   return macroOne(it.n!=null?it.n:it[0], it.q!=null?it.q:it[1], it.u!=null?it.u:it[2]);
 }
 /* ===== SLOŽENÁ JÍDLA (komponenty + procenta) ===== */
-const COMP_TYPES={main:{l:'hlavní část',q:[50,75,100,125]},side:{l:'příloha',q:[0,25,50,75,100]},sauce:{l:'omáčka',q:[0,25,50,100]},topping:{l:'topping',q:[0,50,100]},vegetable:{l:'zelenina',q:[50,100,150]}};
+const COMP_TYPES={main:{l:'hlavní část',q:[50,75,100,125]},protein:{l:'protein',q:[0,25,50,75,100]},side:{l:'příloha',q:[0,25,50,75,100]},sauce:{l:'omáčka',q:[0,25,50,100]},topping:{l:'topping',q:[0,50,100]},vegetable:{l:'zelenina',q:[0,25,50,75,100]},sushi:{l:'sushi',q:[0,25,50,75,100]},soup:{l:'polévka',q:[0,25,50,75,100]}};
 function compNutr(c){const fr=(c.pct!=null?c.pct:100)/100;const per=c.per||{};const o={};['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]=(per[kk]||0)*fr);return o;}
 /* labely složeného jídla z alergenů komponent */
 function compositeLabels(it){ if(it.labels&&it.labels.length)return it.labels; const set=new Set();let milk=false;
@@ -1515,8 +1533,8 @@ function compCustomPct(slot,i,ci){const it=slotItems(selDate,slot)[i];if(!it)ret
 function compositeDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it||!it.components)return;
   openSheet(it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
   const protBadge=(it.locked?lockIcon(true)+' ':'')+(it.eaten?'✅ ':'');
-  const comps=it.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type,q:[0,50,100]};const m=compNutr(c);
-    const btns=t.q.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="setCompPct('${slot}',${i},${ci},${p})">${p} %</button>`).join('')+`<button class="chip" onclick="compCustomPct('${slot}',${i},${ci})">vlastní…</button>`;
+  const comps=it.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type,q:[0,50,100]};const m=compNutr(c);const qopts=c.qopts||t.q;
+    const btns=qopts.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="setCompPct('${slot}',${i},${ci},${p})">${p} %</button>`).join('')+`<button class="chip" onclick="compCustomPct('${slot}',${i},${ci})">vlastní…</button>`;
     return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between"><b>${c.name}</b><span class="muted" style="font-size:.78rem">${compPortionLabel(c)}</span></div>
       <div class="chips" style="flex-wrap:wrap;margin:6px 0">${btns}</div>
       <div class="muted" style="font-size:.78rem">${round(m.k)} kcal · B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)}${m.fib?' · vlák '+round(m.fib):''}${m.salt?' · sůl '+(m.salt).toFixed(1):''}</div></div>`;}).join('');
