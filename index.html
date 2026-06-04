@@ -1223,6 +1223,27 @@ function enabledSupps(){return supps.filter(s=>s.enabled);}
 /* denní záznam doplňku se snapshotem dávky */
 function suppDay(date){const d=dayObj(date);d.supps=d.supps||{};return d.supps;}
 function suppRec(date,id){return (suppDay(date)[id])||null;}
+/* ===== DENNÍ CHECK-IN (wellbeing 1–5, orientační, bez tvrzení o kauzalitě) ===== */
+let wellbeing = DB.load('kt_wellbeing', {}); // {date:{energy,sleep_quality,stress,digestion,bloating,mood,joint_muscle_pain,training_performance,notes}}
+const WB_METRICS=[['energy','Energie'],['sleep_quality','Spánek'],['stress','Stres'],['digestion','Trávení'],['bloating','Nafouknutí'],['mood','Nálada'],['joint_muscle_pain','Bolest svalů/kloubů'],['training_performance','Tréninkový výkon']];
+function wbGet(date){return wellbeing[date]||null;}
+function wbCount(date){const w=wbGet(date);return w?WB_METRICS.filter(([k])=>w[k]!=null).length:0;}
+let _wbDraft=null,_wbDate=null;
+function openCheckin(date){_wbDate=date;_wbDraft=Object.assign({},wbGet(date)||{});renderCheckin();}
+function renderCheckin(){
+  openSheet('Check-in dne '+_wbDate);document.getElementById('sheetTabs').innerHTML='';
+  const rows=WB_METRICS.map(([k,l])=>`<div style="margin-top:8px"><label>${l}</label>
+    <div class="seg">${[1,2,3,4,5].map(n=>`<button class="${_wbDraft[k]===n?'on':''}" onclick="wbSet('${k}',${n})">${n}</button>`).join('')}</div></div>`).join('');
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="muted" style="font-size:.78rem;margin-bottom:6px">Rychlé hodnocení 1–5 (1 = nejhorší, 5 = nejlepší). Vyplň jen co chceš. Orientační — neukazuje kauzalitu.</div>
+    ${rows}
+    <label style="margin-top:10px">Poznámka dne</label><input type="text" id="wbNote" value="${(_wbDraft.notes||'').replace(/"/g,'&quot;')}" placeholder="volitelné">
+    <div style="display:flex;gap:8px;margin-top:12px"><button class="btn block" onclick="wbSave()">Uložit</button><button class="btn ghost" style="padding:0 16px" onclick="closeSheet()">Přeskočit</button></div>`;}
+function wbSet(k,n){if(!_wbDraft)return;_wbDraft[k]=(_wbDraft[k]===n?null:n);renderCheckin();}
+function wbSave(){if(!_wbDate)return;const note=document.getElementById('wbNote');if(note)_wbDraft.notes=note.value.trim();
+  const clean={};Object.keys(_wbDraft).forEach(k=>{if(_wbDraft[k]!=null&&_wbDraft[k]!=='')clean[k]=_wbDraft[k];});
+  if(Object.keys(clean).length){clean.id='daily_wellbeing_'+_wbDate;clean.date=_wbDate;wellbeing[_wbDate]=clean;}else delete wellbeing[_wbDate];
+  DB.save('kt_wellbeing',wellbeing);renderDash();closeSheet();toast('Check-in uložen');}
 let supplog = DB.load('kt_supplog', []); // historie [{date,id,name,status,dose,unit,at,note,mode}]
 function setSuppStatus(date,id,status,opt){const s=suppById(id);if(!s)return;const sd=suppDay(date);opt=opt||{};
   const r=sd[id]||{};r.status=status;if(r.dose==null){r.dose=s.default_dose;r.unit=s.unit;} // snapshot dávky
