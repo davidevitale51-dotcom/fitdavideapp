@@ -1176,8 +1176,33 @@ const DEFAULT_SUPPS=[
   mkSupp({id:'k2',name:'Vitamin K2 (Vitamaze)',category:'caution',form:'tablet',default_dose:1,unit:'tableta',dose_options:[1],
     preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,
     serving_size:'1 tableta',active:{vitamin_k2_mcg:200,form:'menaquinone MK-7'},
-    labels:['vitamin-k','vitamin-k2','mk-7','optional','caution'],warning:'Neplánovat ve stejný den jako D3+K2 bez potvrzení · pozor při lécích na ředění krve (warfarin) · s jídlem s tukem.'})
+    labels:['vitamin-k','vitamin-k2','mk-7','optional','caution'],warning:'Neplánovat ve stejný den jako D3+K2 bez potvrzení · pozor při lécích na ředění krve (warfarin) · s jídlem s tukem.'}),
+  mkSupp({id:'creatine',name:'Kreatin monohydrát',category:'daily_base',form:'powder',default_dose:5,unit:'g',dose_options:[3,5],
+    preferred_time_window:'first_meal',timing_rule:'any_time',take_with_water:true,
+    serving_size:'5 g',active:{creatine_g:5},labels:['creatine','daily_base'],warning:'Kdykoli během dne, ideálně s prvním jídlem/shakem · připomeň vodu.'}),
+  mkSupp({id:'optifibre',name:'Optifibre (vláknina)',category:'digestion',form:'powder',default_dose:5,unit:'g',dose_options:[5,10],
+    preferred_time_window:'afternoon',timing_rule:'separate_with_water',take_with_water:true,water_ml:300,
+    active:{fiber_g:5},avoid_same_window_with:['zinc','magnesium','iron','medication'],min_spacing_minutes:120,
+    labels:['fiber','digestion'],warning:'Vláknina — neplánovat ve stejný den s Combiflorou · zapít vodou · oddělit od minerálů a léků.'}),
+  mkSupp({id:'marine_collagen',name:'Marine collagen',category:'joints_skin',form:'powder',default_dose:10,unit:'g',dose_options:[10],
+    preferred_time_window:'evening',timing_rule:'any_time',
+    labels:['collagen','joints','skin','optional'],warning:'Volitelné · nepočítat jako hlavní protein pro svaly.'}),
+  mkSupp({id:'glutamine',name:'L-Glutamin',category:'digestion',form:'powder',default_dose:5,unit:'g',dose_options:[5],
+    preferred_time_window:'any_time',timing_rule:'any_time',
+    labels:['glutamine','digestion','optional'],warning:'Volitelné · spíš na trávení než na svaly.'}),
+  mkSupp({id:'echinacea',name:'Echinacea',category:'immune_short_term',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],frequency:'as_needed',
+    preferred_time_window:'morning',timing_rule:'with_food',
+    labels:['echinacea','immune','short-term'],warning:'Krátkodobě při začínajícím nachlazení/riziku · ne jako denní dlouhodobý základ.'}),
+  mkSupp({id:'ferum',name:'Ferum Forte (železo)',category:'caution',form:'tablet',default_dose:1,unit:'tableta',dose_options:[1],frequency:'as_needed',
+    preferred_time_window:'morning',timing_rule:'separate_or_with_food_if_needed',
+    avoid_same_window_with:['zinc','magnesium','calcium','fiber'],min_spacing_minutes:120,
+    labels:['iron','ferum','mineral','caution'],warning:'Neplánovat bez krevních testů nebo ručního zapnutí · oddělit od zinku, hořčíku, vápníku a vlákniny.'})
 ];
+/* priorita stacku: daily_base = denní základ, optional = na vyžádání, caution = jen ručně */
+const SUPP_PRIORITY={creatine:'daily_base',omega3:'daily_base',d3k2:'daily_base',magnesium:'daily_base',psyllium:'daily_base',optifibre:'daily_base',
+  q10:'optional',vitamin_c:'optional',bcomplex:'optional',b12:'optional',zinc:'optional',msm:'optional',maca:'optional',guarana:'optional',marine_collagen:'optional',glutamine:'optional',echinacea:'optional',curry_leaf:'optional',
+  ferum:'caution',vitamin_d:'caution',k2:'caution',lebertran:'caution',myoinositol:'caution'};
+const STACK_ENABLED=['creatine','omega3','d3k2','magnesium','psyllium']; // denní základ (vláknina = jen Combiflora, ne obě)
 let supps = DB.load('kt_supps', null);
 if(!supps){ supps=DEFAULT_SUPPS; }
 else if(!localStorage.getItem('kt_supps_v2')){ // migrace: nahraď seed novými produkty, vlastní (custom) ponech
@@ -1186,7 +1211,12 @@ else if(!localStorage.getItem('kt_supps_v2')){ // migrace: nahraď seed novými 
 if(!localStorage.getItem('kt_supps_v3')){ // doplň nové produkty (podle id), vlastní/úpravy zachovej
   DEFAULT_SUPPS.forEach(d=>{ if(!supps.some(s=>s.id===d.id)) supps.push(d); });
 }
-function saveSupps(){DB.save('kt_supps',supps);localStorage.setItem('kt_supps_v2','1');localStorage.setItem('kt_supps_v3','1');}
+const FIRST_STACK=!localStorage.getItem('kt_supps_v4');
+if(FIRST_STACK){ // doplň nové produkty + nastav priority a výchozí stack (jen poprvé)
+  DEFAULT_SUPPS.forEach(d=>{ if(!supps.some(s=>s.id===d.id)) supps.push(d); });
+  supps.forEach(s=>{ s.priority=SUPP_PRIORITY[s.id]||s.priority||'optional'; if(!(s.labels||[]).includes('custom')) s.enabled=STACK_ENABLED.includes(s.id); });
+}else{ supps.forEach(s=>{ if(!s.priority)s.priority=SUPP_PRIORITY[s.id]||'optional'; }); }
+function saveSupps(){DB.save('kt_supps',supps);localStorage.setItem('kt_supps_v2','1');localStorage.setItem('kt_supps_v3','1');localStorage.setItem('kt_supps_v4','1');}
 saveSupps();
 function suppById(id){return supps.find(s=>s.id===id);}
 function enabledSupps(){return supps.filter(s=>s.enabled);}
@@ -1220,19 +1250,42 @@ function suppStatusOf(date,id){const r=suppRec(date,id);return r&&r.status?r.sta
 function suppWinLabel(k){return (SUPP_WINDOWS.find(w=>w[0]===k)||['',k])[1];}
 function suppIcon(st){return st==='taken'?'✓':st==='skipped'?'×':st==='postponed'?'⏳':st==='not_today'?'×':'○';}
 function suppPlannedText(s,r){ if(r&&r.status==='postponed'&&r.time)return 'později '+r.time; return suppWinLabel(s.preferred_time_window); }
+function todaySuppList(){ // denní základ (enabled) + cokoli s dnešním záznamem
+  const ids=new Set(); const out=[];
+  enabledSupps().forEach(s=>{ids.add(s.id);out.push(s);});
+  Object.keys(suppDay(selDate)).forEach(id=>{ if(!ids.has(id)){const s=suppById(id);if(s){ids.add(id);out.push(s);}} });
+  return out;}
 function renderSupps(){const el=document.getElementById('suppsCard');if(!el)return;
-  const list=enabledSupps();
-  if(!list.length){el.innerHTML=`<details class="setblk"><summary><h3 style="display:inline;margin:0">💊 Doplňky dnes</h3><span class="setdesc">žádné aktivní</span></summary><div class="muted" style="font-size:.8rem;margin-top:8px">Doplňky zapneš a nastavíš ve Více → Doplňky.</div></details>`;return;}
+  const list=todaySuppList();
   const taken=list.filter(s=>suppStatusOf(selDate,s.id)==='taken').length;
-  const rows=list.map(s=>{const st=suppStatusOf(selDate,s.id);const r=suppRec(selDate,s.id);
+  const tier=s=>s.priority==='daily_base'?'':(s.priority==='caution'?'<span class="tg" style="background:#fde6e3;color:#c0392b">caution</span>':'<span class="tg">volitelné</span>');
+  const rows=list.length?list.map(s=>{const st=suppStatusOf(selDate,s.id);const r=suppRec(selDate,s.id);
     return `<div class="li" onclick="suppActions('${s.id}')" style="cursor:pointer">
       <span style="flex:0 0 auto;font-weight:800;color:${st==='taken'?'#2f7d52':st==='skipped'||st==='not_today'?'#c0392b':'#888'}">${suppIcon(st)}</span>
-      <span style="flex:1">${s.warning?'⚠ ':''}${s.name} <span class="muted" style="font-size:.72rem">· ${suppPlannedText(s,r)}</span></span>
-      <span style="white-space:nowrap" class="muted">›</span></div>`;}).join('');
-  el.innerHTML=`<details class="setblk"><summary><h3 style="display:inline;margin:0">💊 Doplňky dnes</h3><span class="setdesc">${taken}/${list.length} vzato · nepočítá se do kcal</span></summary>
+      <span style="flex:1">${s.warning?'⚠ ':''}${s.name} ${tier(s)} <span class="muted" style="font-size:.72rem">· ${suppPlannedText(s,r)}</span></span>
+      <span style="white-space:nowrap" class="muted">›</span></div>`;}).join(''):'<p class="muted" style="font-size:.8rem;margin:6px 0">Žádný denní základ. Zapni si ho ve Více → Doplňky.</p>';
+  el.innerHTML=`<details class="setblk"><summary><h3 style="display:inline;margin:0">💊 Doplňky dnes</h3><span class="setdesc">${taken}/${list.length} vzato · jen denní základ + ručně přidané</span></summary>
     <div class="items" style="margin-top:8px">${rows}</div>
+    <button class="btn ghost block" style="margin-top:6px;font-size:.82rem" onclick="suppAddTodayPicker()">＋ Přidat doplněk dnes</button>
     <div class="muted" style="font-size:.7rem;margin-top:6px">✓ vzato · ○ čeká · ⏳ později · × přeskočeno · ⚠ pozor. Detail v Analýze dne.</div></details>`;
 }
+function suppAddTodayPicker(){ const inList=new Set(todaySuppList().map(s=>s.id));
+  const avail=supps.filter(s=>!inList.has(s.id));
+  openSheet('Přidat doplněk na '+selDate);document.getElementById('sheetTabs').innerHTML='';
+  const grp=(t,l)=>{const arr=avail.filter(s=>s.priority===t);if(!arr.length)return'';
+    return `<div class="shopcat">${l}</div>`+arr.map(s=>`<div class="row"><div class="info"><div class="n">${s.name}</div><div class="m">${s.default_dose} ${s.unit} · ${suppWinLabel(s.preferred_time_window)}</div></div><button class="add" onclick="suppAddToday('${s.id}')">＋</button></div>`).join('');};
+  document.getElementById('sheetBody').innerHTML=(grp('optional','Volitelné — dle potřeby')+grp('caution','Caution — jen ručně, hlídej duplicity')+grp('daily_base','Denní základ (vypnutý)'))||'<p class="muted">Vše už je v dnešním seznamu.</p>';
+}
+function suppAddToday(id){const s=suppById(id);if(!s)return;
+  // caution: hlídej duplicity před přidáním
+  if(s.priority==='caution'){const cf=suppConflictsWith(id);if(cf.length&&!confirm('Pozor na duplicitu/odstup:\n'+cf.join('\n')+'\n\nPřidat přesto?'))return;}
+  const sd=suppDay(selDate);sd[id]=Object.assign({status:'planned',dose:s.default_dose,unit:s.unit},sd[id]);DB.save('kt_days',days);renderDash();closeSheet();toast('Přidáno na dnešek: '+s.name);}
+function suppConflictsWith(id){const s=suppById(id);if(!s)return[];const out=[];const inToday=todaySuppList();
+  const has=lbl=>inToday.some(x=>(x.labels||[]).includes(lbl));
+  if((s.labels||[]).includes('vitamin-k')&&inToday.some(x=>x.id!==id&&(x.labels||[]).includes('vitamin-k')))out.push('Dnes už je jiný zdroj K2 (D3+K2).');
+  if((s.labels||[]).includes('vitamin-d')&&inToday.some(x=>x.id!==id&&(x.labels||[]).includes('vitamin-d')))out.push('Dnes už je jiný zdroj vitaminu D.');
+  if(s.id==='lebertran'&&has('omega3'))out.push('Dnes už je Omega-3 — Lebertran přidává EPA/DHA navíc.');
+  return out;}
 function suppActions(id){const s=suppById(id);if(!s)return;const r=suppRec(selDate,id)||{};
   openSheet(s.name);document.getElementById('sheetTabs').innerHTML='';
   const dose=(r.dose!=null?r.dose:s.default_dose)+' '+(r.unit||s.unit);
@@ -1268,7 +1321,7 @@ function suppConflicts(){const en=enabledSupps();const out=[];const byLabel=k=>e
 /* správa doplňků ve Více */
 function renderSuppSettings(){const el=document.getElementById('suppList');if(!el)return;
   el.innerHTML=supps.map((s,i)=>`<details class="setblk" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">
-    <summary><b>${s.enabled?'':'⏸ '}${s.name}</b><span class="setdesc">${s.default_dose} ${s.unit} · ${suppWinLabel(s.preferred_time_window)}</span></summary>
+    <summary><b>${s.enabled?'':'⏸ '}${s.name}</b><span class="setdesc">${s.priority==='daily_base'?'denní základ':s.priority==='caution'?'caution':'volitelné'} · ${s.default_dose} ${s.unit} · ${suppWinLabel(s.preferred_time_window)}</span></summary>
     <label style="display:flex;align-items:center;gap:8px;margin-top:8px"><input type="checkbox" ${s.enabled?'checked':''} onclick="suppToggle(${i})" style="width:auto"> Aktivní</label>
     <div style="display:flex;gap:6px;margin-top:8px"><div style="flex:0 0 90px"><label>Dávka</label><input type="number" id="sp_d_${i}" value="${s.default_dose}" step="any"></div>
       <div style="flex:1"><label>Jednotka</label><input id="sp_u_${i}" value="${s.unit}"></div></div>
