@@ -1422,6 +1422,115 @@ function editSupplog(idx){const l=supplog[idx];if(!l)return;
   const nt=prompt('Poznámka:',l.notes||'');if(nt!==null)l.notes=nt;
   DB.save('kt_supplog',supplog);renderSupplog();toast('Záznam upraven (default dávka nezměněna)');}
 function delSupplog(idx){if(!supplog[idx])return;if(!confirm('Opravdu odstranit záznam, že byl tento doplněk vzat?'))return;supplog.splice(idx,1);DB.save('kt_supplog',supplog);renderSupplog();toast('Záznam smazán');}
+/* ===== ANALÝZA EFEKTU DOPLŇKŮ — spojení s wellbeing check-inem ===== */
+/* Orientační analýza: propojení supplog (skutečné užití) s wellbeing (subjektivní pocity)
+   Není cauzální důkaz, jen pozorování korelace (pokud vůbec). */
+function analyzeSuppEffects(days_back = 30){
+  // Spočítej cutoff pro poslední N dní
+  const cutoff_date = new Date();
+  cutoff_date.setDate(cutoff_date.getDate() - days_back);
+  const cutoff = cutoff_date.toISOString().split('T')[0];
+  
+  const result = {};
+  const supp_ids = new Set();
+  
+  // Sbírá všechna ID doplňků, která se objevují v logu v daném období
+  supplog.forEach(log => {
+    if(log.date >= cutoff && log.supplement_id){
+      supp_ids.add(log.supplement_id);
+    }
+  });
+  
+  // Pro každý doplněk spočítá statistiku
+  supp_ids.forEach(supp_id => {
+    const supp = suppById(supp_id);
+    if(!supp) return;
+    
+    // Filtruj logy pro tento doplněk v rozsahu
+    const supp_logs = supplog.filter(l => 
+      l.supplement_id === supp_id && l.date >= cutoff
+    );
+    
+    // Zjisti všechny dny s wellbeing check-inem v rozsahu
+    const wellbeing_days = Object.keys(wellbeing).filter(d => d >= cutoff);
+    
+    // Dny, kdy byl doplněk skutečně VZAT
+    const taken_logs = supp_logs.filter(l => l.status === 'taken');
+    const taken_dates = new Set(taken_logs.map(l => l.date));
+    const days_with = taken_dates.size;
+    
+    // Dny BEZ tohoto doplňku (mezi dny s wellbeing check-inem)
+    const days_without = wellbeing_days.filter(d => !taken_dates.has(d)).length;
+    
+    // Počty stavů
+    const planned = supp_logs.filter(l => l.status === 'planned').length;
+    const taken = taken_logs.length;
+    const skipped = supp_logs.filter(l => l.status === 'skipped').length;
+    const postponed = supp_logs.filter(l => l.status === 'postponed').length;
+    
+    // Adherence % = skutečně vzato / celkem plánováno
+    const total_logged = planned + taken + skipped + postponed;
+    const adherence_pct = total_logged > 0 
+      ? Math.round((taken / total_logged) * 100) 
+      : 0;
+    
+    // Welbeingové metriky
+    const wellbeing_metrics = {};
+    WB_METRICS.forEach(([metric_key, metric_label]) => {
+      const values_with = [];
+      const values_without = [];
+      
+      // Projdi všechny dny s wellbeing check-inem
+      wellbeing_days.forEach(day => {
+        const wb = wbGet(day);
+        if(!wb || wb[metric_key] == null) return; // Vynech dny bez té metriky
+        
+        const has_supp = taken_dates.has(day);
+        if(has_supp){
+          values_with.push(wb[metric_key]);
+        } else {
+          values_without.push(wb[metric_key]);
+        }
+      });
+      
+      // Průměry (zaokrouhleno na 2 desetinná místa)
+      const avg_with = values_with.length > 0 
+        ? parseFloat((values_with.reduce((a,b) => a+b) / values_with.length).toFixed(2))
+        : null;
+      const avg_without = values_without.length > 0 
+        ? parseFloat((values_without.reduce((a,b) => a+b) / values_without.length).toFixed(2))
+        : null;
+      
+      wellbeing_metrics[metric_key] = {
+        with: avg_with,
+        without: avg_without,
+        days_with: values_with.length,
+        days_without: values_without.length
+      };
+    });
+    
+    // Low_data flag: pokud máme méně než 3 dny dat v kterékoli skupině
+    const low_data = days_with < 3 || days_without < 3;
+    
+    // Finální výstup pro doplněk
+    result[supp_id] = {
+      supplement_id: supp_id,
+      supplement_name: supp.name,
+      planned,
+      taken,
+      skipped,
+      postponed,
+      adherence_pct,
+      days_with,
+      days_without,
+      low_data,
+      wellbeing: wellbeing_metrics,
+      disclaimer: 'orientační pozorování — není důkaz kauzality; může být ovlivněno spánkem, stresem, jídlem, tréninkem'
+    };
+  });
+  
+  return result;
+}
 function itemProtected(it){ return !!(it && (it.locked || it.eaten)); } // chráněné před auto-změnou
 function protectedSnapshot(date){ const o={}; SLOTS.forEach(s=>{const keep=slotItems(date,s.k).filter(itemProtected); if(keep.length)o[s.k]=JSON.parse(JSON.stringify(keep));}); return o; }
 function restoreProtected(date,snap){ const d=dayObj(date); Object.keys(snap||{}).forEach(slot=>{ d[slot]=(snap[slot]||[]).concat((d[slot]||[]).filter(it=>!itemProtected(it))); }); }
