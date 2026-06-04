@@ -159,6 +159,17 @@
   .bkbar{display:flex;align-items:center;gap:8px;background:#fff4e0;border:1px solid #f0d9ad;border-radius:14px;padding:9px 12px;margin:4px 0 8px;font-size:.82rem}
   .bkbar b{color:#a06a1b} .bkbar .sp{flex:1}
   .shopit .nm{flex:1}
+  
+  /* UI pro analýzu efektu doplňků */
+  .effectRow{display:flex;align-items:center;gap:8px;padding:10px;background:var(--ring-bg);border-radius:12px;margin-bottom:8px}
+  .effectRow .name{flex:1;font-weight:700;font-size:.88rem}
+  .pill{display:inline-block;background:var(--green-soft);color:var(--green-d);border-radius:8px;padding:3px 8px;font-size:.7rem;font-weight:700;white-space:nowrap}
+  .pill.warn{background:#fde6e3;color:#c0392b}
+  .miniCard{background:#fff;border:1px solid var(--line);border-radius:10px;padding:8px 10px;font-size:.75rem;margin:4px 0}
+  .metricGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px;margin:6px 0}
+  .metricBox{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:6px;text-align:center;font-size:.75rem}
+  .metricVal{display:block;font-size:.9rem;font-weight:800;margin:2px 0}
+  .metricLabel{display:block;font-size:.7rem;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -375,6 +386,8 @@
     <button class="btn sec block" id="suppAdd" style="margin-top:8px">＋ Přidat doplněk</button>
     <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><summary><b>📜 Historie užití</b></summary>
       <div id="suppLogList" style="margin-top:8px"></div></details>
+    <details class="setblk" style="border-top:1px solid var(--line);margin-top:12px;padding-top:12px"><summary><b>📊 Analýza efektu doplňků</b></summary>
+      <div id="suppEffectAnalysisBox" style="margin-top:8px"></div></details>
     <p class="muted" style="font-size:.74rem;margin-top:8px">Doplňky se nepočítají do kcal a maker. Plánují se v Přehledu (karta 💊 Doplňky).</p>
   </details></div>
 
@@ -1414,7 +1427,9 @@ function renderSupplog(){const el=document.getElementById('suppLogList');if(!el)
   el.innerHTML=arr.length?arr.map(l=>{const idx=supplog.indexOf(l);
     return `<div class="row"><div class="info"><div class="n">${l.supplement_name||l.name} <span class="muted" style="font-size:.72rem">${stTxt(l.status)}</span></div>
       <div class="m">${l.date} ${l.taken_at?('· '+l.taken_at.slice(11)):''} · ${l.dose} ${l.unit} · ${l.timing_context||''}${l.day_mode?(' · '+l.day_mode):''}${l.training_day?' · 🏋️':''}${l.notes?(' · 📝 '+l.notes):''}</div></div>
-      <button class="add" title="upravit" onclick="editSupplog(${idx})">✎</button><button class="menu" style="color:#c0392b" onclick="delSupplog(${idx})">✕</button></div>`;}).join(''):'<p class="muted" style="font-size:.8rem">Zatím žádné záznamy.</p>';}
+      <button class="add" title="upravit" onclick="editSupplog(${idx})">✎</button><button class="menu" style="color:#c0392b" onclick="delSupplog(${idx})">✕</button></div>`;}).join(''):'<p class="muted" style="font-size:.8rem">Zatím žádné záznamy.</p>';
+  // Vykreslí analýzu efektu doplňků
+  renderSuppEffectAnalysis();}
 function editSupplog(idx){const l=supplog[idx];if(!l)return;
   if(!confirm('Toto je historický záznam užití doplňku. Úpravou změníš evidenci dne. Pokračovat?'))return;
   const d=prompt('Dávka ('+l.unit+'):',l.dose);if(d!==null){const n=parseFloat((''+d).replace(',','.'));if(!isNaN(n))l.dose=n;}
@@ -1422,6 +1437,39 @@ function editSupplog(idx){const l=supplog[idx];if(!l)return;
   const nt=prompt('Poznámka:',l.notes||'');if(nt!==null)l.notes=nt;
   DB.save('kt_supplog',supplog);renderSupplog();toast('Záznam upraven (default dávka nezměněna)');}
 function delSupplog(idx){if(!supplog[idx])return;if(!confirm('Opravdu odstranit záznam, že byl tento doplněk vzat?'))return;supplog.splice(idx,1);DB.save('kt_supplog',supplog);renderSupplog();toast('Záznam smazán');}
+/* Vykreslení analýzy efektu doplňků */
+function renderSuppEffectAnalysis(){
+  const el=document.getElementById('suppEffectAnalysisBox');if(!el)return;
+  const analysis=analyzeSuppEffects(30); // Posledních 30 dní
+  const entries=Object.values(analysis).filter(e=>e.taken>0).sort((a,b)=>b.taken-a.taken);
+  if(!entries.length){el.innerHTML='<p class="muted" style="font-size:.8rem">Zatím žádné data. Evidence doplňků se začne zobrazovat po několika dnech s check-iny.</p>';return;}
+  const key_metrics=['sleep_quality','energy','digestion','bloating']; // Klíčové metriky
+  const label_map={sleep_quality:'Spánek',energy:'Energie',digestion:'Trávení',bloating:'Nafouknutí'};
+  const html=entries.map(e=>{
+    const lowData=e.low_data?'<span class="pill warn">⚠ Málo dat</span>':'';
+    const summary=`<div class="effectRow">
+      <div class="name">${e.supplement_name}</div>
+      <span class="pill">${e.adherence_pct}%</span>
+      ${lowData}
+    </div>`;
+    const stats=`<div class="miniCard" style="border-left:4px solid var(--green)">
+      <div style="font-size:.75rem;margin-bottom:4px"><b>Plán:</b> ${e.planned}  ·  <b>Vzato:</b> ${e.taken}  ·  <b>Přeskočeno:</b> ${e.skipped}</div>
+      <div style="font-size:.75rem;color:var(--muted)">Dní se doplňkem: ${e.days_with}  ·  Bez: ${e.days_without}</div>
+    </div>`;
+    const metrics=e.low_data?'<p class="muted" style="font-size:.75rem">Málo dat — vyhodnocení bude smysluplnější po více dnech evidence.</p>':`<div class="metricGrid">
+      ${key_metrics.map(m=>{const d=e.wellbeing[m];if(!d||d.with===null&&d.without===null)return'';
+        return `<div class="metricBox">
+          <span class="metricLabel">${label_map[m]}</span>
+          <span class="metricVal" style="color:${d.with>d.without?'#2f7d52':'#999'}">${d.with!=null?d.with.toFixed(1):'-'}</span>
+          <span class="metricLabel" style="color:var(--muted);margin-top:1px">vs ${d.without!=null?d.without.toFixed(1):'-'}</span>
+        </div>`;}).join('')}
+    </div>`;
+    const info=`<div style="font-size:.7rem;color:var(--muted);margin-top:6px;line-height:1.3;border-top:1px solid var(--line);padding-top:6px">
+      📊 Orientační pozorování — není důkaz účinku. Může být ovlivněno spánkem, stresem, jídlem, tréninkem.
+    </div>`;
+    return summary+stats+metrics+info;}).join('<div style="margin-top:8px;border-bottom:1px solid var(--line)"></div>');
+  el.innerHTML=html?html:'<p class="muted" style="font-size:.8rem">Zatím žádné data.</p>';
+}
 /* ===== ANALÝZA EFEKTU DOPLŇKŮ — spojení s wellbeing check-inem ===== */
 /* Orientační analýza: propojení supplog (skutečné užití) s wellbeing (subjektivní pocity)
    Není cauzální důkaz, jen pozorování korelace (pokud vůbec). */
