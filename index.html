@@ -1098,7 +1098,7 @@ function stepIntakeBonus(date){    // kolik z bonusu se případně přičte do 
 let workCfg = DB.load('kt_work', {days:[1,2,3,4,5], repeat:true, avail:null, favs:[], shift:{start:'20:00',end:'08:00',countTo:'start'}});
 if(workCfg.avail==null) workCfg.avail = null; // null = vše dostupné
 if(!workCfg.shift) workCfg.shift={start:'20:00',end:'08:00',countTo:'start'};
-const DAY_MODES=[['volno','🏠 Volno / domácí'],['prace','👜 Pracovní den'],['denni','🌞 Denní směna'],['nocni','🌙 Noční směna'],['cestovani','🧳 Cestování'],['special','✨ Speciální den'],['vlastni','⚙️ Vlastní režim']];
+const DAY_MODES=[['volno','🏠 Volno / domácí'],['prace','👜 Pracovní den'],['denni','🌞 Denní směna'],['nocni','🌙 Noční směna'],['cestovani','🧳 Cestování'],['special','✨ Speciální den'],['sick_day','🤒 Nemocný den'],['vlastni','⚙️ Vlastní režim']];
 const DAY_TOGGLES=[['train','🏋️ Silový trénink'],['highAct','👟 Vyšší aktivita / hodně kroků'],['simple','🔁 Jednoduchý opakovaný jídelníček'],['dietv','🥗 Dietnější varianta'],['satiety','🍽️ Větší sytost']];
 function dayMode(date){ const d=days[date]||{}; if(d.mode)return d.mode; try{return workCfg.days.includes(new Date(date).getDay())?'prace':'volno';}catch(e){return'volno';} }
 function setDayMode(m){ dayObj(selDate).mode=m; DB.save('kt_days',days); renderDash(); toast('Režim dne: '+(DAY_MODES.find(x=>x[0]===m)||[])[1]); }
@@ -1360,6 +1360,7 @@ function suppConflicts(date){ // bez data = jen denní základ; s datem = zákla
   return [...new Set(out)];}
 /* ===== KONKRÉTNÍ DOPORUČENÍ DOPLŇKŮ podle režimu, času, směny a jídla ===== */
 const SUPP_FAT_RE=/vejce|losos|ryb|tuňák|tunak|maso|kuř|kur|hověz|hovez|vepř|vepr|olivov|avokád|avokad|ořech|orech|máslo|maslo|sýr|syr|tahini|bowl|salát s dvojit/i;
+function isSickDay(date){return dayMode(date)==='sick_day';}
 function ctxLoc(date){const m=dayMode(date);if(m==='cestovani')return 'travel';if(['prace','denni','nocni'].includes(m))return 'work';return 'home';}
 function suppAvailNow(date,id){const s=suppById(id);if(!s)return false;if(s.available_location==='unavailable_today')return false;const loc=s.available_location||'both';if(loc==='both')return true;return loc===ctxLoc(date);}
 function isFatMeal(date,slot){const its=slotItems(date,slot);if(!its.length)return false;const t=sumItems(its);if(t.f>=10)return true;return its.some(it=>SUPP_FAT_RE.test(it.n));}
@@ -1383,6 +1384,19 @@ function suppRecommendation(date){
   }
   if(pend('creatine')&&(earlyMeal||phase==='dopo')) out.push('Kreatin můžeš vzít teď, zapij vodou.');
   if(pend('bcomplex')){ if(earlyMeal||phase==='dopo') out.push('B-complex teď ráno/na začátku dne — ne večer.'); }
+  // V nemocném režimu preferuj C, D3+K2, omega, Mg, echinacea, zinek — ne guaranu
+  if(isSickDay(date)){
+    const notRecommendedSick=['guarana','caffeine','energy_drink'];
+    if(pend('vitamin_c')){ out.push('Vitamin C dnes může dávat smysl — vezmi si ho dopoledne/odpoledne.'); }
+    if((pend('d3k2')||pend('vitamin_d'))&&!pend('vitamin_d_forte')){ out.push('Vitamin D3+K2 máš v plánu — vezmi si ho s tukem.'); }
+    if(pend('omega3')){ out.push('Omega-3 je vhodná, vezmi si ji s jídlem obsahujícím tuk.'); }
+    if(pend('magnesium')){ out.push('Magnesium večer — pomůže se spánkem a regenerací.'); }
+    if(pend('echinacea')){ out.push('Echinaceu můžeš zkusit krátkodobě — není to dlouhodobý denní základ.'); }
+    if(pend('zinc')){ out.push('Zinek dej k obědu, jen pokud bude aspoň 2 h od vlákniny a magnesia.'); }
+    // Nedoporučuj guaranu při nemoci
+    if(pend('guarana')){ out.push('Guarana je stimulant — při nemoci ji nepoužívej, není náhrada odpočinku. Dnes ji vynech.'); }
+    return out; // V nemocném režimu vracíme jen sick-specific doporučení
+  }
   if(pend('guarana')){ if(phase==='rano'||(mode==='nocni'&&np==='pred')) out.push('Guarana jen teď na začátku (kofein 50 mg).'); }
   if(phase==='obed'||phase==='odpo'){ if(pend('zinc')) out.push('Zinek dej k obědu/odpoledne — jen pokud bude aspoň 2 h od vlákniny, hořčíku a železa.'); if(pend('vitamin_c')) out.push('Liposomal C teď (dopoledne/odpoledne).'); }
   const fib=pend('psyllium')?'psyllium':(pend('optifibre')?'optifibre':null);
@@ -2008,6 +2022,13 @@ function renderDash(){
     `<div class="ctr"><div class="big">${round(tot.k)}</div><div class="sub">/ ${goal} kcal${isTrain?' 🏋️':''}</div>
       <div class="pct">${remain>=0?('zbývá '+round(remain)):('+'+round(-remain)+' kcal')}</div></div>`;
   ring.style.cursor='pointer'; ring.onclick=()=>nutrientBreakdown('k','Energie','kcal');
+  // nemocný režim — zobrazit štítek
+  const sickDiv=document.createElement('div');
+  sickDiv.style.cssText='margin-top:8px;padding:8px 12px;background:#fff5f3;border-radius:10px;border-left:4px solid #e74c3c;font-size:.82rem;font-weight:700;color:#c0392b';
+  if(isSickDay(selDate)){
+    sickDiv.innerHTML='🤒 Nemocný režim: hydratace + lehké jídlo';
+    ring.parentElement.appendChild(sickDiv);
+  }
   // tréninkový den – přepínač + informace o navýšení
   const tw=document.getElementById('trainWrap');
   if(tw){const man=dayHasManualGoals(selDate);const mode=dayMode(selDate);const sh=workCfg.shift;
@@ -2780,7 +2801,8 @@ const MODE_TEMPLATES={
  denni:{snidane:"Vejce natvrdo + šunka + zelenina + ovoce",obed:"Dean & David salát s dvojitým kuřetem (1/2 Tahini)",svacina1:"Veganský proteinový shake + banán"},
  prace:{snidane:"Vejce natvrdo + šunka + zelenina + ovoce",obed:"Dean & David salát s dvojitým masem",svacina1:"Proteinová tyčinka + ovoce"},
  nocni:{vecere:"Japanese Beef Bowl – extra beef, 1/2 teriyaki",vecere2:"Veganský proteinový shake + banán",svacina2:"Vejce natvrdo + šunka + zelenina + ovoce"},
- cestovani:{snidane:"Veganský proteinový shake + banán",obed:"Dean & David salát s grilovanými kuřecími prsy",svacina1:"Proteinová tyčinka + ovoce"}
+ cestovani:{snidane:"Veganský proteinový shake + banán",obed:"Dean & David salát s grilovanými kuřecími prsy",svacina1:"Proteinová tyčinka + ovoce"},
+ sick_day:{snidane:"Banán nebo kaše bez kravského mléka",obed:"Vývar s kuřetem a rýží",vecere:"Vejce měkké se žitným chlebem"}
 };
 function applyModeTemplate(){
   const mode=dayMode(selDate);
@@ -2821,6 +2843,12 @@ function completeDay(date){
     // doplň konkrétní jídlo – priorita bílkovin při nedostatku
     const budget=Math.max(150, slot==='vecere'?remK:Math.min(remK, remK*0.65));
     let cands=slotCandidates(date,slot).filter(i=>!used.has(i));
+    // V nemocném režimu preferuj lehká jídla (vývar, ryži, brambory, vejce, kuřecí maso, rybu, polévky)
+    if(isSickDay(date)){
+      const lightKeywords=['vývar','polévk','rýž','bramb','vejc','kuř','ryb','kaš','toast','pyré','lehk'];
+      const lightFoods=cands.filter(i=>lightKeywords.some(kw=>PREP[i].n.toLowerCase().includes(kw)));
+      if(lightFoods.length) cands=lightFoods;
+    }
     if(saltHigh){const ls=cands.filter(i=>PREP[i].salt<=g.salt*0.5);if(ls.length)cands=ls;}
     if(remP>40){const hp=cands.filter(i=>PREP[i].p>=20);if(hp.length)cands=hp;cands.sort((a,b)=>PREP[b].p-PREP[a].p);}
     else cands.sort((a,b)=>Math.abs(PREP[a].k-budget)-Math.abs(PREP[b].k-budget));
@@ -3012,13 +3040,22 @@ function dayAnalysis(){
   }
   if(dayOpt(selDate,'satiety') && !over) rec+=' Pro větší sytost vol bílkoviny + zeleninu/vlákninu.';
   if(dayOpt(selDate,'dietv') && !over) rec+=' V dietnější variantě uber tuky a přílohu, drž bílkoviny.';
+  // Nemocný den — upravit doporučení
+  if(isSickDay(selDate) && !over){
+    rec='Nemocný režim: priorita je hydratace, lehké jídlo a spánek. Drž rozumné bílkoviny, ale netlač všechny kalorie — pokud nemáš chuť, menší porce jsou OK.';
+  }
   // 5) varování
   const warns=[];
+  if(isSickDay(selDate) && isTrain) warns.push('Máš označený nemocný den + silový trénink. Zvaž vynechání tréninku nebo jen velmi lehký pohyb podle stavu.');
   if(t.f>g.fat*1.15)warns.push('Tuky jsou nad cílem — odlehči olej, ořechy, tučné maso.');
   if(t.sug>g.sugar*1.15)warns.push('Cukry jsou vysoko — uber sladké a slazené nápoje.');
   if(saltHigh)warns.push('Sůl je nad cílem — nepreferuj další šunku, uzeného lososa ani slaná hotová jídla.');
-  if(t.fib<g.fib*0.6&&!over)warns.push('Málo vlákniny — přidej zeleninu, ovoce'+(wk?' (okurka, rajče, kedlubna, jablko, mandarinka)':', luštěniny nebo celozrnné')+'.');
-  if(w<g.water*0.6)warns.push(`Málo vody (${w.toFixed(1)} z ${g.water} l) — dopij během dne.`);
+  if(isSickDay(selDate) && t.fib>0 && w<g.water*0.6) warns.push('Vlákninu teď nedoporučuji, doplň nejdřív vodu — pokud máš podrážděné trávení.');
+  else if(t.fib<g.fib*0.6&&!over)warns.push('Málo vlákniny — přidej zeleninu, ovoce'+(wk?' (okurka, rajče, kedlubna, jablko, mandarinka)':', luštěniny nebo celozrnné')+'.');
+  if(w<g.water*0.6){
+    if(isSickDay(selDate)) warns.push(`Málo vody (${w.toFixed(1)} z ${g.water} l) — doplňuj po menších dávkách pravidelně.`);
+    else warns.push(`Málo vody (${w.toFixed(1)} z ${g.water} l) — dopij během dne.`);
+  }
   // 6) konkrétní návrh
   let concrete='';
   if(!over && remK>120){
@@ -3045,8 +3082,13 @@ function dayAnalysis(){
   const hy=hydration(selDate);
   let hydLine=`Vypito ${(hy.cur/1000).toFixed(1).replace('.',',')} l z denního cíle ${(hy.goalMl/1000).toFixed(1).replace('.',',')} l. Aktuální časový cíl: ${hy.label}. `;
   hydLine+= hy.cur>=hy.timeGoal?'Jsi v plánu podle času.':`Podle času ti chybí ${hy.missing} ml (${hy.state}).`;
-  if(!hy.evening && hy.missing>0) hydLine+=` Návrh: ${hy.action}.`;
-  if(hy.evening && hy.cur<hy.goalMl) hydLine+=' Je večer — doplň menšími dávkami a nedoháněj velké množství najednou před spaním.';
+  if(isSickDay(selDate)){
+    if(hy.missing>0) hydLine+=` V nemocném režimu: pij po menších dávkách pravidelně, nedoháněj velké množství najednou.`;
+    else hydLine+=' V nemocném režimu je hydratace priorita — pokračuj v pravidelném pití.';
+  } else {
+    if(!hy.evening && hy.missing>0) hydLine+=` Návrh: ${hy.action}.`;
+    if(hy.evening && hy.cur<hy.goalMl) hydLine+=' Je večer — doplň menšími dávkami a nedoháněj velké množství najednou před spaním.';
+  }
   // Lekkeray / víkendová směna / předobjednávky
   let lekLine='';
   if(!isWeekendDate(selDate) && isWorkMode(selDate)){ const n=lekkerayNumber(selDate);
@@ -3061,6 +3103,16 @@ function dayAnalysis(){
       <div class="muted" style="font-size:.82rem">${dayStatusLabel(selDate)[0].toUpperCase()+dayStatusLabel(selDate).slice(1)}. B ${round(t.p)}/${g.prot} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g · voda ${w.toFixed(1)}/${g.water} l · 👟 ${sCnt.toLocaleString('cs-CZ')}</div>
     </div>
     <div class="card"><b>Shrnutí:</b> ${summary}</div>
+    ${isSickDay(selDate)?`<div class="card" style="background:#fff5f3;border-left:4px solid #e74c3c">
+      <b>🤒 Nemocný den</b>
+      <ul style="margin:6px 0 0;padding-left:18px;font-size:.85rem">
+        <li>Priorita je <b>hydratace</b> — pij po menších dávkách pravidelně.</li>
+        <li>Preferuj <b>lehké, snadno stravitelné jídlo</b>: vývar, rýži, brambory, vejce, kuřecí maso, rybu.</li>
+        <li>Drž rozumné bílkoviny, ale netlač všechny kalorie — pokud nemáš chuť, menší porce jsou OK.</li>
+        <li><b>Vitamin C, D3+K2, omega, magnesium, zinek</b> — pokud jsou v plánu. Guaranu dnes vynech.</li>
+        <li>Vlákninu nedoporučuji — nejdřív doplň vodu. Pokud máš podrážděné trávení, zůstaň u lehkého.</li>
+      </ul>
+    </div>`:''}
     ${(function(){const list=enabledSupps();if(!list.length)return '';
       const pend=list.filter(s=>['planned','postponed'].includes(suppStatusOf(selDate,s.id)));
       const warns=list.filter(s=>s.warning&&suppStatusOf(selDate,s.id)!=='taken');
