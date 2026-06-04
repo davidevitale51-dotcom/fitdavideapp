@@ -1017,8 +1017,21 @@ function itemProtected(it){ return !!(it && (it.locked || it.eaten)); } // chrá
 function protectedSnapshot(date){ const o={}; SLOTS.forEach(s=>{const keep=slotItems(date,s.k).filter(itemProtected); if(keep.length)o[s.k]=JSON.parse(JSON.stringify(keep));}); return o; }
 function restoreProtected(date,snap){ const d=dayObj(date); Object.keys(snap||{}).forEach(slot=>{ d[slot]=(snap[slot]||[]).concat((d[slot]||[]).filter(it=>!itemProtected(it))); }); }
 function dayFlags(date){ const d=days[date]||{}; const o={}; ['mode','train','highAct','simple','dietv','satiety','goals','skip','notes'].forEach(k=>{if(d[k]!=null)o[k]=JSON.parse(JSON.stringify(d[k]));}); return o; }
-function toggleLock(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; it.locked=!it.locked; DB.save('kt_days',days); renderDash(); toast(it.locked?'🔒 Jídlo zamčeno':'🔓 Jídlo odemčeno'); }
-function toggleEaten(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; it.eaten=!it.eaten; if(it.eaten&&lockCfg.autoLockEaten)it.locked=true; DB.save('kt_days',days); renderDash(); toast(it.eaten?'✓ Označeno jako snědené'+(it.locked?' a zamčeno':''):'Snědené zrušeno'); }
+function toggleLock(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it||it.eaten)return; it.locked=!it.locked; DB.save('kt_days',days); renderDash(); toast(it.locked?'🔒 Jídlo zamčeno':'🔓 Jídlo odemčeno'); }
+/* označit plánované jídlo jako snědené – uzavřený historický záznam */
+function markEaten(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it||it.eaten)return;
+  if(!confirm('Označit jako snědené? Po potvrzení se jídlo uzavře jako historický záznam a nebude se automaticky měnit.'))return;
+  it.snap=itemMacro(it);            // snapshot nutrientů v okamžiku potvrzení
+  it.eaten=true; it.locked=true; it.eaten_at=new Date().toISOString().slice(0,16).replace('T',' ');
+  DB.save('kt_days',days); renderDash(); toast('✅ Snědeno — uzavřeno jako historie'); }
+/* vrátit snědené jídlo zpět do plánu */
+function returnToPlan(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it||!it.eaten)return;
+  if(!confirm('Toto jídlo je označené jako snědené. Vrácením do plánu ho bude možné upravit, smazat nebo přeplánovat. Pokračovat?'))return;
+  it.eaten=false; it.locked=true;   // po vrácení defaultně zamčené
+  delete it.snap; delete it.eaten_at;
+  DB.save('kt_days',days); renderDash(); toast('↩ Vráceno do plánu (zamčené)'); }
+/* zpětná kompatibilita: ☑ ve starém UI */
+function toggleEaten(slot,i){ const it=slotItems(selDate,slot)[i]; if(!it)return; if(it.eaten)returnToPlan(slot,i); else markEaten(slot,i); }
 /* ===== LEKKERAY CYKLUS (3 prac. týdny, jen Po–Pá) ===== */
 let lekCfg = DB.load('kt_lek', {refDate:'2026-06-03', refNum:3, offset:0, closed:{}, override:{}});
 let preorders = DB.load('kt_preorders', {}); // {date:[{...}]}
@@ -1270,6 +1283,7 @@ function macroOne(n,q,u){const f=findFood(n);if(!f)return{k:0,p:0,c:0,f:0,fib:0,
   return{k:f.k*b*q,p:f.p*b*q,c:f.c*b*q,f:f.f*b*q,fib,sug,salt};}
 /* macra jedné položky deníku – hotové jídlo (meal) má hodnoty na 1 porci × počet porcí */
 function itemMacro(it){
+  if(it&&it.eaten&&it.snap){return {k:it.snap.k||0,p:it.snap.p||0,c:it.snap.c||0,f:it.snap.f||0,fib:it.snap.fib||0,sug:it.snap.sug||0,salt:it.snap.salt||0};} // snědené = historický snapshot
   if(it&&it.composite&&it.components){const q=it.q||1;const o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};
     it.components.forEach(c=>{const fr=(c.pct!=null?c.pct:100)/100;const per=c.per||{};['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]+=(per[kk]||0)*fr);});
     ['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]*=q); return o;}
@@ -1431,7 +1445,11 @@ function renderDash(){
     const items=slotItems(selDate,s.k), t=sumItems(items);
     const collapsed=slotIsCollapsed(selDate,s.k);
     const chev=collapsed?'▾':'▴';
-    const lis=items.map((it,i)=>`<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.eaten?'✅ ':''}${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${round(itemMacro(it).k)}</b> kcal <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer" title="zamknout / odemknout">${it.locked?'🔒':'🔓'}</span> <span onclick="event.stopPropagation();toggleEaten('${s.k}',${i})" style="cursor:pointer" title="snědeno">${it.eaten?'☑':'☐'}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`).join('');
+    const lis=items.map((it,i)=>{ const kc=round(itemMacro(it).k);
+      if(it.eaten){ // snědené = uzavřený historický záznam: jen název, nutrienty, stav, vrátit do plánu
+        return `<div class="li"><span style="color:var(--muted)">✅ ${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} <span class="tg" style="background:#e8f3ec;color:#2f7d52">snědeno</span></span><span style="white-space:nowrap"><b>${kc}</b> kcal <button class="add" style="background:#eef0ee;color:var(--green-d);font-size:.78rem;padding:0 8px" title="Vrátit do plánu" onclick="returnToPlan('${s.k}',${i})">↩ do plánu</button></span></div>`; }
+      // plánované: editace, mark eaten, zámek, smazání
+      return `<div class="li"><span onclick="editItemAmt('${s.k}',${i})" style="cursor:pointer;color:var(--green-d)">${it.meal?'🍽️ ':''}${it.n.replace(/ \(.*?\)/,'')} · ${it.q} ${it.u} ›</span><span style="white-space:nowrap"><b>${kc}</b> kcal <span onclick="event.stopPropagation();markEaten('${s.k}',${i})" style="cursor:pointer" title="označit jako snědené">☐</span> <span onclick="event.stopPropagation();toggleLock('${s.k}',${i})" style="cursor:pointer" title="zamknout / odemknout">${it.locked?'🔒':'🔓'}</span> <span class="x" onclick="event.stopPropagation();rmItem('${s.k}',${i})">✕</span></span></div>`;}).join('');
     // doporučení / placeholder pro prázdný slot
     const note=dayNotes[s.k]; const sk=daySkip[s.k];
     const skipBtns = (s.k==='svacina2'||s.k==='vecere') ? `<div style="margin-top:4px">${s.k==='vecere'?`<button class="chip ${sk==='manual'?'on':''}" onclick="event.stopPropagation();skipSlot('vecere',${sk==='manual'?'null':"'manual'"})">večeři řeším doma</button>`:`<button class="chip ${sk==='no'?'on':''}" onclick="event.stopPropagation();skipSlot('svacina2',${sk==='no'?'null':"'no'"})">svačinu nechci</button>`}</div>`:'';
@@ -1461,6 +1479,7 @@ function renderDash(){
   document.getElementById('weightGoal').textContent=target.weight+' kg';
 }
 function rmItem(slot,i){const d=dayObj(selDate);const it=(d[slot]||[])[i];
+  if(it&&it.eaten){toast('Snědené jídlo nelze smazat — nejdřív ho vrať do plánu.');return;}
   if(it&&it.locked&&!confirm('Tohle jídlo je zamčené 🔒. Opravdu smazat?'))return;
   d[slot].splice(i,1);if(!d[slot].length)delete d[slot];DB.save('kt_days',days);renderDash();
   if(dayState(selDate)!=='past'){const r=dayRemain(selDate);
@@ -1526,6 +1545,7 @@ function editItemAmt(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;
     ${gMode?`<div class="seg">${[50,100,150,200].map(x=>`<button onclick="document.getElementById('eiAmt').value=${x};eiUpd(${i==null?0:i})">${x}</button>`).join('')}</div>`:''}
     <div class="card" style="margin-top:10px"><div class="muted" style="font-size:.72rem;margin-bottom:2px">Vliv na příjem (z denního cíle)</div><div id="eiImpact"></div></div>
     <button class="btn block" id="eiSave" style="margin-top:10px">Uložit</button>
+    <button class="btn sec block" style="margin-top:8px" onclick="closeSheet();markEaten('${slot}',${i})">✅ Označit jako snědené</button>
     ${it.meal&&it.ingr&&it.ingr.length?`<button class="btn ghost block" style="margin-top:8px" onclick="mealItemDetail('${slot}',${i})">🍽️ Složení / upravit ingredience</button>`:''}
     <button class="btn ghost block" style="margin-top:8px;color:#c0392b" onclick="rmItem('${slot}',${i});closeSheet()">Smazat z dne</button>`;
   window.eiUpd=()=>{const v=parseFloat(document.getElementById('eiAmt').value)||0;const m=itemMacro(Object.assign({},it,{q:v}));
