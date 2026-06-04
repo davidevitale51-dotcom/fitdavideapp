@@ -1308,16 +1308,58 @@ function suppEditDose(id){const s=suppById(id);const r=suppRec(selDate,id)||{};c
 function suppNote(id){const r=suppRec(selDate,id)||{};const v=prompt('Poznámka:',r.note||'');if(v===null)return;const sd=suppDay(selDate);sd[id]=Object.assign({status:suppStatusOf(selDate,id)},sd[id],{note:v});DB.save('kt_days',days);renderDash();suppActions(id);}
 function suppQuickDose(id,val){const s=suppById(id);const sd=suppDay(selDate);sd[id]=Object.assign({status:suppStatusOf(selDate,id),unit:s.unit},sd[id],{dose:val,unit:s.unit});DB.save('kt_days',days);renderDash();suppActions(id);}
 /* kontrola duplicit a odstupů mezi doplňky */
-function suppConflicts(){const en=enabledSupps();const out=[];const byLabel=k=>en.filter(s=>(s.labels||[]).includes(k));
+function suppConflicts(date){ // bez data = jen denní základ; s datem = základ + dnes přidané
+  const en = date ? (function(){const ids=new Set();const o=[];enabledSupps().forEach(s=>{ids.add(s.id);o.push(s);});Object.keys(suppDay(date)).forEach(id=>{if(!ids.has(id)){const s=suppById(id);if(s){ids.add(id);o.push(s);}}});return o;})() : enabledSupps();
+  const out=[];const byLabel=k=>en.filter(s=>(s.labels||[]).includes(k));const hasId=id=>en.some(s=>s.id===id);
   if(byLabel('omega3').length>1)out.push('Duplicita omega-3 — neber víc zdrojů omega-3 najednou.');
-  if(byLabel('omega3').length>=1 && en.some(s=>s.id==='lebertran'))out.push('Duplicita omega-3 — Lebertran obsahuje EPA/DHA navíc k Omega-3.');
+  if(byLabel('omega3').length>=1 && hasId('lebertran'))out.push('Duplicita omega-3 — Lebertran obsahuje EPA/DHA navíc k Omega-3.');
   if(byLabel('vitamin-d').length>1)out.push('Duplicita vitaminu D — hlídej celkovou dávku (D3 Forte + D3+K2 + Lebertran).');
+  if(hasId('vitamin_d'))out.push('D3 Forte je vysoká dávka — hlídej celkovou dávku vitaminu D za 14 dní.');
+  if(hasId('lebertran'))out.push('Lebertran obsahuje vitamin D i A — hlídej celkovou dávku D a A.');
   if(byLabel('vitamin-k').length>1)out.push('Duplicita K2 — Vitamin K2 (Vitamaze) a D3+K2 obsahují K2; neber oba bez potvrzení.');
   if(byLabel('vitamin-b12').length>1)out.push('Duplicita B12 — B-complex i samostatné B12 obsahují B12.');
+  if(hasId('psyllium')&&hasId('optifibre'))out.push('Dvě vlákniny ve stejný den mohou zvyšovat nafouknutí. Začni nižší dávkou a zapij vodou.');
+  if(hasId('zinc')&&suppById('zinc')&&suppById('zinc').enabled)out.push('Dlouhodobý denní zinek — hlídej příjem mědi.');
   const fiber=en.filter(s=>(s.labels||[]).includes('fiber'));
   const minerals=en.filter(s=>['zinc','magnesium','iron','calcium'].some(m=>(s.labels||[]).includes(m)));
   fiber.forEach(f=>minerals.forEach(m=>{ if(f.preferred_time_window===m.preferred_time_window) out.push(f.name+' a '+m.name+' jsou ve stejném okně ('+suppWinLabel(f.preferred_time_window)+') — oddělit aspoň 2 h.'); }));
   return [...new Set(out)];}
+/* ===== KONKRÉTNÍ DOPORUČENÍ DOPLŇKŮ podle režimu, času, směny a jídla ===== */
+const SUPP_FAT_RE=/vejce|losos|ryb|tuňák|tunak|maso|kuř|kur|hověz|hovez|vepř|vepr|olivov|avokád|avokad|ořech|orech|máslo|maslo|sýr|syr|tahini|bowl|salát s dvojit/i;
+function ctxLoc(date){const m=dayMode(date);if(m==='cestovani')return 'travel';if(['prace','denni','nocni'].includes(m))return 'work';return 'home';}
+function suppAvailNow(date,id){const s=suppById(id);if(!s)return false;if(s.available_location==='unavailable_today')return false;const loc=s.available_location||'both';if(loc==='both')return true;return loc===ctxLoc(date);}
+function isFatMeal(date,slot){const its=slotItems(date,slot);if(!its.length)return false;const t=sumItems(its);if(t.f>=10)return true;return its.some(it=>SUPP_FAT_RE.test(it.n));}
+function suppRecommendation(date){
+  const nm=id=>suppById(id)?suppById(id).name:id;
+  const active=id=>{const s=suppById(id);return s&&(s.enabled||!!suppRec(date,id));};
+  const pend=id=>active(id)&&suppAvailNow(date,id)&&['planned','postponed'].includes(suppStatusOf(date,id));
+  const mode=dayMode(date), isToday=date===todayISO;
+  let phase=null, np=null;
+  if(mode==='nocni') np=isToday?nightShiftPhase(new Date().getHours()):'pred';
+  else phase=isToday?timePhase(new Date().getHours()):'obed';
+  const slot = mode==='nocni' ? (np==='po'?'snidane':np==='pred'?'vecere':'vecere2')
+    : (phase==='rano'?'snidane':phase==='dopo'?'svacina1':phase==='obed'?'obed':phase==='odpo'?'svacina2':phase==='vecer'?'vecere':'vecere2');
+  const fat=isFatMeal(date,slot), hasMeal=slotItems(date,slot).length>0;
+  const earlyMeal = (phase==='rano'||phase==='obed') || (mode==='nocni'&&np==='pred');
+  const out=[];
+  const fatNeed=['d3k2','vitamin_d','omega3','q10','lebertran','k2'].filter(pend);
+  if(fatNeed.length){
+    if(fat) out.push('Teď máš jídlo s tukem — vhodný čas na: '+fatNeed.map(nm).join(', ')+'.');
+    else if(earlyMeal) out.push(fatNeed.map(nm).join(', ')+' vezmi s jídlem, které má aspoň 10 g tuku (vejce, ryba, maso, avokádo, olej) — ne se samotným ovocem ani shakem ve vodě.');
+  }
+  if(pend('creatine')&&(earlyMeal||phase==='dopo')) out.push('Kreatin můžeš vzít teď, zapij vodou.');
+  if(pend('bcomplex')){ if(earlyMeal||phase==='dopo') out.push('B-complex teď ráno/na začátku dne — ne večer.'); }
+  if(pend('guarana')){ if(phase==='rano'||(mode==='nocni'&&np==='pred')) out.push('Guarana jen teď na začátku (kofein 50 mg).'); }
+  if(phase==='obed'||phase==='odpo'){ if(pend('zinc')) out.push('Zinek dej k obědu/odpoledne — jen pokud bude aspoň 2 h od vlákniny, hořčíku a železa.'); if(pend('vitamin_c')) out.push('Liposomal C teď (dopoledne/odpoledne).'); }
+  const fib=pend('psyllium')?'psyllium':(pend('optifibre')?'optifibre':null);
+  if(fib){ if(phase==='odpo'||(mode==='nocni'&&np==='prubeh')) out.push('Vlákninu ('+nm(fib)+') si dej teď a zapij 300–500 ml vody, odděleně od minerálů a léků.'); else out.push('Vlákninu nech na ~15:00 a zapij 300–500 ml vody (odděleně od minerálů a léků).'); }
+  if(pend('iron')||pend('ferum')){ out.push('Železo s vitaminem C, mimo kávu/čaj a aspoň 2 h od vlákniny, hořčíku, zinku a vápníku.'); }
+  if(pend('magnesium')){ if(phase==='vecer'||phase==='pozde'||(mode==='nocni'&&np==='po')) out.push('Magnesium teď ('+(mode==='nocni'?'po směně před spaním':'večer / před spaním ~21:00')+').'); else out.push('Magnesium nech na večer / před spaním ('+(mode==='nocni'?'po směně':'~21:00')+').'); }
+  if(phase==='vecer'){ if(pend('marine_collagen')) out.push('Marine collagen klidně teď večer.'); if(pend('msm')) out.push('MSM s jídlem.'); }
+  if(dayOpt(date,'train')) out.push('Tréninkový den: kreatin má prioritu (dávku nenavyšuj), hořčík večer; vlákninu ne těsně před tréninkem.');
+  if((phase==='pozde')||(mode==='nocni'&&(np==='hluboke'||np==='po'))) out.push('Teď už žádné stimulanty (guarana/kofein).');
+  try{const hy=hydration(date);if((pend('creatine')||fib)&&hy.state!=='splněno'&&hy.state!=='v pohodě') out.push('Doplň vodu — kvůli kreatinu i vláknině.');}catch(e){}
+  return out;}
 /* správa doplňků ve Více */
 function renderSuppSettings(){const el=document.getElementById('suppList');if(!el)return;
   el.innerHTML=supps.map((s,i)=>`<details class="setblk" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">
@@ -2811,9 +2853,12 @@ function dayAnalysis(){
       const tk=list.filter(s=>suppStatusOf(selDate,s.id)==='taken').length;
       let t=`Vzato ${tk}/${list.length}.`;
       if(pend.length)t+=' Zbývá: '+pend.map(s=>s.name+' ('+suppPlannedText(s,suppRec(selDate,s.id))+')').join(', ')+'.';
-      if(warns.length)t+=' ⚠ '+warns.map(s=>s.name+': '+s.warning).join(' · ');
-      const cf=suppConflicts();if(cf.length)t+=' 🔁 '+cf.join(' · ');
-      return `<div class="card"><b>💊 Doplňky:</b> ${t}</div>`;})()}
+      const cf=suppConflicts(selDate);
+      const rec=suppRecommendation(selDate);
+      return `<div class="card"><b>💊 Doplňky:</b> ${t}
+        ${rec.length?`<ul style="margin:6px 0 0;padding-left:18px">${rec.map(x=>`<li style="margin:2px 0">${x}</li>`).join('')}</ul>`:''}
+        ${warns.length?`<div style="color:#c0392b;font-size:.8rem;margin-top:4px">⚠ ${warns.map(s=>s.name+': '+s.warning).join(' · ')}</div>`:''}
+        ${cf.length?`<div style="color:#c0392b;font-size:.8rem;margin-top:2px">🔁 ${cf.join(' · ')}</div>`:''}</div>`;})()}
     ${lekLine?`<div class="card" style="background:#eef4ff"><b>🍱 Oběd / směna:</b> ${lekLine}</div>`:''}
     <div class="card"><b>💧 Hydratace:</b> ${hydLine}</div>
     <div class="card"><b>👟 Kroky:</b> ${stepLine}</div>
