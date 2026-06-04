@@ -1105,14 +1105,46 @@ const SUPP_WINDOWS=[['any_time','kdykoli'],['morning','ráno'],['first_meal','pr
 const SUPP_AVAIL=[['both','doma i v práci'],['home','doma'],['work','v práci'],['travel','na cestách'],['unavailable_today','dnes nedostupné']];
 const SUPP_STATUS=[['planned','plánováno'],['taken','vzato'],['skipped','vynecháno'],['postponed','odloženo'],['not_today','dnes ne']];
 function mkSupp(o){return Object.assign({id:'',name:'',category:'daily_base',form:'capsule',default_dose:1,unit:'kapsle',frequency:'daily',priority:'daily_base',timing_rule:'any_time',preferred_time_window:'first_meal',take_with_food:false,take_with_fat:false,take_with_water:true,take_empty_stomach:false,avoid_same_window_with:[],min_spacing_minutes:0,available_location:'both',enabled:true,warning:'',labels:[]},o);}
-let supps = DB.load('kt_supps', [
-  mkSupp({id:'creatine',name:'Kreatin',category:'daily_base',form:'powder',default_dose:5,unit:'g',preferred_time_window:'first_meal',take_with_water:true}),
-  mkSupp({id:'magnesium',name:'Hořčík',category:'sleep_stress',form:'capsule',default_dose:1,unit:'kapsle',preferred_time_window:'before_sleep'}),
-  mkSupp({id:'vitamin_d',name:'Vitamin D',category:'daily_base',form:'softgel',default_dose:1,unit:'kapsle',preferred_time_window:'first_meal',take_with_fat:true}),
-  mkSupp({id:'omega3',name:'Omega-3',category:'joints_skin',form:'softgel',default_dose:2,unit:'kapsle',preferred_time_window:'dinner',take_with_fat:true}),
-  mkSupp({id:'zinc',name:'Zinek',category:'immune_short_term',form:'tablet',default_dose:1,unit:'tableta',preferred_time_window:'dinner',warning:'Nebrat blízko vlákniny ani vápníku — snižují vstřebávání.'})
-]);
-function saveSupps(){DB.save('kt_supps',supps);}
+const DEFAULT_SUPPS=[
+  mkSupp({id:'omega3',name:'Omega 3 Fish Oil (MyVitamins)',category:'daily_base',form:'softgel',default_dose:1,unit:'kapsle',dose_options:[1,2],
+    preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,
+    serving_size:'1 softgel',servings_per_package:250,active:{omega3_mg:300,EPA_mg:180,DHA_mg:120},
+    labels:['omega3','fish-oil','EPA','DHA','daily_base'],warning:'Opatrně při lécích na ředění krve · pokud bereš i lebertran, hlídej duplicitu omega-3.'}),
+  mkSupp({id:'vitamin_c',name:'Liposomal Vitamin C',category:'optional',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],
+    preferred_time_window:'morning',timing_rule:'morning_or_afternoon',take_with_food:false,
+    serving_size:'1 kapsle',servings_per_package:90,active:{liposomal_complex_mg:769,vitamin_c_mg:500},
+    labels:['vitamin-c','liposomal','immune','optional','vegan'],warning:'Při citlivém žaludku raději s jídlem.'}),
+  mkSupp({id:'magnesium',name:'Mg bisglycinate',category:'daily_base',form:'capsule',default_dose:2,unit:'kapsle',dose_options:[1,2],
+    preferred_time_window:'evening',timing_rule:'evening_or_before_sleep',
+    serving_size:'2 kapsle',active:{magnesium_mg:194,magnesium_per_capsule_mg:97},
+    avoid_same_window_with:['zinc','iron','fiber'],min_spacing_minutes:120,
+    labels:['magnesium','sleep','stress','daily_base'],warning:'Vysoké dávky mohou způsobit trávicí potíže.'}),
+  mkSupp({id:'psyllium',name:'Combiflora Flohsamen / Psyllium',category:'digestion',form:'capsule',default_dose:4,unit:'kapsle',dose_options:[4,8],max_label_dose:8,
+    preferred_time_window:'afternoon',timing_rule:'separate_with_water',take_with_water:true,water_ml:300,
+    serving_size:'8 kapslí',active:{psyllium_husk_g:3.6,fiber_g:3.4,half_serving_caps:4,half_fiber_g:1.7},
+    avoid_same_window_with:['zinc','magnesium','iron','medication'],min_spacing_minutes:120,
+    labels:['psyllium','fiber','digestion'],warning:'Zapít dostatkem vody (300–500 ml) · nezačínat velkou dávkou · nebrat současně s minerály ani léky.'}),
+  mkSupp({id:'vitamin_d',name:'Vitamin D3 Forte (10000 IU)',category:'caution',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],
+    preferred_time_window:'first_meal',timing_rule:'with_meal_with_fat',take_with_fat:true,frequency:'every_14_days',recommended_frequency:'every_14_days',
+    serving_size:'1 kapsle',active:{vitamin_d3_mcg:250,vitamin_d3_IU:10000},
+    labels:['vitamin-d','d3-forte','high-dose','caution','vegan'],warning:'Jen 1 kapsli za 14 dní dle obalu · nedublovat s D3+K2 ani s lebertranem · hlídej celkovou dávku vitaminu D.'}),
+  mkSupp({id:'msm',name:'MSM Plus',category:'joints_skin',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],
+    preferred_time_window:'first_meal',timing_rule:'with_food',take_with_food:true,
+    serving_size:'1 kapsle',active:{MSM_mg:500,glucosamine_mg:350},
+    labels:['MSM','glucosamine','joints','optional','gluten-free','lactose-free'],warning:'Volitelný doplněk na klouby/šlachy — není priorita pro hubnutí ani svaly.'}),
+  mkSupp({id:'zinc',name:'Zinc bisglycinate',category:'minerals_blood',form:'capsule',default_dose:1,unit:'kapsle',dose_options:[1],
+    preferred_time_window:'afternoon',timing_rule:'separate_or_with_food_if_needed',take_with_water:true,water_ml:200,
+    serving_size:'1 kapsle',active:{zinc_mg:5.3},
+    avoid_same_window_with:['fiber','magnesium','iron','calcium'],min_spacing_minutes:120,
+    labels:['zinc','bisglycinate','mineral','optional'],warning:'Oddělit od vlákniny, hořčíku a železa · dávka je nízká, ale denní užívání stále evidovat.'})
+];
+let supps = DB.load('kt_supps', null);
+if(!supps){ supps=DEFAULT_SUPPS; }
+else if(!localStorage.getItem('kt_supps_v2')){ // migrace: nahraď seed novými produkty, vlastní (custom) ponech
+  const custom=supps.filter(s=>(s.labels||[]).includes('custom')); supps=DEFAULT_SUPPS.concat(custom);
+}
+function saveSupps(){DB.save('kt_supps',supps);localStorage.setItem('kt_supps_v2','1');}
+saveSupps();
 function suppById(id){return supps.find(s=>s.id===id);}
 function enabledSupps(){return supps.filter(s=>s.enabled);}
 /* denní záznam doplňku se snapshotem dávky */
@@ -1161,9 +1193,13 @@ function renderSupps(){const el=document.getElementById('suppsCard');if(!el)retu
 function suppActions(id){const s=suppById(id);if(!s)return;const r=suppRec(selDate,id)||{};
   openSheet(s.name);document.getElementById('sheetTabs').innerHTML='';
   const dose=(r.dose!=null?r.dose:s.default_dose)+' '+(r.unit||s.unit);
+  const doseOpts=(s.dose_options&&s.dose_options.length>1)?`<div class="chips" style="flex-wrap:wrap;margin-top:6px">${s.dose_options.map(v=>`<button class="chip ${(r.dose!=null?r.dose:s.default_dose)===v?'on':''}" onclick="suppQuickDose('${id}',${v})">${v} ${s.unit}</button>`).join('')}</div>`:'';
+  const act=s.active?Object.keys(s.active).map(k=>k.replace(/_mg$/,' mg').replace(/_IU$/,' IU').replace(/_g$/,' g').replace(/_/g,' ')+': '+s.active[k]).join(' · '):'';
   document.getElementById('sheetBody').innerHTML=
    `<div class="card"><div class="muted" style="font-size:.82rem">Dávka: <b>${dose}</b> · čas: ${suppPlannedText(s,r)} · stav: ${suppStatusOf(selDate,id)}</div>
-     ${s.warning?`<div style="color:#c0392b;font-size:.82rem;margin-top:4px">⚠ ${s.warning}</div>`:''}
+     ${act?`<div class="muted" style="font-size:.74rem;margin-top:2px">Obsah/dávka: ${act}</div>`:''}
+     ${doseOpts}
+     ${s.warning?`<div style="color:#c0392b;font-size:.82rem;margin-top:6px">⚠ ${s.warning}</div>`:''}
      ${r.note?`<div class="muted" style="font-size:.8rem;margin-top:4px">📝 ${r.note}</div>`:''}</div>
     <button class="btn block" onclick="setSuppStatus(selDate,'${id}','taken');closeSheet()">✓ Označit jako vzato</button>
     <button class="btn ghost block" style="margin-top:8px" onclick="suppSkip('${id}')">× Přeskočit</button>
@@ -1174,6 +1210,15 @@ function suppSkip(id){const why=prompt('Důvod přeskočení (volitelné):','');
 function suppPostpone(id){const t=prompt('Na kdy odložit (např. 18:00 nebo „večer"):','');if(t===null)return;setSuppStatus(selDate,id,'postponed',{time:t});closeSheet();toast('Odloženo');}
 function suppEditDose(id){const s=suppById(id);const r=suppRec(selDate,id)||{};const v=prompt('Dávka pro dnešek ('+(r.unit||s.unit)+'):',(r.dose!=null?r.dose:s.default_dose));if(v===null)return;const n=parseFloat((''+v).replace(',','.'));if(isNaN(n))return;const sd=suppDay(selDate);sd[id]=Object.assign({status:suppStatusOf(selDate,id)},sd[id],{dose:n,unit:r.unit||s.unit});DB.save('kt_days',days);renderDash();suppActions(id);}
 function suppNote(id){const r=suppRec(selDate,id)||{};const v=prompt('Poznámka:',r.note||'');if(v===null)return;const sd=suppDay(selDate);sd[id]=Object.assign({status:suppStatusOf(selDate,id)},sd[id],{note:v});DB.save('kt_days',days);renderDash();suppActions(id);}
+function suppQuickDose(id,val){const s=suppById(id);const sd=suppDay(selDate);sd[id]=Object.assign({status:suppStatusOf(selDate,id),unit:s.unit},sd[id],{dose:val,unit:s.unit});DB.save('kt_days',days);renderDash();suppActions(id);}
+/* kontrola duplicit a odstupů mezi doplňky */
+function suppConflicts(){const en=enabledSupps();const out=[];const byLabel=k=>en.filter(s=>(s.labels||[]).includes(k));
+  if(byLabel('omega3').length>1)out.push('Duplicita omega-3 — neber víc zdrojů omega-3 najednou.');
+  if(byLabel('vitamin-d').length>1)out.push('Duplicita vitaminu D — hlídej celkovou dávku (D3 Forte + D3/K2 + lebertran).');
+  const fiber=en.filter(s=>(s.labels||[]).includes('fiber'));
+  const minerals=en.filter(s=>['zinc','magnesium','iron','calcium'].some(m=>(s.labels||[]).includes(m)));
+  fiber.forEach(f=>minerals.forEach(m=>{ if(f.preferred_time_window===m.preferred_time_window) out.push(f.name+' a '+m.name+' jsou ve stejném okně ('+suppWinLabel(f.preferred_time_window)+') — oddělit aspoň 2 h.'); }));
+  return [...new Set(out)];}
 /* správa doplňků ve Více */
 function renderSuppSettings(){const el=document.getElementById('suppList');if(!el)return;
   el.innerHTML=supps.map((s,i)=>`<details class="setblk" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">
@@ -2668,6 +2713,7 @@ function dayAnalysis(){
       let t=`Vzato ${tk}/${list.length}.`;
       if(pend.length)t+=' Zbývá: '+pend.map(s=>s.name+' ('+suppPlannedText(s,suppRec(selDate,s.id))+')').join(', ')+'.';
       if(warns.length)t+=' ⚠ '+warns.map(s=>s.name+': '+s.warning).join(' · ');
+      const cf=suppConflicts();if(cf.length)t+=' 🔁 '+cf.join(' · ');
       return `<div class="card"><b>💊 Doplňky:</b> ${t}</div>`;})()}
     ${lekLine?`<div class="card" style="background:#eef4ff"><b>🍱 Oběd / směna:</b> ${lekLine}</div>`:''}
     <div class="card"><b>💧 Hydratace:</b> ${hydLine}</div>
@@ -3120,7 +3166,7 @@ function fallbackCopyModal(t){
 document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.bnav button').forEach(x=>x.classList.toggle('active',x===b));
   const scr=b.dataset.scr;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-'+scr));
-  if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}if(scr==='vice'){if(typeof renderTech==='function')renderTech();if(typeof renderLekCfgBox==='function')renderLekCfgBox();if(typeof renderBuildInfo==='function')renderBuildInfo();if(typeof renderSuppSettings==='function')renderSuppSettings();}
+  if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}if(scr==='vice'){if(typeof renderTech==='function')renderTech();if(typeof renderLekCfgBox==='function')renderLekCfgBox();if(typeof renderBuildInfo==='function')renderBuildInfo();if(typeof renderSuppSettings==='function')renderSuppSettings();if(typeof renderSupplog==='function')renderSupplog();}
 });
 document.getElementById('genPlan').onclick=genPlan;
 /* ===== NÁVRH NA DEN – 2 varianty na sekci ===== */
