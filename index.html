@@ -1200,6 +1200,21 @@ function suppSave(i){const g=id=>document.getElementById(id);const s=supps[i];
   saveSupps();renderSuppSettings();renderDash();toast('Doplněk uložen');}
 function suppDel(i){if(!confirm('Smazat doplněk „'+supps[i].name+'"?'))return;supps.splice(i,1);saveSupps();renderSuppSettings();renderDash();}
 function suppAddNew(){const nm=prompt('Název nového doplňku:');if(!nm)return;const id='supp_'+Date.now();supps.push(mkSupp({id,name:nm.trim(),labels:['custom']}));saveSupps();renderSuppSettings();renderDash();toast('Doplněk přidán');}
+/* historie skutečně užitých doplňků */
+function renderSupplog(){const el=document.getElementById('suppLogList');if(!el)return;
+  const stTxt=s=>s==='taken'?'✓ vzato':s==='skipped'?'× přeskočeno':s==='postponed'?'⏳ odloženo':s;
+  const arr=supplog.slice().reverse().slice(0,60);
+  el.innerHTML=arr.length?arr.map(l=>{const idx=supplog.indexOf(l);
+    return `<div class="row"><div class="info"><div class="n">${l.supplement_name||l.name} <span class="muted" style="font-size:.72rem">${stTxt(l.status)}</span></div>
+      <div class="m">${l.date} ${l.taken_at?('· '+l.taken_at.slice(11)):''} · ${l.dose} ${l.unit} · ${l.timing_context||''}${l.day_mode?(' · '+l.day_mode):''}${l.training_day?' · 🏋️':''}${l.notes?(' · 📝 '+l.notes):''}</div></div>
+      <button class="add" title="upravit" onclick="editSupplog(${idx})">✎</button><button class="menu" style="color:#c0392b" onclick="delSupplog(${idx})">✕</button></div>`;}).join(''):'<p class="muted" style="font-size:.8rem">Zatím žádné záznamy.</p>';}
+function editSupplog(idx){const l=supplog[idx];if(!l)return;
+  if(!confirm('Toto je historický záznam užití doplňku. Úpravou změníš evidenci dne. Pokračovat?'))return;
+  const d=prompt('Dávka ('+l.unit+'):',l.dose);if(d!==null){const n=parseFloat((''+d).replace(',','.'));if(!isNaN(n))l.dose=n;}
+  const t=prompt('Čas (YYYY-MM-DD HH:mm):',l.taken_at||'');if(t!==null&&t.trim())l.taken_at=t.trim();
+  const nt=prompt('Poznámka:',l.notes||'');if(nt!==null)l.notes=nt;
+  DB.save('kt_supplog',supplog);renderSupplog();toast('Záznam upraven (default dávka nezměněna)');}
+function delSupplog(idx){if(!supplog[idx])return;if(!confirm('Opravdu odstranit záznam, že byl tento doplněk vzat?'))return;supplog.splice(idx,1);DB.save('kt_supplog',supplog);renderSupplog();toast('Záznam smazán');}
 function itemProtected(it){ return !!(it && (it.locked || it.eaten)); } // chráněné před auto-změnou
 function protectedSnapshot(date){ const o={}; SLOTS.forEach(s=>{const keep=slotItems(date,s.k).filter(itemProtected); if(keep.length)o[s.k]=JSON.parse(JSON.stringify(keep));}); return o; }
 function restoreProtected(date,snap){ const d=dayObj(date); Object.keys(snap||{}).forEach(slot=>{ d[slot]=(snap[slot]||[]).concat((d[slot]||[]).filter(it=>!itemProtected(it))); }); }
