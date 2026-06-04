@@ -950,6 +950,63 @@ const Q5=[0,25,50,75,100]; // rychlé volby procent pro všechny komponenty
     k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
     srvG:0,conf:'estimated',cd:false,gl:true,ingr:[]});
 })();
+/* ====== KAISIN – bowls jako složená jídla (výměna base, double protein) ====== */
+(function(){
+  const QUI={k:220,p:8,c:39,f:4,sug:1,fib:5,salt:0.1};
+  const NER={k:260,p:6,c:55,f:2,sug:1,fib:4,salt:0.2};
+  const SUS={k:210,p:4,c:47,f:0.5,sug:3,fib:1,salt:0.2};
+  const qoptsFor=t=>t==='protein'?[50,100,150,200]:t==='base'?[0,25,50,75,100]:t==='sauce'?[0,25,50,100]:t==='topping'?[0,50,100]:t==='vegetable'?[50,100,150]:[0,25,50,75,100];
+  const C=(id,name,type,per,aller)=>({component_id:id,name,component_type:type,pct:100,per,aller:aller||[],qopts:qoptsFor(type)});
+  function baseComp(defKey){const opts=[{key:'quinoa',name:'Base: Quinoa',per:QUI},{key:'nerone',name:'Base: Nerone rice',per:NER},{key:'sushi',name:'Base: Sushi rice',per:SUS}];
+    const sel=Math.max(0,opts.findIndex(o=>o.key===defKey));
+    return {component_id:'base',name:opts[sel].name,component_type:'base',pct:100,per:Object.assign({},opts[sel].per),aller:[],qopts:qoptsFor('base'),baseOptions:opts,baseSel:sel};}
+  function push(name,labels,comps){const sum=k=>comps.reduce((a,c)=>a+(c.per[k]||0)*((c.pct||0)/100),0);
+    PREP.push({n:name,ic:'🥗',cat:'Složená jídla',slots:['obed','vecere'],tags:['kaisin','restaurace','bowl','složené','high protein'],
+      composite:true,components:comps,labels:labels,restaurant:'Kaisin',source:'restaurant_manual_estimate',
+      k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
+      srvG:0,conf:'estimated',cd:false,gl:false,ingr:[]});}
+  const baseL=['kaisin','restaurant','bowl','composite-meal','main-meal','manual-estimate','milk-free'];
+  push('Kaisin Umami Chicken Salad',baseL.concat(['salad','chicken','meat','high-protein','lower-carb','contains-soy-possible']),[
+    C('chicken','Chicken','protein',{k:180,p:31,c:0,f:5,sug:0,fib:0,salt:0.8}),
+    C('lettuce','Lettuce','vegetable',{k:15,p:1,c:2,f:0,sug:1,fib:1.5,salt:0}),
+    C('edamame','Edamame','vegetable',{k:80,p:8,c:6,f:3,sug:1,fib:4,salt:0.1},['soy']),
+    C('guac','Ginger guacamole','topping',{k:70,p:1,c:5,f:6,sug:1,fib:3,salt:0.3}),
+    C('cucumber','Cucumber','vegetable',{k:10,p:0.5,c:2,f:0,sug:1,fib:1,salt:0}),
+    C('radish','Radishes','vegetable',{k:8,p:0.3,c:1.5,f:0,sug:1,fib:0.5,salt:0}),
+    C('vin','Citrus vinaigrette','sauce',{k:60,p:0,c:5,f:4,sug:3,fib:0,salt:0.5}),
+    C('crunch','Umami crunch','topping',{k:20,p:0.5,c:3,f:1,sug:0,fib:0,salt:0.2}),
+    C('yuzu','Yuzu kohlrabi','vegetable',{k:25,p:1,c:5,f:0,sug:3,fib:2,salt:0.2})]);
+  push('Kaisin Miso Chicken',baseL.concat(['chicken','meat','high-protein','contains-soy-possible']),[
+    C('chicken','Chicken','protein',{k:180,p:31,c:0,f:5,sug:0,fib:0,salt:0.8}),
+    baseComp('quinoa'),
+    C('kale','Kale','vegetable',{k:20,p:1.5,c:3,f:0,sug:1,fib:2,salt:0}),
+    C('cucumber','Cucumber','vegetable',{k:10,p:0.5,c:2,f:0,sug:1,fib:1,salt:0}),
+    C('radish','Radishes','vegetable',{k:8,p:0.3,c:1.5,f:0,sug:1,fib:0.5,salt:0}),
+    C('slaw','Coleslaw','vegetable',{k:45,p:1,c:6,f:2,sug:4,fib:2,salt:0.4}),
+    C('miso','Miso vinaigrette','sauce',{k:50,p:1,c:4,f:3,sug:2,fib:0,salt:0.8},['soy']),
+    C('nori','Nori blend','topping',{k:5,p:0.5,c:0,f:0,sug:0,fib:0,salt:0.1}),
+    C('almonds','Almonds','topping',{k:20,p:1,c:1,f:2,sug:0,fib:0.5,salt:0})]);
+  push('Kaisin Classic Ponzu',baseL.concat(['tuna','fish','contains-fish','high-protein','high-carb']),[
+    C('tuna','Tuna','protein',{k:190,p:38,c:0,f:3,sug:0,fib:0,salt:0.3},['fish']),
+    baseComp('nerone'),
+    C('tomato','Tomatoes','vegetable',{k:15,p:0.5,c:3,f:0,sug:2,fib:1,salt:0}),
+    C('mango','Mango','vegetable',{k:55,p:0.5,c:14,f:0,sug:13,fib:1.5,salt:0}),
+    C('edamame','Edamame','vegetable',{k:80,p:8,c:6,f:3,sug:1,fib:4,salt:0.1},['soy']),
+    C('guac','Ginger guacamole','topping',{k:80,p:1,c:5,f:7,sug:1,fib:3,salt:0.3}),
+    C('ponzu','Ponzu lime sauce','sauce',{k:55,p:1,c:7,f:2,sug:3,fib:0,salt:1.2}),
+    C('pom','Pomegranate','vegetable',{k:35,p:0.5,c:8,f:0,sug:7,fib:1,salt:0}),
+    C('ginger','Ginger','vegetable',{k:10,p:0,c:2,f:0,sug:2,fib:0,salt:0.2})]);
+  push('Kaisin Beef O.G.',baseL.concat(['beef','meat','high-protein','contains-soy-possible']),[
+    C('beef','Lemongrass beef','protein',{k:190,p:28,c:2,f:8,sug:1,fib:0,salt:0.9}),
+    baseComp('quinoa'),
+    C('sweet','Sweet potatoes','vegetable',{k:45,p:1,c:10,f:0,sug:4,fib:2,salt:0.1}),
+    C('broc','Broccoli','vegetable',{k:25,p:2,c:4,f:0,sug:1,fib:2,salt:0}),
+    C('radish','Radishes','vegetable',{k:8,p:0.3,c:1.5,f:0,sug:1,fib:0.5,salt:0}),
+    C('kale','Kale','vegetable',{k:20,p:1.5,c:3,f:0,sug:1,fib:2,salt:0}),
+    C('sriracha','Creamy sriracha','sauce',{k:55,p:0,c:3,f:5,sug:2,fib:0,salt:0.7}),
+    C('yuzu','Yuzu kohlrabi','vegetable',{k:25,p:1,c:5,f:0,sug:3,fib:2,salt:0.2}),
+    C('nori','Nori blend','topping',{k:5,p:0.5,c:0,f:0,sug:0,fib:0,salt:0.1})]);
+})();
 
 /* ====== SLOTY JÍDEL ====== */
 const SLOTS=[
@@ -1530,18 +1587,29 @@ function setCompPct(slot,i,ci,pct){const it=slotItems(selDate,slot)[i];if(!it||!
     if(!confirm('Jídlo je '+why+'. Opravdu změnit porci komponenty?'))return;}
   it.components[ci].pct=Math.max(0,pct||0); DB.save('kt_days',days); compositeDetail(slot,i); renderDash();}
 function compCustomPct(slot,i,ci){const it=slotItems(selDate,slot)[i];if(!it)return;const v=prompt('Vlastní procento porce (%):',it.components[ci].pct);const n=parseInt(v,10);if(!isNaN(n))setCompPct(slot,i,ci,n);}
+function setCompBase(slot,i,ci,optIdx){const it=slotItems(selDate,slot)[i];if(!it)return;const c=it.components[ci];if(!c||!c.baseOptions)return;
+  if((it.locked||it.eaten)&&!confirm('Jídlo je '+((it.locked&&it.eaten)?'zamčené a snědené':(it.locked?'zamčené':'snědené'))+'. Změnit přílohu?'))return;
+  c.baseSel=optIdx;c.per=Object.assign({},c.baseOptions[optIdx].per);c.name=c.baseOptions[optIdx].name;
+  DB.save('kt_days',days);compositeDetail(slot,i);renderDash();}
+function doubleProtein(slot,i){const it=slotItems(selDate,slot)[i];if(!it)return;const ci=it.components.findIndex(c=>c.component_type==='protein');if(ci<0)return;
+  setCompPct(slot,i,ci,(it.components[ci].pct>=200)?100:200);}
 function compositeDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it||!it.components)return;
   openSheet(it.n.replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
   const protBadge=(it.locked?lockIcon(true)+' ':'')+(it.eaten?'✅ ':'');
+  const hasProt=it.components.some(c=>c.component_type==='protein');
+  const protCi=it.components.findIndex(c=>c.component_type==='protein');
+  const dblOn=protCi>=0&&it.components[protCi].pct>=200;
   const comps=it.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type,q:[0,50,100]};const m=compNutr(c);const qopts=c.qopts||t.q;
     const btns=qopts.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="setCompPct('${slot}',${i},${ci},${p})">${p} %</button>`).join('')+`<button class="chip" onclick="compCustomPct('${slot}',${i},${ci})">vlastní…</button>`;
+    const baseSel=c.baseOptions?`<div style="margin:4px 0"><select onchange="setCompBase('${slot}',${i},${ci},this.selectedIndex)">${c.baseOptions.map((o,oi)=>`<option ${oi===c.baseSel?'selected':''}>${o.name.replace('Base: ','')}</option>`).join('')}</select></div>`:'';
     return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between"><b>${c.name}</b><span class="muted" style="font-size:.78rem">${compPortionLabel(c)}</span></div>
-      <div class="chips" style="flex-wrap:wrap;margin:6px 0">${btns}</div>
+      ${baseSel}<div class="chips" style="flex-wrap:wrap;margin:6px 0">${btns}</div>
       <div class="muted" style="font-size:.78rem">${round(m.k)} kcal · B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)}${m.fib?' · vlák '+round(m.fib):''}${m.salt?' · sůl '+(m.salt).toFixed(1):''}</div></div>`;}).join('');
   const tot=itemMacro(it);const labels=compositeLabels(it);
   document.getElementById('sheetBody').innerHTML=
    `${protBadge?`<div class="muted" style="font-size:.78rem;margin-bottom:4px">${protBadge}složené jídlo</div>`:''}
     <label>Sekce dne</label><select id="ciSlot">${SLOTS.map(s=>`<option value="${s.k}"${s.k===slot?' selected':''}>${s.ic} ${s.l}</option>`).join('')}</select>
+    ${hasProt?`<button class="btn ${dblOn?'':'sec'} block" style="margin-top:8px" onclick="doubleProtein('${slot}',${i})">${dblOn?'✓ Dvojitá porce proteinu (200 %)':'💪 Double protein (200 %)'}</button>`:''}
     <div style="margin-top:10px">${comps}</div>
     <div class="card" style="background:var(--green-soft)"><b>Celkem:</b> ${round(tot.k)} kcal · B ${round(tot.p)} · S ${round(tot.c)} · T ${round(tot.f)} · vláknina ${round(tot.fib)} · sůl ${tot.salt.toFixed(1)} g
       <div class="muted" style="font-size:.7rem;margin-top:4px">${labels.join(' · ')}</div></div>
