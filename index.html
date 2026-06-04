@@ -1394,6 +1394,42 @@ function suppRecommendation(date){
   if((phase==='pozde')||(mode==='nocni'&&(np==='hluboke'||np==='po'))) out.push('Teď už žádné stimulanty (guarana/kofein).');
   try{const hy=hydration(date);if((pend('creatine')||fib)&&hy.state!=='splněno'&&hy.state!=='v pohodě') out.push('Doplň vodu — kvůli kreatinu i vláknině.');}catch(e){}
   return out;}
+/* Doporučení na základě wellbeing historie a doplňků */
+function suppWellbeingRecommendation(date){
+  const out=[];
+  if(Object.keys(wellbeing||{}).length<3) return out; // Málo wellbeing dat
+  try{
+    const analysis=analyzeSuppEffects(14); // Posledních 14 dnů
+    // 1) Magnesium — zapomenutý večer?
+    const mg_data=Object.values(analysis).find(e=>e.supplement_id && suppById(e.supplement_id)?.name?.toLowerCase().includes('magnesium'));
+    if(mg_data && !mg_data.low_data && mg_data.adherence_pct < 50 && mg_data.adherence_pct > 0){
+      out.push('Magnesium máš nižší adherenci ('+mg_data.adherence_pct+'%) — zkus si jej připravit dřívější večerní dobu, aby se ti to nezapomnělo.');
+    }
+    // 2) Vláknina — zvýšené nafouknutí?
+    const fiber_ids=['psyllium','optifibre'];
+    fiber_ids.forEach(fid=>{
+      const f_data=Object.values(analysis).find(e=>e.supplement_id===fid);
+      if(f_data && !f_data.low_data && f_data.days_with>=3 && f_data.wellbeing.bloating){
+        const b=f_data.wellbeing.bloating;
+        if(b.with!=null && b.without!=null && b.with>b.without+0.5){
+          out.push('Po vláknině ('+f_data.supplement_name+') se orientačně zvyšuje nafouknutí — zkus menší dávku nebo více vody.');
+        }
+      }
+    });
+    // 3) Guarana — špatný spánek?
+    const guard_data=Object.values(analysis).find(e=>e.supplement_id && suppById(e.supplement_id)?.name?.toLowerCase().includes('guarana'));
+    if(guard_data && !guard_data.low_data && guard_data.days_with>=3 && guard_data.wellbeing.sleep_quality){
+      const sl=guard_data.wellbeing.sleep_quality;
+      if(sl.with!=null && sl.without!=null && sl.with<sl.without-0.3){
+        out.push('Guarana se orientačně může podílet na horším spánku — zkus ji jen na začátek dne.');
+      }
+    }
+    // 4) Obecně málo dat?
+    const has_any=Object.values(analysis).some(e=>e.taken>0);
+    if(!has_any) out.push('Zatím není dost dat pro vyhodnocení efektu doplňků. Pokračuj v evidenci.');
+  }catch(e){}
+  return out.slice(0,3); // Max 3 doporučení
+}
 /* správa doplňků ve Více */
 function renderSuppSettings(){const el=document.getElementById('suppList');if(!el)return;
   el.innerHTML=supps.map((s,i)=>`<details class="setblk" style="border-top:1px solid var(--line);padding-top:8px;margin-top:8px">
