@@ -2711,11 +2711,131 @@ function compressImage(file,cb){const r=new FileReader();r.onload=()=>{const img
   try{cb(c.toDataURL('image/jpeg',0.6));}catch(e){cb(r.result);}};img.src=r.result;};r.readAsDataURL(file);}
 let cfImgN=null,cfImgP=null,cfAller=new Set();
 const ALLERG=[['en:milk','mléko'],['en:gluten','lepek'],['en:nuts','ořechy'],['en:eggs','vejce'],['en:fish','ryby'],['en:soybeans','sója']];
+function parseNutritionText(text) {
+  if (!text || text.trim() === '') return null;
+  
+  // Normalizuj text: zamění čárku za tečku, lowercase
+  const norm = text.toLowerCase().replace(/,/g, '.');
+  
+  const result = {
+    name: '',
+    kcal: null,
+    kj: null,
+    fat: null,
+    saturatedFat: null,
+    carbs: null,
+    sugars: null,
+    fiber: null,
+    protein: null,
+    salt: null,
+    basis: 'srv' // výchozí: porce
+  };
+  
+  // Extrahuj název (první řádek)
+  const lines = text.trim().split('\n');
+  result.name = lines[0].trim();
+  
+  // Detekuj basis (100g / 100ml / porce)
+  if (norm.includes('na 100 g') || norm.includes('na 100g') || 
+      norm.includes('per 100g') || norm.includes('auf 100g')) {
+    result.basis = '100';
+  } else if (norm.includes('na 100 ml') || norm.includes('na 100ml') || 
+             norm.includes('per 100ml') || norm.includes('auf 100ml')) {
+    result.basis = '100';
+  }
+  
+  // Regex vzory pro různé formáty
+  const patterns = {
+    kcal: /(?:energetická hodnota|calories?|energy).*?(\d+(?:\.\d+)?)\s*kcal/i,
+    kj: /(\d+(?:\.\d+)?)\s*kj/i,
+    protein: /(?:bílkoviny|protein|eiweiss|protéines?).*?(\d+(?:\.\d+)?)\s*g/i,
+    fat: /(?:tuky|fats?|lipids?|graisse)(?!.*nasycené).*?(\d+(?:\.\d+)?)\s*g/i,
+    saturatedFat: /(?:nasycené|saturated|gesättigt).*?(\d+(?:\.\d+)?)\s*g/i,
+    carbs: /(?:sacharidy|carbohydrates?|kohlenhydrate|glucides?).*?(\d+(?:\.\d+)?)\s*g/i,
+    sugars: /(?:cukry|sugars?|sucre).*?(\d+(?:\.\d+)?)\s*g/i,
+    fiber: /(?:vláknina|fibre?|fasern?).*?(\d+(?:\.\d+)?)\s*g/i,
+    salt: /(?:sůl|sodium|salt|natrium|sel).*?(\d+(?:\.\d+)?)\s*g/i
+  };
+  
+  // Aplikuj regex
+  for (const [key, pattern] of Object.entries(patterns)) {
+    const match = norm.match(pattern);
+    if (match && match[1]) {
+      result[key] = parseFloat(match[1]);
+    }
+  }
+  
+  return result;
+}
+function applyMealNutrition() {
+  const el = document.getElementById('cmNutritionText');
+  if (!el) return;
+
+  const parsed = parseNutritionText(el.value);
+
+  if (parsed) {
+    applyNutritionToMealForm(parsed);
+    el.value = '';
+    alert('Hodnoty načteny! Zkontroluj a ulož.');
+  } else {
+    alert('Nepodařilo se parsovat text. Zkus jiný formát.');
+  }
+}
+
+function applyFoodNutrition() {
+  const el = document.getElementById('cfNutritionText');
+  if (!el) return;
+
+  const parsed = parseNutritionText(el.value);
+
+  if (parsed) {
+    applyNutritionToFoodForm(parsed);
+    el.value = '';
+    alert('Hodnoty načteny! Zkontroluj a ulož.');
+  } else {
+    alert('Nepodařilo se parsovat text. Zkus jiný formát.');
+  }
+}
+function applyNutritionToMealForm(parsedData) {
+  if (!parsedData) return;
+  
+  if (parsedData.name) document.getElementById('cmName').value = parsedData.name;
+  if (parsedData.kcal !== null) document.getElementById('cmK').value = parsedData.kcal;
+  if (parsedData.protein !== null) document.getElementById('cmP').value = parsedData.protein;
+  if (parsedData.carbs !== null) document.getElementById('cmC').value = parsedData.carbs;
+  if (parsedData.fat !== null) document.getElementById('cmF').value = parsedData.fat;
+  if (parsedData.fiber !== null) document.getElementById('cmFib').value = parsedData.fiber;
+  if (parsedData.sugars !== null) document.getElementById('cmSug').value = parsedData.sugars;
+  if (parsedData.salt !== null) document.getElementById('cmSalt').value = parsedData.salt;
+
+  if (parsedData.basis === '100' && document.getElementById('cmBasis')) {
+    document.getElementById('cmBasis').dataset.b = '100';
+  }
+}
+
+function applyNutritionToFoodForm(parsedData) {
+  if (!parsedData) return;
+  
+  if (parsedData.name) document.getElementById('cfName').value = parsedData.name;
+  if (parsedData.kcal !== null) document.getElementById('cfK').value = parsedData.kcal;
+  if (parsedData.protein !== null) document.getElementById('cfP').value = parsedData.protein;
+  if (parsedData.carbs !== null) document.getElementById('cfC').value = parsedData.carbs;
+  if (parsedData.fat !== null) document.getElementById('cfF').value = parsedData.fat;
+  if (parsedData.fiber !== null) document.getElementById('cfFib').value = parsedData.fiber;
+  if (parsedData.sugars !== null) document.getElementById('cfSug').value = parsedData.sugars;
+  if (parsedData.salt !== null) document.getElementById('cfSalt').value = parsedData.salt;
+}
 function customFoodForm(prefill,onSaved){
   stopScanner();cfImgN=null;cfImgP=null;
   openSheet('Nová potravina + foto');document.getElementById('sheetTabs').innerHTML='';
   document.getElementById('sheetBody').innerHTML=
-   `<label>Název</label><input type="text" id="cfName" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="např. Müsli XY 250 g">
+   `<div class="card" style="padding:10px;background:var(--green-soft);margin-bottom:10px">
+  <label>Vložit nutriční text</label>
+  <textarea id="cfNutritionText" rows="6" placeholder="Např. text z ChatGPT s hodnotami na 100 g"></textarea>
+  <button class="btn sec block" type="button" onclick="applyFoodNutrition()" style="margin-top:8px">Načíst hodnoty</button>
+</div>
+
+<label>Název</label><input type="text" id="cfName" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="např. Müsli XY 250 g">
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
       <div><label>kcal / 100 g</label><input type="number" id="cfK"></div>
       <div><label>Bílkoviny (g)</label><input type="number" id="cfP"></div>
@@ -3223,7 +3343,13 @@ function customMealForm(editIdx){
   openSheet(m?'Upravit vlastní jídlo':'Vlastní jídlo (ruční)');document.getElementById('sheetTabs').innerHTML='';
   const basis=(m&&m.basis)||'srv';
   document.getElementById('sheetBody').innerHTML=
-   `<label>Název</label><input type="text" id="cmName" value="${m?m.n.replace(/"/g,'&quot;'):''}" placeholder="např. Babiččin guláš">
+   `<div class="card" style="padding:10px;background:var(--green-soft);margin-bottom:10px">
+  <label>Vložit nutriční text</label>
+  <textarea id="cmNutritionText" rows="6" placeholder="Gulášová polévka&#10;Výživové údaje na 100 g:&#10;Energetická hodnota: 80 kcal / 335 kJ&#10;Tuky: 3,5 g&#10;Bílkoviny: 4,5 g&#10;Sacharidy: 7 g&#10;Vláknina: 1 g&#10;Cukry: 1,5 g&#10;Sůl: 1,1 g"></textarea>
+  <button class="btn sec block" type="button" onclick="applyMealNutrition()" style="margin-top:8px">Načíst hodnoty</button>
+</div>
+
+<label>Název</label><input type="text" id="cmName" value="${m?m.n.replace(/"/g,'&quot;'):''}" placeholder="např. Babiččin guláš">
     <div style="display:flex;gap:8px;margin-top:8px"><div style="flex:1"><label>Množství / porce</label><input type="number" id="cmAmt" value="${r.amt||1}"></div>
       <div style="flex:1"><label>Jednotka</label><select id="cmUnit">${['porce','g','ml','ks'].map(u=>`<option ${(r.unit||'porce')===u?'selected':''}>${u}</option>`).join('')}</select></div></div>
     <div class="seg" id="cmBasis" style="margin-top:8px"><button data-b="srv" class="${basis==='srv'?'on':''}">hodnoty na 1 porci</button><button data-b="100" class="${basis==='100'?'on':''}">na 100 g/ml</button></div>
