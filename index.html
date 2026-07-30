@@ -3610,7 +3610,14 @@ function genPlan(){
     const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);out.push(day);}
   lastPlan={from,days:out};renderPlanOut();
 }
-function planDayMacros(day){const fac=day.factor||1;let o={k:0,p:0,c:0,f:0,fib:0};Object.values(day.slots).forEach(idx=>{const t=mealMac(PREP[idx],fac);o.k+=t.k;o.p+=t.p;o.c+=t.c;o.f+=t.f;o.fib+=t.fib;});return o;}
+function planSlotItem(day,slot){ // upravená položka slotu (day.items) nebo z PREP dle faktoru
+  if(day.items&&day.items[slot])return day.items[slot];
+  const idx=day.slots[slot]; if(idx==null)return null; const p=PREP[idx];
+  const it=mealItemFromPrep(p); if(!p.composite)it.q=day.factor||1; return it;}
+function planDayMacros(day){let o={k:0,p:0,c:0,f:0,fib:0};PLAN_SLOTS.forEach(s=>{const it=planSlotItem(day,s);if(!it)return;const m=itemMacro(it);o.k+=m.k;o.p+=m.p;o.c+=m.c;o.f+=m.f;o.fib+=m.fib;});return o;}
+function editPlanMeal(di,slot){const day=lastPlan.days[di];if(day.slots[slot]==null)return;day.items=day.items||{};
+  if(!day.items[slot]){const p=PREP[day.slots[slot]];day.items[slot]=mealItemFromPrep(p);if(!p.composite)day.items[slot].q=day.factor||1;}
+  editMealSheet(day.items[slot], day.items[slot].n.replace(/^\d+ /,'').replace(/ \(.*?\)/,''), ()=>{closeSheet();renderPlanOut();});}
 function renderPlanOut(){
   const wrap=document.getElementById('planOut');if(!lastPlan){wrap.innerHTML='';return;}
   wrap.innerHTML=lastPlan.days.map((day,di)=>{const t=planDayMacros(day);const fac=day.factor||1;
@@ -3618,9 +3625,9 @@ function renderPlanOut(){
     const warn=t.p<target.prot-20?`<div class="muted" style="color:#c9534a;font-size:.8rem;margin-top:4px">Po úpravách chybí ${round(target.prot-t.p)} g bílkovin — přidej proteinovou svačinu.</div>`:'';
     return `<div class="card"><div class="card-h"><h3>Den ${di+1} · ${day.date}</h3><span class="kc" style="color:${inRange?'var(--green-d)':'#c0392b'};font-weight:800">${round(t.k)} kcal ${inRange?'✓':''}</span></div>
       <div class="muted" style="font-size:.78rem;margin-bottom:6px">cíl ${target.kcal} ±10 % · porce ×${fac} · B ${round(t.p)} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g</div>
-      ${PLAN_SLOTS.map(s=>{const idx=day.slots[s];const sl=SLOTS.find(x=>x.k===s);const p=idx!=null?PREP[idx]:null;
-        return `<div class="meal" style="padding:8px 2px"><div class="mi">${sl.ic}</div><div class="body"><div class="t"><span style="font-size:.82rem${p?'':';color:var(--muted)'}">${sl.l}: ${p?p.n:'— bez vhodného návrhu —'}</span></div></div>
-        <button class="plus" onclick="swapMeal(${di},'${s}')">🔄</button></div>`;}).join('')}
+      ${PLAN_SLOTS.map(s=>{const idx=day.slots[s];const sl=SLOTS.find(x=>x.k===s);const it=planSlotItem(day,s);const edited=day.items&&day.items[s];
+        return `<div class="meal" style="padding:8px 2px"><div class="mi">${sl.ic}</div><div class="body"><div class="t"><span style="font-size:.82rem${it?'':';color:var(--muted)'}">${sl.l}: ${it?it.n.replace(/^\d+ /,''):'— bez vhodného návrhu —'}${it?` <span class="muted">· ${round(itemMacro(it).k)} kcal${edited?' ✎':''}</span>`:''}</span></div></div>
+        ${it?`<button class="plus" title="upravit" onclick="editPlanMeal(${di},'${s}')">✎</button>`:''}<button class="plus" onclick="swapMeal(${di},'${s}')">🔄</button></div>`;}).join('')}
       ${warn}
       ${planDayChanged(di)?`<div class="muted" style="font-size:.74rem;color:#c9534a;margin-top:4px">Návrh upraven — potvrď tlačítkem, ať se propíše do přehledu.</div>`:''}
       <button class="btn sec block" style="margin-top:8px" onclick="acceptDay(${di})">✓ Potvrdit a zapsat do přehledu</button>
@@ -3643,8 +3650,8 @@ function planDayChanged(di){const day=lastPlan.days[di];
   const real=PLAN_SLOTS.map(s=>(slotItems(day.date,s).map(it=>it.n).join(','))).join('|');
   return sugg!==real;
 }
-function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2),dayCtx(day.date));if(idx>=0)day.slots[slot]=idx;day.factor=recalcFactor(day);renderPlanOut();}
-function acceptDay(di){const day=lastPlan.days[di];const fac=day.factor||1;const snap=protectedSnapshot(day.date);const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=day.slots[s];if(idx==null){delete d[s];return;}const p=PREP[idx];d[s]=[{n:p.n,q:fac,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});restoreProtected(day.date,snap);DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
+function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2),dayCtx(day.date));if(idx>=0)day.slots[slot]=idx;if(day.items)delete day.items[slot];day.factor=recalcFactor(day);renderPlanOut();}
+function acceptDay(di){const day=lastPlan.days[di];const snap=protectedSnapshot(day.date);const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{if(snap[s])return;const it=planSlotItem(day,s);if(!it){delete d[s];return;}d[s]=[JSON.parse(JSON.stringify(it))];});restoreProtected(day.date,snap);DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
 
 /* ====== NÁKUPNÍ SEZNAM (samostatná záložka, perzistentní) ====== */
 let shopState=DB.load('kt_shop',[]);     // [{n,u,q,done,cat,range?}]
@@ -3825,28 +3832,33 @@ function draftRegen(si,vi){const s=dayDraft.sections[si];if(!s.variants||!s.vari
   const budget=effTarget(dayDraft.date).kcal*(SLOT_W[s.slot]||0.2);
   const sel=s.variants[vi].selected; const nv=genVariantMeal(dayDraft.date,s.slot,ex,budget);
   if(nv){nv.selected=sel;s.variants[vi]=nv;} renderDayDraft();}
-/* editace navržené varianty – váha porce, komponenty %, výměna base, vyřazení ingredience */
-function editDraftVariant(si,vi){const s=dayDraft.sections[si];if(!s||!s.variants||!s.variants[vi])return;const v=s.variants[vi];const meal=v.meal;
-  openSheet('Upravit: '+meal.n.replace(/^\d+ /,'').replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
-  const back=`<button class="btn block" style="margin-top:10px" onclick="${draftInPopup?`renderDraftPopup()`:`closeSheet();renderDayDraft()`}">Hotovo</button>`;
+/* ===== OBECNÝ EDITOR JÍDLA (váha, komponenty %, výměna base, vyřazení ingredience) ===== */
+let _emMeal=null,_emTitle='',_emDone=null;
+function editMealSheet(meal,title,doneFn){ if(!meal)return; _emMeal=meal;_emTitle=title;_emDone=doneFn;
+  openSheet('Upravit: '+title);document.getElementById('sheetTabs').innerHTML='';
   let body='';
   if(meal.composite&&meal.components){
     body=meal.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type};const qo=c.qopts||(t.q||[0,50,100]);const m=compNutr(c);
-      const btns=qo.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="draftCompPct(${si},${vi},${ci},${p})">${p} %</button>`).join('');
-      const baseSel=c.baseOptions?`<div style="margin:4px 0"><select onchange="draftCompBase(${si},${vi},${ci},this.selectedIndex)">${c.baseOptions.map((o,oi)=>`<option ${oi===c.baseSel?'selected':''}>${o.name.replace('Base: ','')}</option>`).join('')}</select></div>`:'';
+      const btns=qo.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="emCompPct(${ci},${p})">${p} %</button>`).join('');
+      const baseSel=c.baseOptions?`<div style="margin:4px 0"><select onchange="emCompBase(${ci},this.selectedIndex)">${c.baseOptions.map((o,oi)=>`<option ${oi===c.baseSel?'selected':''}>${o.name.replace('Base: ','')}</option>`).join('')}</select></div>`:'';
       return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between"><b>${c.name}</b><span class="muted" style="font-size:.76rem">${compPortionLabel(c)}</span></div>${baseSel}<div class="chips" style="flex-wrap:wrap;margin:6px 0">${btns}</div><div class="muted" style="font-size:.76rem">${round(m.k)} kcal · B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)}</div></div>`;}).join('');
   } else {
     const f=meal.q||1;
-    body=`<label>Porce</label><div class="seg">${[0.5,1,1.5,2].map(x=>`<button class="${f===x?'on':''}" onclick="draftMealFactor(${si},${vi},${x})">${x}×</button>`).join('')}</div>`;
+    body=`<label>Porce</label><div class="seg">${[0.5,1,1.5,2].map(x=>`<button class="${f===x?'on':''}" onclick="emFactor(${x})">${x}×</button>`).join('')}</div>`;
     if(meal.ingr&&meal.ingr.length){ body+=`<div class="muted" style="font-size:.78rem;margin-top:8px">Ingredience (klepni ✕ pro vyřazení):</div>`+
-      meal.ingr.map((ing,j)=>`<div class="li"><span>${ing[0]}${ing[1]?(' · '+ing[1]+' '+(ing[2]||'')):''}</span><span class="x" onclick="draftRemoveIngr(${si},${vi},${j})">✕</span></div>`).join(''); }
+      meal.ingr.map((ing,j)=>`<div class="li"><span>${ing[0]}${ing[1]?(' · '+ing[1]+' '+(ing[2]||'')):''}</span><span class="x" onclick="emRemoveIngr(${j})">✕</span></div>`).join(''); }
   }
   const tm=itemMacro(meal);
-  document.getElementById('sheetBody').innerHTML=body+`<div class="card" style="background:var(--green-soft)"><b>Celkem této varianty:</b> ${round(tm.k)} kcal · B ${round(tm.p)} · S ${round(tm.c)} · T ${round(tm.f)} g</div>`+back;}
-function draftCompPct(si,vi,ci,pct){const c=dayDraft.sections[si].variants[vi].meal.components[ci];c.pct=Math.max(0,pct||0);editDraftVariant(si,vi);}
-function draftCompBase(si,vi,ci,oi){const c=dayDraft.sections[si].variants[vi].meal.components[ci];if(!c.baseOptions)return;c.baseSel=oi;c.per=Object.assign({},c.baseOptions[oi].per);c.name=c.baseOptions[oi].name;editDraftVariant(si,vi);}
-function draftMealFactor(si,vi,f){dayDraft.sections[si].variants[vi].meal.q=f;editDraftVariant(si,vi);}
-function draftRemoveIngr(si,vi,j){const meal=dayDraft.sections[si].variants[vi].meal;const ing=(meal.ingr||[])[j];if(!ing)return;const per=ingrMacro(ing[0],ing[1],ing[2]);['k','p','c','f','fib','sug','salt'].forEach(kk=>{if(meal[kk]!=null)meal[kk]=Math.max(0,+((meal[kk]-(per[kk]||0)).toFixed(2)));});meal.ingr=meal.ingr.slice(0,j).concat(meal.ingr.slice(j+1));editDraftVariant(si,vi);}
+  document.getElementById('sheetBody').innerHTML=body+`<div class="card" style="background:var(--green-soft)"><b>Celkem:</b> ${round(tm.k)} kcal · B ${round(tm.p)} · S ${round(tm.c)} · T ${round(tm.f)} g</div>
+    <button class="btn block" style="margin-top:10px" onclick="emDone()">Hotovo</button>`;}
+function _emRe(){editMealSheet(_emMeal,_emTitle,_emDone);}
+function emCompPct(ci,p){_emMeal.components[ci].pct=Math.max(0,p||0);_emRe();}
+function emCompBase(ci,oi){const c=_emMeal.components[ci];if(!c.baseOptions)return;c.baseSel=oi;c.per=Object.assign({},c.baseOptions[oi].per);c.name=c.baseOptions[oi].name;_emRe();}
+function emFactor(x){_emMeal.q=x;_emRe();}
+function emRemoveIngr(j){const meal=_emMeal;const ing=(meal.ingr||[])[j];if(!ing)return;const per=ingrMacro(ing[0],ing[1],ing[2]);['k','p','c','f','fib','sug','salt'].forEach(kk=>{if(meal[kk]!=null)meal[kk]=Math.max(0,+((meal[kk]-(per[kk]||0)).toFixed(2)));});meal.ingr=meal.ingr.slice(0,j).concat(meal.ingr.slice(j+1));_emRe();}
+function emDone(){const d=_emDone;_emMeal=null;_emDone=null;if(d)d();}
+function editDraftVariant(si,vi){const s=dayDraft.sections[si];if(!s||!s.variants||!s.variants[vi])return;const v=s.variants[vi];
+  editMealSheet(v.meal, v.meal.n.replace(/^\d+ /,'').replace(/ \(.*?\)/,''), ()=>{ if(draftInPopup)renderDraftPopup(); else {closeSheet();renderDayDraft();} });}
 function draftTotals(){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};(dayDraft.sections||[]).forEach(s=>{
   const add=it=>{const m=itemMacro(it);['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]+=m[kk]||0);};
   if(s.fixed){s.fixed.forEach(add);} else{const v=(s.variants||[]).find(x=>x.selected);if(v)add(v.meal);}});return o;}
