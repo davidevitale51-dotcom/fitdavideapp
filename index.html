@@ -2129,7 +2129,7 @@ function renderDash(){
       <div class="nm">${nm}</div><div class="goal">${isMax?'max':'cíl'} ${g} g</div></div>`;}).join('');
   // meals
   const dayEmpty=!SLOTS.some(s=>slotItems(selDate,s.k).length);
-  const cta=dayEmpty?`<button class="btn block" onclick="document.getElementById('autoPlanBtn').onclick()" style="margin-bottom:10px">✨ Naplánovat celý den automaticky</button>`:'';
+  const cta=dayEmpty?`<button class="btn block" onclick="dayIntakePrompt(selDate)" style="margin-bottom:10px">✨ Naplánovat celý den (podle typu dne)</button>`:'';
   const dayNotes=(days[selDate]||{}).notes||{}; const daySkip=(days[selDate]||{}).skip||{};
   document.getElementById('mealsWrap').innerHTML=cta+SLOTS.map(s=>{
     const items=slotItems(selDate,s.k), t=sumItems(items);
@@ -3032,7 +3032,8 @@ function applyModeTemplate(){
   if(filled&&!confirm('Přepsat obsah dne šablonou režimu? (zamčená a snědená jídla zůstanou)'))return;
   const snap=protectedSnapshot(selDate), flags=dayFlags(selDate);
   days[selDate]=Object.assign({},flags);
-  Object.keys(tpl).forEach(slot=>{if(snap[slot])return;const p=PREP.find(x=>x.n===tpl[slot]);if(p)dayObj(selDate)[slot]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
+  _veganPlanUsed=0;
+  Object.keys(tpl).forEach(slot=>{if(snap[slot])return;const p=PREP.find(x=>x.n===tpl[slot]);if(p){dayObj(selDate)[slot]=[{n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];if(usesVeganProtein(p))_veganPlanUsed++;}});
   restoreProtected(selDate,snap);
   completeDay(selDate);
   DB.save('kt_days',days);renderDash();showPlanSummary(selDate);
@@ -3070,7 +3071,7 @@ function completeDay(date){
     if(remP>40){const hp=cands.filter(i=>PREP[i].p>=20);if(hp.length)cands=hp;cands.sort((a,b)=>PREP[b].p-PREP[a].p);}
     else cands.sort((a,b)=>Math.abs(PREP[a].k-budget)-Math.abs(PREP[b].k-budget));
     const idx=cands.length?cands[Math.floor(Math.random()*Math.min(3,cands.length))]:-1;
-    if(idx>=0){ dayObj(date)[slot]=[mealItemFromPrep(PREP[idx])]; used.add(idx); delete d.notes[slot]; }
+    if(idx>=0){ dayObj(date)[slot]=[mealItemFromPrep(PREP[idx])]; used.add(idx); if(usesVeganProtein(PREP[idx]))_veganPlanUsed++; delete d.notes[slot]; }
     else { d.notes[slot]= remP>20 ? 'Chybí bílkoviny — přidej proteinový shake nebo větší porci masa.' : 'Zbývá hodně kcal — doporučená večeře: maso/vejce/tuňák + zelenina + příloha.'; }
   });
   DB.save('kt_days',days);
@@ -3145,12 +3146,13 @@ function actFlow(){
 
 /* ANALÝZA */
 function planSingleDay(date){
+  _veganPlanUsed=0;
   const snap=protectedSnapshot(date), flags=dayFlags(date);
   const ctx=dayCtx(date);
   const used=new Set();const slots={};
   // chráněná (zamčená/snědená) jídla obsadí svůj slot a nepřepisují se
   Object.values(snap).forEach(arr=>arr.forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)used.add(i);}));
-  PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);}});
+  PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(usesVeganProtein(PREP[idx]))_veganPlanUsed++;}});
   const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);
   days[date]=Object.assign({},flags); // čistý den jen s příznaky
   const d=dayObj(date);PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=[{n:p.n,q:day.factor,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
@@ -3163,6 +3165,36 @@ document.getElementById('autoPlanBtn').onclick=()=>{
   if(has && !confirm('Den už obsahuje jídla. Přepsat novým návrhem? (zamčená a snědená jídla zůstanou)'))return;
   planSingleDay(selDate); // sám zachová příznaky dne i zamčená/snědená jídla
 };
+/* ===== DOTAZNÍK PŘI PRVNÍM OTEVŘENÍ DNE: typ dne → návrh jídelníčku ===== */
+let _dipMode='', _dipTrain=false;
+function dayIntakePrompt(date){
+  selDate=date; document.getElementById('datePick').value=date;
+  _dipMode=dayMode(date); _dipTrain=!!(days[date]&&days[date].train);
+  openSheet('Jaký máš dnes den?'); document.getElementById('sheetTabs').innerHTML='';
+  renderDayIntake();
+}
+function renderDayIntake(){
+  const modeBtns=DAY_MODES.map(([k,l])=>`<button class="btn ${_dipMode===k?'':'ghost'} block" style="margin:0;text-align:left" onclick="_dipMode='${k}';renderDayIntake()">${l}</button>`).join('');
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="muted" style="font-size:.82rem;margin-bottom:10px">Vyber typ dne — podle něj ti navrhnu celý jídelníček. Jednotlivá jídla pak můžeš upravit.</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${modeBtns}</div>
+    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600">
+      <input type="checkbox" id="dipTrain" ${_dipTrain?'checked':''} onchange="_dipTrain=this.checked"> 🏋️ Dnes silový trénink (navýší cíl)
+    </label>
+    <button class="btn block" id="dipGo" style="margin-top:14px">✨ Navrhnout jídelníček</button>
+    <button class="btn ghost block" id="dipSkip" style="margin-top:8px">Nechat zatím prázdné</button>`;
+  document.getElementById('dipGo').onclick=dayIntakeApply;
+  document.getElementById('dipSkip').onclick=()=>{ if(selDate)localStorage.setItem('kt_dayintake_'+selDate,'skip'); closeSheet(); toast('Můžeš naplánovat kdykoli tlačítkem na přehledu.'); };
+}
+function dayIntakeApply(){
+  const date=selDate; const d=dayObj(date);
+  d.mode=_dipMode;
+  if(_dipTrain)d.train=true; else delete d.train;
+  DB.save('kt_days',days);
+  localStorage.setItem('kt_dayintake_'+date,_dipMode);
+  renderDash();
+  openDayPlanPopup(date); // automatický návrh + 3 možnosti u každého jídla (editovatelné)
+}
 /* ŠABLONY DNÍ */
 let templates=DB.load('kt_templates',[]);
 document.getElementById('saveTplBtn').onclick=()=>{
@@ -3615,6 +3647,7 @@ function pickPrepB(slot,used,budget,ctx){
   if(ctx.dietv){const lo=pool.filter(p=>p.tags.includes('redukce')||p.k<=budget);if(lo.length)pool=lo;}
   if(ctx.satiety){const hi=pool.filter(p=>p.p>=20||p.fib>=6);if(hi.length)pool=hi;}
   if(!pool.length)pool=PREP.filter(p=>!mealViol(p));
+  if(ctx.date&&veganBlocked(ctx.date)){const nv=pool.filter(p=>!usesVeganProtein(p));if(nv.length)pool=nv;}
   if(!pool.length)return -1;
   // stejné jídlo nikdy 2× v jednom dni (i když je povolené opakování mezi dny)
   let fresh=pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
@@ -3622,7 +3655,7 @@ function pickPrepB(slot,used,budget,ctx){
   const top=fresh.slice(0,3); const p=top[Math.floor(Math.random()*top.length)];
   return PREP.indexOf(p);
 }
-function dayCtx(date){return {mode:dayMode(date),simple:dayOpt(date,'simple'),dietv:dayOpt(date,'dietv'),satiety:dayOpt(date,'satiety')};}
+function dayCtx(date){return {date,mode:dayMode(date),simple:dayOpt(date,'simple'),dietv:dayOpt(date,'dietv'),satiety:dayOpt(date,'satiety')};}
 /* faktor porcí, aby se celkové kcal blížilo dennímu cíli (±10 %), omezeno 0.8–1.3× */
 function recalcFactor(day){let base=0;Object.values(day.slots).forEach(i=>base+=PREP[i].k);if(base<=0)return 1;
   let f=target.kcal/base; f=Math.max(0.8,Math.min(1.3,f)); return Math.round(f*20)/20;}
@@ -3634,7 +3667,8 @@ function balanceDay(day){
     let worst=null,worstP=1e9;
     PLAN_SLOTS.forEach(s=>{const idx=day.slots[s];if(idx==null)return;const pp=PREP[idx].p;if(pp<worstP){worstP=pp;worst=s;}});
     if(!worst)break;
-    const cand=modePool(worst,mode).slice().sort((a,b)=>b.p-a.p);
+    let cand=modePool(worst,mode).slice().sort((a,b)=>b.p-a.p);
+    if(day.date&&veganBlocked(day.date)){const nv=cand.filter(p=>!usesVeganProtein(p));if(nv.length)cand=nv;}
     const pick=cand.find(p=>PREP.indexOf(p)!==day.slots[worst]);
     if(!pick||pick.p<=PREP[day.slots[worst]].p)break;
     day.slots[worst]=PREP.indexOf(pick); day.factor=recalcFactor(day);
@@ -3835,7 +3869,19 @@ function obedCandidates(date){const out=[];const weekend=isWeekendDate(date);
 function slotCandidates(date,slot){let idxs;
   if(slot==='obed'){const oc=obedCandidates(date);if(oc.length)idxs=oc;}
   if(!idxs)idxs=modePool(slot,dayMode(date)).map(p=>PREP.indexOf(p));
-  return idxs.filter(i=>i>=0&&!mealViol(PREP[i]));}
+  return stripVeganIfBlocked(idxs.filter(i=>i>=0&&!mealViol(PREP[i])),date);}
+/* ===== VEGANSKÝ PROTEINOVÝ PRÁŠEK: max 2× týdně (Davideho nadýmá) ===== */
+function usesVeganProtein(p){ if(!p)return false;
+  if(Array.isArray(p.ingr)&&p.ingr.some(ing=>/vegan\s*protein/i.test((ing&&ing[0])||'')))return true;
+  return /veganský\s+protein/i.test(p.n||''); }
+function weekStartISO(date){ const d=new Date(date+'T00:00:00'); if(isNaN(d))return date; const dow=(d.getDay()+6)%7; d.setDate(d.getDate()-dow); return d.toISOString().slice(0,10); }
+function veganWeekCount(date,excludeDate){ const ws=weekStartISO(date); let n=0;
+  Object.keys(days||{}).forEach(dt=>{ if(dt===excludeDate)return; if(weekStartISO(dt)!==ws)return;
+    SLOTS.forEach(s=>slotItems(dt,s.k).forEach(it=>{ if(usesVeganProtein(it))n++; })); });
+  return n; }
+let _veganPlanUsed=0; // veganský protein přiřazený během probíhajícího plánování dne
+function veganBlocked(date){ return (veganWeekCount(date,date)+_veganPlanUsed)>=2; }
+function stripVeganIfBlocked(idxs,date){ if(!veganBlocked(date))return idxs; const f=idxs.filter(i=>!usesVeganProtein(PREP[i])); return f.length?f:idxs; }
 function genVariantMeal(date,slot,excludeSet,budget){
   const cands=slotCandidates(date,slot).filter(i=>!excludeSet.has(i));
   if(!cands.length)return null;
@@ -3845,15 +3891,17 @@ function genVariantMeal(date,slot,excludeSet,budget){
 let dayDrafts = DB.load('kt_drafts',{});
 let draftInPopup=false;
 function buildDayDraftData(date){
+  _veganPlanUsed=0;
   const usedDay=new Set(); // žádné jídlo 2× v jednom dni (napříč sekcemi i variantami)
   SLOTS.forEach(s=>slotItems(date,s.k).filter(itemProtected).forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)usedDay.add(i);}));
   const sections=PLAN_SLOTS.map(slot=>{
     const fixed=slotItems(date,slot).filter(itemProtected);
     if(fixed.length)return {slot,fixed:JSON.parse(JSON.stringify(fixed)),variants:null};
     const budget=effTarget(date).kcal*(SLOT_W[slot]||0.2);
-    const v1=genVariantMeal(date,slot,usedDay,budget); if(v1)usedDay.add(v1.prepIdx);
+    const v1=genVariantMeal(date,slot,usedDay,budget); if(v1){usedDay.add(v1.prepIdx);if(usesVeganProtein(PREP[v1.prepIdx]))_veganPlanUsed++;}
     const v2=genVariantMeal(date,slot,usedDay,budget); if(v2)usedDay.add(v2.prepIdx);
-    const variants=[]; if(v1)variants.push(Object.assign(v1,{selected:true})); if(v2)variants.push(Object.assign(v2,{selected:false}));
+    const v3=genVariantMeal(date,slot,usedDay,budget); if(v3)usedDay.add(v3.prepIdx);
+    const variants=[]; if(v1)variants.push(Object.assign(v1,{selected:true})); if(v2)variants.push(Object.assign(v2,{selected:false})); if(v3)variants.push(Object.assign(v3,{selected:false}));
     return {slot,fixed:null,variants};
   });
   return {date,plan_status:'draft',day_mode:dayMode(date),strength_training:!!dayOpt(date,'train'),sections};
@@ -3867,6 +3915,7 @@ function draftUsedExcept(si,vi){const ex=new Set();
   return ex;}
 function draftRegen(si,vi){const s=dayDraft.sections[si];if(!s.variants||!s.variants[vi])return;
   const ex=draftUsedExcept(si,vi); // nezopakuj žádné jídlo použité jinde v dni
+  _veganPlanUsed=(dayDraft.sections||[]).reduce((n,sec,j)=>{if(j===si)return n;const v=(sec.variants||[]).find(x=>x.selected);return n+(v&&v.prepIdx!=null&&usesVeganProtein(PREP[v.prepIdx])?1:0);},0);
   const budget=effTarget(dayDraft.date).kcal*(SLOT_W[s.slot]||0.2);
   const sel=s.variants[vi].selected; const nv=genVariantMeal(dayDraft.date,s.slot,ex,budget);
   if(nv){nv.selected=sel;s.variants[vi]=nv;} renderDayDraft();}
@@ -4181,6 +4230,17 @@ refreshNakupChips();
   DB.save('kt_days',days);
   localStorage.setItem('kt_seed_20260603',JSON.stringify({created,used}));
   try{selDate=D;if(typeof renderDash==='function')renderDash();}catch(e){}
+})();
+
+/* ===== PŘI PRVNÍM OTEVŘENÍ DNE: když dnešek nemá jídla, zeptej se na typ dne a navrhni plán ===== */
+(function dayIntakeBoot(){
+  try{
+    const date=todayISO;
+    if(localStorage.getItem('kt_dayintake_'+date))return;          // dnes už zodpovězeno / odloženo
+    if(SLOTS.some(s=>slotItems(date,s.k).length))return;           // už mám naplánováno → nic neřeším
+    selDate=date; document.getElementById('datePick').value=date; if(typeof renderDash==='function')renderDash();
+    setTimeout(()=>{ try{ if(!SLOTS.some(s=>slotItems(date,s.k).length)&&!localStorage.getItem('kt_dayintake_'+date)) dayIntakePrompt(date); }catch(e){} }, 450);
+  }catch(e){}
 })();
 
 if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));}
