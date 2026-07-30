@@ -1032,6 +1032,43 @@ const Q5=[0,25,50,75,100]; // rychlé volby procent pro všechny komponenty
     C('nori','Nori blend','topping',{k:5,p:0.5,c:0,f:0,sug:0,fib:0,salt:0.1})]);
 })();
 
+/* ====== VLASTNÍ SLOŽENÁ HLAVNÍ JÍDLA (kuřecí/krůtí + ryby, doma i kupované) ====== */
+(function(){
+  function HM(name,ic,mainName,mp,sideName,sp,labels){
+    const comps=[{component_id:'main',name:mainName,component_type:'protein',pct:100,per:mp,aller:[],qopts:[50,100,150,200]},
+                 {component_id:'side',name:sideName,component_type:'side',pct:100,per:sp,aller:[],qopts:[0,50,100,150]}];
+    const sum=k=>comps.reduce((a,c)=>a+(c.per[k]||0),0);const L=['composite-meal','main-meal','milk-free','high-protein'].concat(labels||[]);
+    PREP.push({n:name,ic:ic||'🍽️',cat:'Složená jídla',slots:['obed','vecere'],tags:['high protein','složené','bez mléka'],composite:true,components:comps,labels:L,
+      k:Math.round(sum('k')),p:+sum('p').toFixed(1),c:+sum('c').toFixed(1),f:+sum('f').toFixed(1),fib:+sum('fib').toFixed(1),sug:+sum('sug').toFixed(1),salt:+sum('salt').toFixed(2),
+      srvG:0,conf:'estimated',cd:false,gl:(labels||[]).includes('contains-gluten'),ingr:[]});
+  }
+  const RICE={k:230,p:4,c:50,f:0.5,sug:0,fib:1,salt:0}, POT={k:220,p:5,c:48,f:0.3,sug:2,fib:4,salt:0}, BATAT={k:180,p:3,c:41,f:0.2,sug:12,fib:6,salt:0.1},
+        QUIN={k:180,p:6,c:30,f:3,sug:1,fib:4,salt:0}, PASTA={k:270,p:9,c:53,f:1.5,sug:2,fib:3,salt:0}, BULG={k:150,p:5,c:31,f:0.5,sug:0,fib:5,salt:0}, VEG={k:60,p:2,c:8,f:2,sug:4,fib:4,salt:0.3};
+  HM('Grilované kuřecí prsa + rýže','🍗','Grilované kuřecí prsa',{k:250,p:46,c:0,f:6,sug:0,fib:0,salt:0.6},'Bílá rýže',RICE,['chicken','meat','rice-side']);
+  HM('Krůtí prsa + brambory','🦃','Krůtí prsa',{k:200,p:44,c:0,f:2.5,sug:0,fib:0,salt:0.6},'Brambory',POT,['turkey','meat']);
+  HM('Krůtí karbanátky + brambory','🦃','Krůtí karbanátky',{k:260,p:38,c:6,f:10,sug:1,fib:1,salt:0.9},'Brambory',POT,['turkey','meat']);
+  HM('Kuřecí stir-fry + rýže','🥘','Kuřecí stir-fry se zeleninou',{k:320,p:40,c:10,f:13,sug:5,fib:3,salt:1.0},'Bílá rýže',RICE,['chicken','meat','rice-side','contains-soy']);
+  HM('Pečený losos + brambory','🐟','Pečený losos',{k:310,p:34,c:0,f:19,sug:0,fib:0,salt:0.5},'Brambory',POT,['fish','contains-fish']);
+  HM('Grilovaný losos + batáty','🐟','Grilovaný losos',{k:310,p:34,c:0,f:19,sug:0,fib:0,salt:0.5},'Batáty',BATAT,['fish','contains-fish']);
+  HM('Tuňákový bowl + quinoa','🐟','Tuňák a zelenina',{k:200,p:34,c:4,f:5,sug:2,fib:2,salt:0.7},'Quinoa',QUIN,['fish','contains-fish']);
+  HM('Kuřecí kokosové curry + rýže','🍛','Kuřecí kokosové curry',{k:380,p:38,c:12,f:20,sug:6,fib:3,salt:1.2},'Bílá rýže',RICE,['chicken','meat','coconut-milk','rice-side']);
+  HM('Krůtí bolognese + těstoviny','🍝','Krůtí bolognese',{k:320,p:34,c:16,f:12,sug:6,fib:3,salt:1.1},'Těstoviny',PASTA,['turkey','meat','contains-gluten']);
+  HM('Kuřecí gyros + rýže','🥙','Kuřecí gyros',{k:290,p:42,c:4,f:11,sug:1,fib:1,salt:1.2},'Bílá rýže',RICE,['chicken','meat','rice-side']);
+  HM('Pečená treska + brambory','🐟','Pečená treska',{k:150,p:33,c:0,f:1.5,sug:0,fib:0,salt:0.5},'Brambory + zelenina',{k:260,p:6,c:52,f:1,sug:4,fib:6,salt:0.2},['fish','contains-fish']);
+  HM('Kuřecí teriyaki + rýže','🍗','Kuřecí teriyaki',{k:300,p:40,c:12,f:8,sug:9,fib:0,salt:1.6},'Bílá rýže',RICE,['chicken','meat','rice-side','contains-soy','contains-sesame']);
+  HM('Krevety + rýže a zelenina','🍤','Krevety se zeleninou',{k:180,p:29,c:6,f:3,sug:3,fib:3,salt:1.2},'Bílá rýže',RICE,['fish','contains-shellfish','rice-side']);
+  HM('Kuřecí salát bowl + quinoa','🥗','Kuřecí salát bowl',{k:330,p:40,c:10,f:14,sug:5,fib:4,salt:1.0},'Quinoa',QUIN,['chicken','meat','prepmymeal']);
+  HM('Kuřecí souvlaki + bulgur','🥙','Kuřecí souvlaki',{k:290,p:42,c:3,f:11,sug:1,fib:0,salt:1.1},'Bulgur',BULG,['chicken','meat','contains-gluten']);
+})();
+/* ====== VLASTNÍ SVAČINY (vysoký protein, bez mléka) ====== */
+(function(){const S=(n,ic,tags,k,p,c,f,fib,sug,salt,gl)=>{const m=M(n,ic,'Svačiny',['svacina1','svacina2'],['high protein','bez mléka'].concat(tags||[]),0,k,p,c,f,fib,sug,salt,false,!!gl,[]);m.labels=['snack','milk-free'].concat(tags||[]);PREP.push(m);};
+  S('Kuřecí plátky + okurka','🍗',['chicken','high-protein'],130,24,2,3,1,1,1.0);
+  S('Uzený losos + rýžové chlebíčky','🐟',['fish','contains-fish'],200,20,16,7,1,0,1.5);
+  S('Veganský proteinový pudink','🍮',['vegan','high-protein'],200,25,12,5,3,6,0.3);
+  S('Tuňákový wrap (tortilla)','🌯',['fish','contains-fish','contains-gluten'],280,28,26,7,2,2,1.4,true);
+  S('Edamame + mandarinka','🫛',['vegan','contains-soy'],170,12,20,5,6,12,0.1);
+})();
+
 /* ====== SLOTY JÍDEL ====== */
 const SLOTS=[
  {k:"snidane",l:"Snídaně",ic:"🌅"},{k:"svacina1",l:"Dopolední svačina",ic:"🥤"},
@@ -2825,6 +2862,38 @@ function applyNutritionToFoodForm(parsedData) {
   if (parsedData.sugars !== null) document.getElementById('cfSug').value = parsedData.sugars;
   if (parsedData.salt !== null) document.getElementById('cfSalt').value = parsedData.salt;
 }
+/* ===== PARSER NUTRIČNÍ TABULKY Z TEXTU (CZ/EN/DE/FR) ===== */
+function parseNutritionText(text){
+  if(!text||text.trim()==='')return null;
+  const norm=text.toLowerCase().replace(/,/g,'.');
+  const result={name:'',kcal:null,kj:null,fat:null,saturatedFat:null,carbs:null,sugars:null,fiber:null,protein:null,salt:null,basis:'srv'};
+  const lines=text.trim().split('\n'); result.name=lines[0].trim();
+  if(/na 100 ?g|per 100 ?g|auf 100 ?g|na 100 ?ml|per 100 ?ml|auf 100 ?ml|\/100 ?g|\/100 ?ml/.test(norm)) result.basis='100';
+  const patterns={
+    kcal:/(?:energetická hodnota|energie|brennwert|calories?|energy).*?(\d+(?:\.\d+)?)\s*kcal/i,
+    kj:/(\d+(?:\.\d+)?)\s*kj/i,
+    protein:/(?:bílkoviny|protein|eiweiss|protéines?).*?(\d+(?:\.\d+)?)\s*g/i,
+    saturatedFat:/(?:nasycené|saturated|gesättigt).*?(\d+(?:\.\d+)?)\s*g/i,
+    fat:/(?:tuky|fats?|lipids?|graisse|fett)(?!\w)(?!.*(?:nasycené|saturated|gesättigt)).*?(\d+(?:\.\d+)?)\s*g/i,
+    carbs:/(?:sacharidy|carbohydrates?|kohlenhydrate|glucides?).*?(\d+(?:\.\d+)?)\s*g/i,
+    sugars:/(?:cukry|sugars?|sucre|zucker).*?(\d+(?:\.\d+)?)\s*g/i,
+    fiber:/(?:vláknina|fibre?|fasern?|ballaststoffe).*?(\d+(?:\.\d+)?)\s*g/i,
+    salt:/(?:sůl|sodium|salt|natrium|sel|salz).*?(\d+(?:\.\d+)?)\s*g/i
+  };
+  for(const key in patterns){const m=norm.match(patterns[key]);if(m&&m[1])result[key]=parseFloat(m[1]);}
+  if(result.kcal==null&&result.kj!=null)result.kcal=Math.round(result.kj/4.184); // dopočet kcal z kJ
+  return result;
+}
+function applyMealNutrition(){const el=document.getElementById('cmNutritionText');if(!el)return;applyNutritionToMealForm(parseNutritionText(el.value));}
+function applyFoodNutrition(){const el=document.getElementById('cfNutritionText');if(!el)return;applyNutritionToFoodForm(parseNutritionText(el.value));}
+function setVal(id,v){const e=document.getElementById(id);if(e&&v!=null)e.value=v;}
+function applyNutritionToMealForm(d){if(!d)return;
+  if(d.name)setVal('cmName',d.name);setVal('cmK',d.kcal);setVal('cmP',d.protein);setVal('cmC',d.carbs);setVal('cmF',d.fat);setVal('cmFib',d.fiber);setVal('cmSug',d.sugars);setVal('cmSalt',d.salt);
+  if(d.basis==='100'){const b=document.querySelector('#cmBasis button[data-b="100"]');if(b)b.click();}
+  toast('Načteno z textu — zkontroluj hodnoty');}
+function applyNutritionToFoodForm(d){if(!d)return;
+  if(d.name)setVal('cfName',d.name);setVal('cfK',d.kcal);setVal('cfP',d.protein);setVal('cfC',d.carbs);setVal('cfF',d.fat);setVal('cfFib',d.fiber);setVal('cfSug',d.sugars);setVal('cfSalt',d.salt);
+  toast('Načteno z textu — zkontroluj hodnoty');}
 function customFoodForm(prefill,onSaved){
   stopScanner();cfImgN=null;cfImgP=null;
   openSheet('Nová potravina + foto');document.getElementById('sheetTabs').innerHTML='';
@@ -2836,6 +2905,9 @@ function customFoodForm(prefill,onSaved){
 </div>
 
 <label>Název</label><input type="text" id="cfName" value="${(prefill||'').replace(/"/g,'&quot;')}" placeholder="např. Müsli XY 250 g">
+    <details class="setblk" style="margin-top:8px"><summary><b style="font-size:.86rem">📋 Vložit z nutriční tabulky (text)</b></summary>
+      <textarea id="cfNutritionText" rows="4" style="margin-top:6px" placeholder="Vlož text z obalu (CZ/EN/DE), např.:\nEnergie 380 kcal\nBílkoviny 40 g\nSacharidy 27 g\nTuky 10 g..."></textarea>
+      <button class="btn sec block" style="margin-top:6px" onclick="applyFoodNutrition()">Načíst hodnoty do formuláře</button></details>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px">
       <div><label>kcal / 100 g</label><input type="number" id="cfK"></div>
       <div><label>Bílkoviny (g)</label><input type="number" id="cfP"></div>
@@ -3506,8 +3578,8 @@ function pickPrepB(slot,used,budget,ctx){
   if(ctx.satiety){const hi=pool.filter(p=>p.p>=20||p.fib>=6);if(hi.length)pool=hi;}
   if(!pool.length)pool=PREP.filter(p=>!mealViol(p));
   if(!pool.length)return -1;
-  const allowRepeat=ctx.simple||(WORK_MODES.includes(mode)&&workCfg.repeat);
-  let fresh=allowRepeat?pool:pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
+  // stejné jídlo nikdy 2× v jednom dni (i když je povolené opakování mezi dny)
+  let fresh=pool.filter(p=>!used.has(PREP.indexOf(p))); if(!fresh.length)fresh=pool;
   fresh=fresh.slice().sort((a,b)=>Math.abs(a.k-budget)-Math.abs(b.k-budget));
   const top=fresh.slice(0,3); const p=top[Math.floor(Math.random()*top.length)];
   return PREP.indexOf(p);
@@ -3728,12 +3800,14 @@ function genVariantMeal(date,slot,excludeSet,budget){
 let dayDrafts = DB.load('kt_drafts',{});
 let draftInPopup=false;
 function buildDayDraftData(date){
+  const usedDay=new Set(); // žádné jídlo 2× v jednom dni (napříč sekcemi i variantami)
+  SLOTS.forEach(s=>slotItems(date,s.k).filter(itemProtected).forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)usedDay.add(i);}));
   const sections=PLAN_SLOTS.map(slot=>{
     const fixed=slotItems(date,slot).filter(itemProtected);
     if(fixed.length)return {slot,fixed:JSON.parse(JSON.stringify(fixed)),variants:null};
     const budget=effTarget(date).kcal*(SLOT_W[slot]||0.2);
-    const v1=genVariantMeal(date,slot,new Set(),budget);
-    const v2=genVariantMeal(date,slot,new Set(v1?[v1.prepIdx]:[]),budget);
+    const v1=genVariantMeal(date,slot,usedDay,budget); if(v1)usedDay.add(v1.prepIdx);
+    const v2=genVariantMeal(date,slot,usedDay,budget); if(v2)usedDay.add(v2.prepIdx);
     const variants=[]; if(v1)variants.push(Object.assign(v1,{selected:true})); if(v2)variants.push(Object.assign(v2,{selected:false}));
     return {slot,fixed:null,variants};
   });
@@ -3742,18 +3816,44 @@ function buildDayDraftData(date){
 function buildDayDraft(date){ dayDraft=buildDayDraftData(date); draftInPopup=false; renderDayDraft(); }
 function regenAllDraft(){ if(!dayDraft)return; if(!confirm('Přegenerovat celý den? Zamčená a snědená jídla zůstanou.'))return; dayDraft=buildDayDraftData(dayDraft.date); renderDayDraft(); }
 function draftSelect(si,vi){const s=dayDraft.sections[si];if(!s.variants)return;s.variants.forEach((v,j)=>v.selected=(j===vi));renderDayDraft();}
+function draftUsedExcept(si,vi){const ex=new Set();
+  (dayDraft.sections||[]).forEach((s,j)=>{ if(s.fixed){s.fixed.forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)ex.add(i);});return;}
+    (s.variants||[]).forEach((v,k)=>{ if(j===si&&k===vi)return; if(v.prepIdx!=null)ex.add(v.prepIdx); }); });
+  return ex;}
 function draftRegen(si,vi){const s=dayDraft.sections[si];if(!s.variants||!s.variants[vi])return;
-  const other=s.variants[vi===0?1:0];const ex=new Set(other?[other.prepIdx]:[]);
+  const ex=draftUsedExcept(si,vi); // nezopakuj žádné jídlo použité jinde v dni
   const budget=effTarget(dayDraft.date).kcal*(SLOT_W[s.slot]||0.2);
   const sel=s.variants[vi].selected; const nv=genVariantMeal(dayDraft.date,s.slot,ex,budget);
   if(nv){nv.selected=sel;s.variants[vi]=nv;} renderDayDraft();}
+/* editace navržené varianty – váha porce, komponenty %, výměna base, vyřazení ingredience */
+function editDraftVariant(si,vi){const s=dayDraft.sections[si];if(!s||!s.variants||!s.variants[vi])return;const v=s.variants[vi];const meal=v.meal;
+  openSheet('Upravit: '+meal.n.replace(/^\d+ /,'').replace(/ \(.*?\)/,''));document.getElementById('sheetTabs').innerHTML='';
+  const back=`<button class="btn block" style="margin-top:10px" onclick="${draftInPopup?`renderDraftPopup()`:`closeSheet();renderDayDraft()`}">Hotovo</button>`;
+  let body='';
+  if(meal.composite&&meal.components){
+    body=meal.components.map((c,ci)=>{const t=COMP_TYPES[c.component_type]||{l:c.component_type};const qo=c.qopts||(t.q||[0,50,100]);const m=compNutr(c);
+      const btns=qo.map(p=>`<button class="chip ${(c.pct!=null?c.pct:100)===p?'on':''}" onclick="draftCompPct(${si},${vi},${ci},${p})">${p} %</button>`).join('');
+      const baseSel=c.baseOptions?`<div style="margin:4px 0"><select onchange="draftCompBase(${si},${vi},${ci},this.selectedIndex)">${c.baseOptions.map((o,oi)=>`<option ${oi===c.baseSel?'selected':''}>${o.name.replace('Base: ','')}</option>`).join('')}</select></div>`:'';
+      return `<div class="card" style="padding:10px"><div style="display:flex;justify-content:space-between"><b>${c.name}</b><span class="muted" style="font-size:.76rem">${compPortionLabel(c)}</span></div>${baseSel}<div class="chips" style="flex-wrap:wrap;margin:6px 0">${btns}</div><div class="muted" style="font-size:.76rem">${round(m.k)} kcal · B ${round(m.p)} · S ${round(m.c)} · T ${round(m.f)}</div></div>`;}).join('');
+  } else {
+    const f=meal.q||1;
+    body=`<label>Porce</label><div class="seg">${[0.5,1,1.5,2].map(x=>`<button class="${f===x?'on':''}" onclick="draftMealFactor(${si},${vi},${x})">${x}×</button>`).join('')}</div>`;
+    if(meal.ingr&&meal.ingr.length){ body+=`<div class="muted" style="font-size:.78rem;margin-top:8px">Ingredience (klepni ✕ pro vyřazení):</div>`+
+      meal.ingr.map((ing,j)=>`<div class="li"><span>${ing[0]}${ing[1]?(' · '+ing[1]+' '+(ing[2]||'')):''}</span><span class="x" onclick="draftRemoveIngr(${si},${vi},${j})">✕</span></div>`).join(''); }
+  }
+  const tm=itemMacro(meal);
+  document.getElementById('sheetBody').innerHTML=body+`<div class="card" style="background:var(--green-soft)"><b>Celkem této varianty:</b> ${round(tm.k)} kcal · B ${round(tm.p)} · S ${round(tm.c)} · T ${round(tm.f)} g</div>`+back;}
+function draftCompPct(si,vi,ci,pct){const c=dayDraft.sections[si].variants[vi].meal.components[ci];c.pct=Math.max(0,pct||0);editDraftVariant(si,vi);}
+function draftCompBase(si,vi,ci,oi){const c=dayDraft.sections[si].variants[vi].meal.components[ci];if(!c.baseOptions)return;c.baseSel=oi;c.per=Object.assign({},c.baseOptions[oi].per);c.name=c.baseOptions[oi].name;editDraftVariant(si,vi);}
+function draftMealFactor(si,vi,f){dayDraft.sections[si].variants[vi].meal.q=f;editDraftVariant(si,vi);}
+function draftRemoveIngr(si,vi,j){const meal=dayDraft.sections[si].variants[vi].meal;const ing=(meal.ingr||[])[j];if(!ing)return;const per=ingrMacro(ing[0],ing[1],ing[2]);['k','p','c','f','fib','sug','salt'].forEach(kk=>{if(meal[kk]!=null)meal[kk]=Math.max(0,+((meal[kk]-(per[kk]||0)).toFixed(2)));});meal.ingr=meal.ingr.slice(0,j).concat(meal.ingr.slice(j+1));editDraftVariant(si,vi);}
 function draftTotals(){let o={k:0,p:0,c:0,f:0,fib:0,sug:0,salt:0};(dayDraft.sections||[]).forEach(s=>{
   const add=it=>{const m=itemMacro(it);['k','p','c','f','fib','sug','salt'].forEach(kk=>o[kk]+=m[kk]||0);};
   if(s.fixed){s.fixed.forEach(add);} else{const v=(s.variants||[]).find(x=>x.selected);if(v)add(v.meal);}});return o;}
 function draftBodyHTML(){
   const sl=k=>(SLOTS.find(s=>s.k===k)||{l:k,ic:''});
   const vRow=(si,vi,v)=>{const m=itemMacro(v.meal);const pre=v.source==='restaurant_cycle'?'🍱 ':(v.meal.composite?'🍱 ':'');
-    return `<div class="row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${v.selected?'checked':''} onclick="draftSelect(${si},${vi})" style="width:auto"><span><div class="n">V${vi+1}: ${pre}${v.meal.n.replace(/^\d+ /,'')}</div><div class="m">${round(m.k)} kcal · B ${round(m.p)}</div></span></label><button class="add" title="nový návrh" onclick="draftRegen(${si},${vi})">↻</button></div>`;};
+    return `<div class="row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${v.selected?'checked':''} onclick="draftSelect(${si},${vi})" style="width:auto"><span><div class="n">V${vi+1}: ${pre}${v.meal.n.replace(/^\d+ /,'')}</div><div class="m">${round(m.k)} kcal · B ${round(m.p)}</div></span></label><button class="add" title="upravit (váha, komponenty, ingredience)" onclick="editDraftVariant(${si},${vi})">✎</button><button class="add" title="nový návrh" onclick="draftRegen(${si},${vi})">↻</button></div>`;};
   let h=dayDraft.sections.map((s,si)=>{
     if(s.fixed)return `<div class="card" style="background:#f3f3f3;padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted" style="font-size:.76rem">Sekce obsahuje zamčené/snědené jídlo. Nebude automaticky měněna.</div>${s.fixed.map(it=>`<div class="li"><span>${it.eaten?'✅ ':''}${it.locked?lockIcon(true,14)+' ':''}${it.n.replace(/ \(.*?\)/,'')}</span><span>${round(itemMacro(it).k)} kcal</span></div>`).join('')}</div>`;
     if(!s.variants||!s.variants.length)return `<div class="card" style="padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted">Bez vhodného návrhu.</div></div>`;
