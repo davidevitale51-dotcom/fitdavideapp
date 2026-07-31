@@ -3824,6 +3824,7 @@ function renderPlanOut(){
     const inRange=Math.abs(t.k-target.kcal)<=target.kcal*0.10;
     const warn=t.p<target.prot-20?`<div class="muted" style="color:#c9534a;font-size:.8rem;margin-top:4px">Po úpravách chybí ${round(target.prot-t.p)} g bílkovin — přidej proteinovou svačinu.</div>`:'';
     return `<div class="card"><div class="card-h"><h3>Den ${di+1} · ${day.date}</h3><span class="kc" style="color:${inRange?'var(--green-d)':'#c0392b'};font-weight:800">${round(t.k)} kcal ${inRange?'✓':''}</span></div>
+      <div style="margin:2px 0 6px"><label class="muted" style="font-size:.74rem;margin-right:6px">Typ dne:</label><select onchange="setPlanDayMode(${di},this.value)" style="font-size:.82rem;padding:4px 6px;border-radius:8px">${DAY_MODES.map(([k,l])=>`<option value="${k}"${dayMode(day.date)===k?' selected':''}>${l}</option>`).join('')}</select></div>
       <div class="muted" style="font-size:.78rem;margin-bottom:6px">cíl ${target.kcal} ±10 % · porce ×${fac} · B ${round(t.p)} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g</div>
       ${isNightDay(day.date)?`<div class="muted" style="font-size:.76rem;margin-bottom:4px">🌙 Noční směna — oběd nenavrhuji (přes den spíš), jídla jsou v pořadí od probuzení po noční jídlo.</div>`:''}
       ${planSlotsFor(day.date).map(s=>{const ic=(SLOTS.find(x=>x.k===s)||{}).ic||'';const lbl=slotLabelFor(day.date,s);const it=planSlotItem(day,s);const edited=day.items&&day.items[s];
@@ -3853,6 +3854,12 @@ function planDayChanged(di){const day=lastPlan.days[di];const ps=planSlotsFor(da
   return sugg!==real;
 }
 function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2),dayCtx(day.date));if(idx>=0)day.slots[slot]=idx;if(day.items)delete day.items[slot];day.factor=recalcFactor(day);renderPlanOut();}
+/* změna typu dne přímo v Plánu → přegeneruje daný den podle nového režimu (denní/noční/nemoc/cestování…) */
+function setPlanDayMode(di,mode){const day=lastPlan.days[di];const date=day.date;dayObj(date).mode=mode;DB.save('kt_days',days);
+  const used=new Set();const gK=effTarget(date).kcal;_veganPlanUsed=0;const ctx=dayCtx(date);const slots={};
+  planSlotsFor(date).forEach(s=>{const idx=pickPrepB(s,used,gK*slotWeight(date,s),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(usesVeganProtein(PREP[idx]))_veganPlanUsed++;}});
+  day.slots=slots;day.items={};day.factor=recalcFactor(day);balanceDay(day);
+  renderPlanOut();toast('Den '+(di+1)+': '+(DAY_MODES.find(x=>x[0]===mode)||[])[1]);}
 function acceptDay(di){const day=lastPlan.days[di];const snap=protectedSnapshot(day.date);const d=dayObj(day.date);planSlotsFor(day.date).forEach(s=>{if(snap[s])return;const it=planSlotItem(day,s);if(!it){delete d[s];return;}d[s]=[JSON.parse(JSON.stringify(it))];});restoreProtected(day.date,snap);DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
 /* stejné úpravy jako u jednodenního plánu: zapíše návrh dne do přehledu a otevře editační popup (3 varianty, ✎, ↻, 📖) */
 function planEditDay(di){const day=lastPlan.days[di];const snap=protectedSnapshot(day.date);const d=dayObj(day.date);
