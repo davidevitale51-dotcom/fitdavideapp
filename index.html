@@ -3254,16 +3254,16 @@ function planSingleDay(date){
   if(d.notes)PLAN_SLOTS.concat('vecere2').forEach(s=>{if(slotItems(date,s).length&&d.notes)delete d.notes[s];});
   completeDay(date);DB.save('kt_days',days);renderDash();showPlanSummary(date);
 }
-document.getElementById('autoPlanBtn').onclick=()=>{
-  const has=SLOTS.some(s=>slotItems(selDate,s.k).length);
-  if(has && !confirm('Den už obsahuje jídla. Přepsat novým návrhem? (zamčená a snědená jídla zůstanou)'))return;
-  planSingleDay(selDate); // sám zachová příznaky dne i zamčená/snědená jídla
-};
-/* ===== DOTAZNÍK PŘI OTEVŘENÍ DNE: typ dne → 3–4 cílené otázky → návrh ===== */
+document.getElementById('autoPlanBtn').onclick=()=>{ planDayFlow(selDate); };
+/* ===== DOTAZNÍK PŘED PLÁNOVÁNÍM DNE: typ dne → 3–4 cílené otázky → návrh ===== */
 let _dqDate=null,_dqMode='',_dqList=[],_dqIdx=0,_dqAns={};
+/* brána k plánování: když den ještě nebyl zodpovězen, nejdřív se zeptej; jinak rovnou otevři návrh */
+function planDayFlow(date){ selDate=date; const dp=document.getElementById('datePick'); if(dp)dp.value=date;
+  if(localStorage.getItem('kt_dayintake_'+date)){ openDayPlanPopup(date); return; }
+  dayIntakePrompt(date); }
 function dayIntakePrompt(date){
   selDate=date; document.getElementById('datePick').value=date; _dqDate=date;
-  openSheet('Jaký máš dnes den?'); document.getElementById('sheetTabs').innerHTML='';
+  openSheet('Jaký máš ten den?'); document.getElementById('sheetTabs').innerHTML='';
   renderModePick();
 }
 function renderModePick(){
@@ -3271,9 +3271,13 @@ function renderModePick(){
   document.getElementById('sheetBody').innerHTML=
    `<div class="muted" style="font-size:.82rem;margin-bottom:10px">Vyber typ dne. Pak ti položím pár krátkých otázek a navrhnu celý jídelníček na míru.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${modeBtns}</div>
-    <button class="btn ghost block" id="dipSkip" style="margin-top:12px">Nechat zatím prázdné</button>`;
+    <button class="btn sec block" id="dipUniversal" style="margin-top:12px">⏭ Přeskočit — navrhnout běžný den</button>
+    <button class="btn ghost block" id="dipSkip" style="margin-top:8px">Nechat zatím prázdné</button>`;
+  document.getElementById('dipUniversal').onclick=skipDayQuestions;
   document.getElementById('dipSkip').onclick=()=>{ if(_dqDate)localStorage.setItem('kt_dayintake_'+_dqDate,'skip'); closeSheet(); toast('Můžeš naplánovat kdykoli tlačítkem na přehledu.'); };
 }
+/* přeskočit dotazník a navrhnout univerzální běžný den (bez speciálních filtrů) */
+function skipDayQuestions(){ const date=_dqDate; applyDayAnswers(date,{mode:'volno',_tips:[]}); localStorage.setItem('kt_dayintake_'+date,'volno'); renderDash(); openDayPlanPopup(date); }
 function beginDayQuestions(mode){ _dqMode=mode; _dqList=dayQuestions(mode); _dqIdx=0; _dqAns={mode,_tips:[]}; renderDayQuestion(); }
 function renderDayQuestion(){
   if(_dqIdx>=_dqList.length){ finishDayQuestionnaire(); return; }
@@ -3284,7 +3288,8 @@ function renderDayQuestion(){
    `<div class="muted" style="font-size:.78rem;margin-bottom:4px">Krok ${_dqIdx+1}/${total}</div>
     <div style="font-weight:800;font-size:1.05rem;margin-bottom:12px">${q.q}</div>
     ${opts}
-    <button class="btn ghost block" style="margin-top:6px;opacity:.8" onclick="dqBack()">${_dqIdx===0?'← Zpět na výběr dne':'← Předchozí'}</button>`;
+    <button class="btn sec block" style="margin-top:6px" onclick="finishDayQuestionnaire()">⏭ Přeskočit zbytek a navrhnout</button>
+    <button class="btn ghost block" style="margin-top:8px;opacity:.8" onclick="dqBack()">${_dqIdx===0?'← Zpět na výběr dne':'← Předchozí'}</button>`;
 }
 function answerDayQuestion(i){ const q=_dqList[_dqIdx]; const o=q.opts[i]; if(o){ Object.assign(_dqAns,o.set||{}); if(o.tip)_dqAns._tips.push(o.tip); } _dqIdx++; renderDayQuestion(); }
 function dqBack(){ if(_dqIdx===0){ renderModePick(); return; } _dqIdx--; renderDayQuestion(); }
@@ -3703,7 +3708,7 @@ function renderWeekOverview(){
     const planned=SLOTS.some(s=>slotItems(di,s.k).length);
     const pct=Math.min(100,t.k/target.kcal*100);const inR=planned&&Math.abs(t.k-target.kcal)<=target.kcal*0.10;
     const lbl=di===todayISO?'Dnes':DOW[d.getDay()];
-    h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="openDayPlanPopup('${di}')">
+    h+=`<div style="display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid var(--line);cursor:pointer" onclick="planDayFlow('${di}')">
       <div style="width:54px;font-size:.78rem"><b>${lbl}</b> ${d.getDate()}.</div>
       <div style="flex:1"><div class="pbar" style="height:9px"><span style="width:${pct}%;background:${inR?'var(--green)':(planned?'var(--carb)':'#dfe6e0')}"></span></div></div>
       <div style="width:96px;text-align:right;font-size:.76rem">${planned?round(t.k)+' kcal · '+round(t.p)+'g B':'<span class="muted">nenaplánováno</span>'}</div>
@@ -4214,7 +4219,7 @@ function draftApply(){if(!dayDraft)return;const date=dayDraft.date;const d=dayOb
   if(wasPopup)closeSheet(); else {const o=document.getElementById('draftOut');if(o)o.innerHTML='';}
   renderDash();if(typeof renderWeekOverview==='function')renderWeekOverview();if(lastPlan&&typeof renderPlanOut==='function')renderPlanOut();
   toast('✅ Vybrané varianty zapsány: '+round(t.k)+' kcal');}
-document.getElementById('genDraft').onclick=()=>{const dt=document.getElementById('draftDate').value||todayISO;buildDayDraft(dt);};
+document.getElementById('genDraft').onclick=()=>{const dt=document.getElementById('draftDate').value||todayISO;planDayFlow(dt);};
 document.getElementById('datePick').onclick=function(){this.showPicker&&this.showPicker();};
 document.getElementById('datePick').onchange=function(){if(this.value){selDate=this.value;renderDash();}};
 document.getElementById('todayBtn').onclick=()=>{selDate=todayISO;document.getElementById('datePick').value=todayISO;renderDash();toast('Dnes');};
