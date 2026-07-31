@@ -3849,6 +3849,7 @@ function recomputeShop(newItems,rangeLabel){
   const lockedKeys=new Set(locked.map(it=>_n((it.n||'').replace(/ \(.*?\)/,''))+'|'+(it.u||'')));
   let dup=0; newItems.forEach(it=>{const kk=_n((it.n||'').replace(/ \(.*?\)/,''))+'|'+(it.u||'');if(lockedKeys.has(kk)){dup++;it.maybeDup=true;}});
   shopState=locked.concat(newItems);
+  if(typeof shopUndoSnap!=='undefined')shopUndoSnap=null; // nový seznam → zruš možnost vrácení předchozího mazání
   if(rangeLabel!=null)shopRange=rangeLabel;
   saveShop();
   const updated=Math.min(prevUnlocked,newItems.length), added=Math.max(0,newItems.length-prevUnlocked);
@@ -3899,7 +3900,8 @@ function renderNakup(){
     `<span>${total} položek · ${done} koupeno</span>
      <button class="chip ${shopHideDone?'on':''}" onclick="shopTgl('hide')">Skrýt koupené</button>
      ${done?`<button class="chip" onclick="shopClearDone()">Vyčistit koupené</button>`:''}
-     ${total?`<button class="chip" style="color:#c0392b" onclick="shopClearAll()">🗑 Smazat vše</button>`:''}`;
+     ${total?`<button class="chip" style="color:#c0392b" onclick="shopClearAll()">🗑 Smazat nezamčené</button>`:''}
+     ${shopUndoSnap?`<button class="chip" style="color:var(--green-d)" onclick="shopUndo()">↩ Vrátit ${shopUndoSnap.label}</button>`:''}`;
   const list=document.getElementById('shopList');
   if(!shopState.length){list.innerHTML='<p class="muted" style="padding:14px 0">Seznam je prázdný. Vytvoř ho v záložce Plán → „Vytvořit nákupní seznam", nebo přidej položku ručně.</p>';return;}
   // řádek nekoupené položky (s checkboxem a menu)
@@ -3938,10 +3940,14 @@ window.shopLock=i=>{const it=shopState[i];it.locked=!it.locked;saveShop();render
 window.shopDel=i=>{const it=shopState[i];if(it.locked&&!confirm('Tato položka je zamčená. Opravdu ji chceš odstranit?'))return;shopState.splice(i,1);saveShop();renderNakup();};
 window.shopEditName=i=>{const it=shopState[i];const v=prompt('Název položky:', it.n.replace(/ \(.*?\)/,''));if(v===null)return;const nm=v.trim();if(!nm){toast('Název nesmí být prázdný');return;}it.n=nm;it.cat=shopCat(nm);if(it.source!=='manual')it.manual_override=true;it.updated_at=new Date().toISOString().slice(0,16).replace('T',' ');saveShop();renderNakup();toast('Uloženo');};
 window.shopEditQty=i=>{const it=shopState[i];const v=prompt('Množství (číslo):', it.q);if(v===null)return;const qn=parseFloat((''+v).replace(',','.'));it.q=isNaN(qn)?'':qn;const u=prompt('Jednotka (ks, g, kg, ml, l, balení…):', it.u||'ks');if(u!==null)it.u=u.trim();if(it.source!=='manual')it.manual_override=true;it.updated_at=new Date().toISOString().slice(0,16).replace('T',' ');saveShop();renderNakup();toast('Uloženo');};
-window.shopClearDone=()=>{shopState=shopState.filter(it=>!it.done);saveShop();renderNakup();};
-window.shopClearAll=()=>{if(!shopState.length)return;const locked=shopState.filter(it=>it.locked).length;
-  if(!confirm('Smazat všechny položky nákupního seznamu'+(locked?(' včetně '+locked+' zamčených'):'')+'? Nelze vrátit.'))return;
-  shopState=[];saveShop();renderNakup();toast('Nákupní seznam vymazán');};
+let shopUndoSnap=null; // {state,label}
+function shopSetUndo(label){ shopUndoSnap={state:JSON.parse(JSON.stringify(shopState)),label}; }
+window.shopUndo=()=>{ if(!shopUndoSnap)return; shopState=shopUndoSnap.state; shopUndoSnap=null; saveShop(); renderNakup(); toast('Akce vrácena'); };
+window.shopClearDone=()=>{const n=shopState.filter(it=>it.done).length;if(!n)return;shopSetUndo('vyčištění koupených');shopState=shopState.filter(it=>!it.done);saveShop();renderNakup();};
+window.shopClearAll=()=>{const del=shopState.filter(it=>!it.locked).length;const locked=shopState.filter(it=>it.locked).length;
+  if(!del){toast(locked?'Vše je zamčené — nic ke smazání':'Seznam je prázdný');return;}
+  if(!confirm('Smazat '+del+' nezamčených položek?'+(locked?(' '+locked+' zamčených zůstane.'):'')))return;
+  shopSetUndo('smazání');shopState=shopState.filter(it=>it.locked);saveShop();renderNakup();toast('Smazáno '+del+' položek'+(locked?' ('+locked+' zamčených ponecháno)':''));};
 window.shopTgl=k=>{if(k==='uc')shopOnlyUnchecked=!shopOnlyUnchecked;else if(k==='cat')shopCats=!shopCats;else if(k==='hide')shopHideDone=!shopHideDone;refreshNakupChips();renderNakup();};
 function refreshNakupChips(){const u=document.getElementById('tglUnchecked'),c=document.getElementById('tglCats');if(u)u.classList.toggle('on',shopOnlyUnchecked);if(c)c.classList.toggle('on',shopCats);}
 function copyAnydo(){const t=shopExportText();if(!t){toast('Nic k exportu');return;}
@@ -4376,6 +4382,7 @@ document.getElementById('shopAddBtn').onclick=()=>{const el=document.getElementB
   if(qn<0){toast('Množství nedává smysl');return;}
   const now=new Date().toISOString().slice(0,16).replace('T',' ');
   shopState.push({n:v,q:qn,u:unit,unit_group:unitGroup,note:(nel.value||'').trim(),cat:(cel&&cel.value.trim())||shopCat(v),done:false,source:'manual',locked:!!lel.checked,manual_override:true,created_at:now,updated_at:now});
+  if(typeof shopUndoSnap!=='undefined')shopUndoSnap=null; // nová položka → zruš vrácení předchozího mazání
   el.value='';qel.value='';if(nel)nel.value='';if(cel)cel.value='';
   saveShop();renderNakup();toast('Přidáno'+(lel.checked?' (zamčené 🔒)':''));
   // znovu připrav pole pro rychlé zadávání
