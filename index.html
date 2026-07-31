@@ -2510,7 +2510,10 @@ function isBoughtMeal(meal){ const p=(meal&&meal.cat)?meal:(prepByName(meal&&mea
   return cat==='PrepMyMeal'||labels.includes('lekkeray')||labels.includes('restaurant')||/Dean & David|Japanese Beef Bowl|Takesushi|Lekkeray|prepmymeal/i.test((meal&&meal.n)||''); }
 function mealIngredients(meal){ if(!meal)return [];
   if(meal.composite&&meal.components)return meal.components.map(c=>[(c.name||'').replace('Base: ',''), (typeof compPortionLabel==='function'?compPortionLabel(c):''), '']);
-  return meal.ingr||(prepByName(meal.n)||{}).ingr||[]; }
+  const base=meal.ingr||(prepByName(meal.n)||{}).ingr||[];
+  const f=(typeof meal.q==='number'&&meal.q>0)?meal.q:1; // navýšená porce → adekvátně víc ingriencí
+  if(f===1)return base;
+  return base.map(it=>{const q=it[1];const nq=(typeof q==='number')?+(q*f).toFixed(2):q;return [it[0],nq,it[2]];}); }
 function autoRecipe(meal){ const ings=mealIngredients(meal); const names=ings.map(i=>(i[0]||'').toLowerCase()); const has=re=>names.some(n=>re.test(n)); const steps=[];
   const listStr=ings.map(i=>i[0]+(i[1]?(' – '+i[1]+' '+(i[2]||'')):'')).filter(Boolean).join(', ');
   steps.push('Připrav si suroviny: '+(listStr||'dle jídla')+'.');
@@ -2541,6 +2544,7 @@ function openRecipeVariant(si,vi){ const s=dayDraft&&dayDraft.sections[si]; cons
 function renderRecipeSheet(){ const meal=_recipeMeal; if(!meal)return; const r=getRecipe(meal); const nm=meal.n||'';
   openSheet('📖 '+nm.replace(/ \(.*?\)/,'').replace(/^\d+ /,''));document.getElementById('sheetTabs').innerHTML='';
   let body=''; const meta=[]; if(r.time)meta.push('⏱ '+r.time+' min'); if(r.portions)meta.push('🍽 '+r.portions+'×');
+  if(!meal.composite&&typeof meal.q==='number'&&meal.q!==1)meta.push('porce '+(''+meal.q).replace('.',',')+'× (množství přepočítáno)');
   if(r.mode==='user')meta.push('✍️ tvůj recept');
   if(meta.length)body+=`<div class="muted" style="font-size:.82rem;margin-bottom:6px">${meta.join(' · ')}</div>`;
   if(r.mode==='bought')body+=`<div class="card"><div class="muted">${r.note}</div></div>`;
