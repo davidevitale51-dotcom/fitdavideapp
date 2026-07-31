@@ -1881,6 +1881,7 @@ function effTarget(date){
   const d=days[date]||{};
   const t=Object.assign({},target);
   if(d.train){t.kcal+=(+trainCfg.kcal||0);t.prot+=(+trainCfg.p||0);t.carb+=(+trainCfg.c||0);t.fat+=(+trainCfg.f||0);}
+  if(d.calCut&&d.calCut>0&&d.calCut<1){t.kcal=Math.round(t.kcal*d.calCut);} // snížený cíl (nemoc / nižší chuť / akce)
   if(d.goals)Object.keys(d.goals).forEach(k=>{if(d.goals[k]!=null&&d.goals[k]!=='')t[k]=+d.goals[k];});
   return t;
 }
@@ -3137,7 +3138,10 @@ function completeDay(date){
     let cands=slotCandidates(date,slot).filter(i=>!used.has(i));
     // V nemocném režimu preferuj lehká jídla (vývar, ryži, brambory, vejce, kuřecí maso, rybu, polévky)
     if(isSickDay(date)){
-      const lightKeywords=['vývar','polévk','rýž','bramb','vejc','kuř','ryb','kaš','toast','pyré','lehk'];
+      const st=(days[date]||{}).sickType;
+      const lightKeywords = st==='gi' ? ['vývar','rýž','bramb','banán','toast','kaš','pyré','kuř']
+        : st==='cold' ? ['polévk','vývar','čaj','kuř','zázvor','citr','kaš']
+        : ['vývar','polévk','rýž','bramb','vejc','kuř','ryb','kaš','toast','pyré','lehk'];
       const lightFoods=cands.filter(i=>lightKeywords.some(kw=>PREP[i].n.toLowerCase().includes(kw)));
       if(lightFoods.length) cands=lightFoods;
     }
@@ -3226,7 +3230,8 @@ function planSingleDay(date){
   const used=new Set();const slots={};
   // chráněná (zamčená/snědená) jídla obsadí svůj slot a nepřepisují se
   Object.values(snap).forEach(arr=>arr.forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)used.add(i);}));
-  PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(usesVeganProtein(PREP[idx]))_veganPlanUsed++;}});
+  const gK=effTarget(date).kcal;
+  PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=pickPrepB(s,used,gK*slotWeight(date,s),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(usesVeganProtein(PREP[idx]))_veganPlanUsed++;}});
   const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);
   days[date]=Object.assign({},flags); // čistý den jen s příznaky
   const d=dayObj(date);PLAN_SLOTS.forEach(s=>{if(snap[s])return;const idx=day.slots[s];if(idx==null)return;const p=PREP[idx];d[s]=[{n:p.n,q:day.factor,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}];});
@@ -3239,33 +3244,38 @@ document.getElementById('autoPlanBtn').onclick=()=>{
   if(has && !confirm('Den už obsahuje jídla. Přepsat novým návrhem? (zamčená a snědená jídla zůstanou)'))return;
   planSingleDay(selDate); // sám zachová příznaky dne i zamčená/snědená jídla
 };
-/* ===== DOTAZNÍK PŘI PRVNÍM OTEVŘENÍ DNE: typ dne → návrh jídelníčku ===== */
-let _dipMode='', _dipTrain=false;
+/* ===== DOTAZNÍK PŘI OTEVŘENÍ DNE: typ dne → 3–4 cílené otázky → návrh ===== */
+let _dqDate=null,_dqMode='',_dqList=[],_dqIdx=0,_dqAns={};
 function dayIntakePrompt(date){
-  selDate=date; document.getElementById('datePick').value=date;
-  _dipMode=dayMode(date); _dipTrain=!!(days[date]&&days[date].train);
+  selDate=date; document.getElementById('datePick').value=date; _dqDate=date;
   openSheet('Jaký máš dnes den?'); document.getElementById('sheetTabs').innerHTML='';
-  renderDayIntake();
+  renderModePick();
 }
-function renderDayIntake(){
-  const modeBtns=DAY_MODES.map(([k,l])=>`<button class="btn ${_dipMode===k?'':'ghost'} block" style="margin:0;text-align:left" onclick="_dipMode='${k}';renderDayIntake()">${l}</button>`).join('');
+function renderModePick(){
+  const modeBtns=DAY_MODES.map(([k,l])=>`<button class="btn ghost block" style="margin:0;text-align:left" onclick="beginDayQuestions('${k}')">${l}</button>`).join('');
   document.getElementById('sheetBody').innerHTML=
-   `<div class="muted" style="font-size:.82rem;margin-bottom:10px">Vyber typ dne — podle něj ti navrhnu celý jídelníček. Jednotlivá jídla pak můžeš upravit.</div>
+   `<div class="muted" style="font-size:.82rem;margin-bottom:10px">Vyber typ dne. Pak ti položím pár krátkých otázek a navrhnu celý jídelníček na míru.</div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">${modeBtns}</div>
-    <label style="display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:600">
-      <input type="checkbox" id="dipTrain" ${_dipTrain?'checked':''} onchange="_dipTrain=this.checked"> 🏋️ Dnes silový trénink (navýší cíl)
-    </label>
-    <button class="btn block" id="dipGo" style="margin-top:14px">✨ Navrhnout jídelníček</button>
-    <button class="btn ghost block" id="dipSkip" style="margin-top:8px">Nechat zatím prázdné</button>`;
-  document.getElementById('dipGo').onclick=dayIntakeApply;
-  document.getElementById('dipSkip').onclick=()=>{ if(selDate)localStorage.setItem('kt_dayintake_'+selDate,'skip'); closeSheet(); toast('Můžeš naplánovat kdykoli tlačítkem na přehledu.'); };
+    <button class="btn ghost block" id="dipSkip" style="margin-top:12px">Nechat zatím prázdné</button>`;
+  document.getElementById('dipSkip').onclick=()=>{ if(_dqDate)localStorage.setItem('kt_dayintake_'+_dqDate,'skip'); closeSheet(); toast('Můžeš naplánovat kdykoli tlačítkem na přehledu.'); };
 }
-function dayIntakeApply(){
-  const date=selDate; const d=dayObj(date);
-  d.mode=_dipMode;
-  if(_dipTrain)d.train=true; else delete d.train;
-  DB.save('kt_days',days);
-  localStorage.setItem('kt_dayintake_'+date,_dipMode);
+function beginDayQuestions(mode){ _dqMode=mode; _dqList=dayQuestions(mode); _dqIdx=0; _dqAns={mode,_tips:[]}; renderDayQuestion(); }
+function renderDayQuestion(){
+  if(_dqIdx>=_dqList.length){ finishDayQuestionnaire(); return; }
+  const q=_dqList[_dqIdx]; const total=_dqList.length;
+  const opts=q.opts.map((o,i)=>`<button class="btn ghost block" style="margin:0 0 8px;text-align:left" onclick="answerDayQuestion(${i})">${o.l}</button>`).join('');
+  openSheet(modeLabel(_dqMode));document.getElementById('sheetTabs').innerHTML='';
+  document.getElementById('sheetBody').innerHTML=
+   `<div class="muted" style="font-size:.78rem;margin-bottom:4px">Krok ${_dqIdx+1}/${total}</div>
+    <div style="font-weight:800;font-size:1.05rem;margin-bottom:12px">${q.q}</div>
+    ${opts}
+    <button class="btn ghost block" style="margin-top:6px;opacity:.8" onclick="dqBack()">${_dqIdx===0?'← Zpět na výběr dne':'← Předchozí'}</button>`;
+}
+function answerDayQuestion(i){ const q=_dqList[_dqIdx]; const o=q.opts[i]; if(o){ Object.assign(_dqAns,o.set||{}); if(o.tip)_dqAns._tips.push(o.tip); } _dqIdx++; renderDayQuestion(); }
+function dqBack(){ if(_dqIdx===0){ renderModePick(); return; } _dqIdx--; renderDayQuestion(); }
+function finishDayQuestionnaire(){
+  const date=_dqDate; applyDayAnswers(date,_dqAns);
+  localStorage.setItem('kt_dayintake_'+date,_dqMode);
   renderDash();
   openDayPlanPopup(date); // automatický návrh + 3 možnosti u každého jídla (editovatelné)
 }
@@ -3720,6 +3730,7 @@ function pickPrepB(slot,used,budget,ctx){
   if(pref.length){const wp=pool.filter(p=>pref.every(pr=>p.tags.includes(pr)));if(wp.length)pool=wp;}
   if(ctx.dietv){const lo=pool.filter(p=>p.tags.includes('redukce')||p.k<=budget);if(lo.length)pool=lo;}
   if(ctx.satiety){const hi=pool.filter(p=>p.p>=20||p.fib>=6);if(hi.length)pool=hi;}
+  if(ctx.date)pool=poolFilterByDay(pool,ctx.date,slot); // dotazník dne: bez vaření / zdroj večeře / obchod-restaurace
   if(!pool.length)pool=PREP.filter(p=>!mealViol(p));
   if(ctx.date&&veganBlocked(ctx.date)){const nv=pool.filter(p=>!usesVeganProtein(p));if(nv.length)pool=nv;}
   if(!pool.length)return -1;
@@ -3936,14 +3947,17 @@ document.getElementById('genPlan').onclick=genPlan;
 let dayDraft=null;
 function mealItemFromPrep(p){ if(p.composite)return {n:p.n,u:'porce',q:1,meal:true,composite:true,components:JSON.parse(JSON.stringify(p.components)),ic:p.ic,labels:p.labels};
   return {n:p.n,q:1,u:'porce',meal:true,k:p.k,p:p.p,c:p.c,f:p.f,fib:p.fib,sug:p.sug,salt:p.salt,ingr:p.ingr}; }
-function obedCandidates(date){const out=[];const weekend=isWeekendDate(date);
-  if(!weekend && isWorkMode(date)){const n=lekkerayNumber(date);if(n){const lm=lekkerayMeals(n);if(lm.fleisch&&!mealViol(lm.fleisch.p))out.push(lm.fleisch.i);if(lm.vege&&!mealViol(lm.vege.p))out.push(lm.vege.i);}
-    PREP.forEach((p,i)=>{if(/Dean & David|Japanese Beef Bowl/i.test(p.n)&&!mealViol(p))out.push(i);});}
+function obedCandidates(date){const out=[];const weekend=isWeekendDate(date);const src=(days[date]||{}).lunchSrc;
+  if(src==='home')return []; // oběd z domova → spadne na domácí modePool
+  if(!weekend && isWorkMode(date)){
+    if(src!=='dd'){const n=lekkerayNumber(date);if(n){const lm=lekkerayMeals(n);if(lm.fleisch&&!mealViol(lm.fleisch.p))out.push(lm.fleisch.i);if(lm.vege&&!mealViol(lm.vege.p))out.push(lm.vege.i);}}
+    if(src!=='lek'){PREP.forEach((p,i)=>{if(/Dean & David|Japanese Beef Bowl/i.test(p.n)&&!mealViol(p))out.push(i);});}}
   return out;}
 function slotCandidates(date,slot){let idxs;
   if(slot==='obed'){const oc=obedCandidates(date);if(oc.length)idxs=oc;}
   if(!idxs)idxs=modePool(slot,dayMode(date)).map(p=>PREP.indexOf(p));
-  return stripVeganIfBlocked(idxs.filter(i=>i>=0&&!mealViol(PREP[i])),date);}
+  let out=stripByDay(idxs.filter(i=>i>=0&&!mealViol(PREP[i])),date,slot); // dotazník dne
+  return stripVeganIfBlocked(out,date);}
 /* ===== VEGANSKÝ PROTEINOVÝ PRÁŠEK: max 2× týdně (Davideho nadýmá) ===== */
 function usesVeganProtein(p){ if(!p)return false;
   if(Array.isArray(p.ingr)&&p.ingr.some(ing=>/vegan\s*protein/i.test((ing&&ing[0])||'')))return true;
@@ -3956,6 +3970,76 @@ function veganWeekCount(date,excludeDate){ const ws=weekStartISO(date); let n=0;
 let _veganPlanUsed=0; // veganský protein přiřazený během probíhajícího plánování dne
 function veganBlocked(date){ return (veganWeekCount(date,date)+_veganPlanUsed)>=2; }
 function stripVeganIfBlocked(idxs,date){ if(!veganBlocked(date))return idxs; const f=idxs.filter(i=>!usesVeganProtein(PREP[i])); return f.length?f:idxs; }
+/* ===== DOTAZNÍK DNE: páky podle typu dne a odpovědí ===== */
+function mealIsBoughtP(p){ return !!(p&&(p.work||isBoughtMeal(p))); }
+function mealIsHomeP(p){ return !mealIsBoughtP(p); }
+function mealNoCookP(p){ const t=(p&&p.tags)||[]; return t.includes('bez vaření')||t.includes('rychlé')||t.includes('nouzové')||mealIsBoughtP(p); }
+function mealRestaurantP(p){ const l=(p&&p.labels)||[]; return l.includes('lekkeray')||l.includes('restaurant')||/Dean & David|Japanese Beef Bowl|Takesushi/i.test((p&&p.n)||''); }
+function poolFilterByDay(pool,date,slot){ const d=days[date]||{}; let pl=pool; const keep=f=>{const r=pl.filter(f);if(r.length)pl=r;};
+  if(d.kitchen==='shop')keep(mealNoCookP);
+  else if(d.kitchen==='restaurant')keep(p=>mealRestaurantP(p)||mealIsBoughtP(p));
+  if(d.nocook)keep(mealNoCookP);
+  if(slot==='vecere'&&d.dinnerSrc==='home')keep(mealIsHomeP);
+  if(slot==='vecere'&&d.dinnerSrc==='bought')keep(mealIsBoughtP);
+  return pl; }
+function stripByDay(idxs,date,slot){ const objs=idxs.map(i=>PREP[i]); const f=new Set(poolFilterByDay(objs,date,slot)); return idxs.filter(i=>f.has(PREP[i])); }
+function slotWeight(date,slot){ const d=days[date]||{}; const bm=d.bigMeal; if(bm&&PLAN_SLOTS.includes(bm)){ if(slot===bm)return 0.42; const rest=PLAN_SLOTS.filter(s=>s!==bm); const base=rest.reduce((a,s)=>a+(SLOT_W[s]||0.2),0)||1; return 0.58*((SLOT_W[slot]||0.2)/base); } return SLOT_W[slot]||0.2; }
+function slotLbl(k){ const s=SLOTS.find(x=>x.k===k)||{}; return (s.l||k); }
+function coachTips(date){ const d=days[date]||{}; const m=dayMode(date); const t=[];
+  if(d.kitchen==='shop')t.push('Bez kuchyně: balené jídlo, rostlinný jogurt, tuňák, pečivo, ovoce, proteinový nápoj.');
+  if(d.kitchen==='restaurant')t.push('V restauraci: maso/ryba + příloha + zelenina, omáčky a dresinky bokem.');
+  if(m==='cestovani')t.push('Hlídej pitný režim – měj vodu s sebou.');
+  if(m==='nocni')t.push('Kofein jen v první půlce směny, ať pak líp usneš; v noci lehčí jídla.');
+  if(d.bigMeal)t.push('Kolem hlavního jídla ('+slotLbl(d.bigMeal)+') je víc kalorií, zbytek dne drží bílkoviny.');
+  if(m==='sick_day'){ if(d.sickType==='gi')t.push('Žaludek: vývar, rýže, banán, brambory, toast – nedráždivé.'); else if(d.sickType==='cold')t.push('Nachlazení: teplé polévky, tekutiny, vitamin C a zinek.'); else t.push('Lehká strava, hodně tekutin, žádný trénink.'); }
+  if(d.calCut)t.push('Dnes snížený kalorický cíl.');
+  if(Array.isArray(d.coachExtra))d.coachExtra.forEach(x=>{if(t.indexOf(x)<0)t.push(x);});
+  return t; }
+/* otázky pro jednotlivé typy dne (3–4 na typ) */
+function dayQuestions(mode){
+  const T={id:'train',q:'Trénuješ dnes silově?',opts:[{l:'Ano 🏋️',set:{train:true}},{l:'Ne',set:{train:false}}]};
+  const DIET={id:'dietv',q:'Chceš dnes dietnější (lehčí) den?',opts:[{l:'Ano, dietněji',set:{dietv:true}},{l:'Normálně',set:{}}]};
+  switch(mode){
+    case 'volno': return [
+      {id:'cook',q:'Jak to dnes bude s vařením?',opts:[{l:'Navařím ve velkém',set:{simple:true}},{l:'Rychlovky',set:{nocook:true}},{l:'Klasicky uvařím',set:{}}]},
+      {id:'big',q:'Hlavní jídlo dne?',opts:[{l:'Oběd',set:{bigMeal:'obed'}},{l:'Večeře',set:{bigMeal:'vecere'}},{l:'Vyrovnaně',set:{}}]},
+      DIET,T];
+    case 'prace': case 'denni': return [
+      {id:'lunch',q:'Oběd v práci?',opts:[{l:'Lekkeray',set:{lunchSrc:'lek'}},{l:'Dean&David předobjednávka',set:{lunchSrc:'dd'}},{l:'Vlastní z domova',set:{lunchSrc:'home'}}]},
+      {id:'dinner',q:'Večeře?',opts:[{l:'Doma vařená',set:{dinnerSrc:'home'}},{l:'Koupená',set:{dinnerSrc:'bought'}}]},
+      {id:'snack',q:'Snídaně a svačiny?',opts:[{l:'Bez vaření (do práce)',set:{nocook:true}},{l:'Mám čas připravit',set:{}}]},
+      T];
+    case 'nocni': return [
+      {id:'main',q:'Hlavní jídlo směny?',opts:[{l:'Před směnou',set:{bigMeal:'vecere'}},{l:'V půlce směny',set:{},tip:'Hlavní jídlo dej do půlky směny; appka drží bílkoviny přes noc.'}]},
+      {id:'night',q:'Noční jídla?',opts:[{l:'Lehká a stravitelná',set:{dietv:true}},{l:'Normální',set:{}}]},
+      {id:'caf',q:'Hlídat kofein ke konci směny?',opts:[{l:'Ano',set:{},tip:'Kofein jen v první půlce směny.'},{l:'Neřeš',set:{}}]},
+      T];
+    case 'cestovani': return [
+      {id:'kitchen',q:'Budeš mít kde vařit?',opts:[{l:'Ano, kuchyň',set:{kitchen:'full'}},{l:'Jen obchod/benzínka',set:{kitchen:'shop'}},{l:'Hlavně restaurace',set:{kitchen:'restaurant'}}]},
+      {id:'prio',q:'Priorita dne?',opts:[{l:'Protein a hydratace',set:{satiety:true}},{l:'Co nejjednodušší',set:{nocook:true}}]},
+      DIET,T];
+    case 'special': return [
+      {id:'ev',q:'Co je dnes za akci?',opts:[{l:'Restaurace',set:{kitchen:'restaurant'}},{l:'Oslava/párty',set:{}},{l:'Cheat meal',set:{}}]},
+      {id:'when',q:'Kdy hlavní akce?',opts:[{l:'Oběd',set:{bigMeal:'obed'}},{l:'Odpoledne',set:{bigMeal:'svacina2'}},{l:'Večer',set:{bigMeal:'vecere'}}]},
+      {id:'rest',q:'Zbytek dne kolem akce?',opts:[{l:'Držet protein + nižší kcal',set:{satiety:true,calCut:0.9}},{l:'Normálně',set:{}}]},
+      T];
+    case 'sick_day': return [
+      {id:'sick',q:'Co tě trápí?',opts:[{l:'Trávení/žaludek',set:{sickType:'gi'}},{l:'Nachlazení',set:{sickType:'cold'}},{l:'Obojí',set:{sickType:'both'}}]},
+      {id:'appet',q:'Chuť k jídlu?',opts:[{l:'Skoro žádná',set:{calCut:0.7,dietv:true}},{l:'Lehká jídla zvládnu',set:{calCut:0.85}},{l:'Normální',set:{}}]},
+      {id:'hyd',q:'Připomínat pití a vývar?',opts:[{l:'Ano',set:{},tip:'Pij po douškách, přidej vývar a elektrolyty.'},{l:'Ne',set:{}}]}];
+    default: return [
+      {id:'v1',q:'Silový trénink?',opts:[{l:'Ano',set:{train:true}},{l:'Ne',set:{train:false}}]},
+      {id:'v2',q:'Zaměření dne?',opts:[{l:'Dietnější',set:{dietv:true}},{l:'Větší sytost',set:{satiety:true}},{l:'Jednoduché opakované',set:{simple:true}}]},
+      {id:'v3',q:'Vaření?',opts:[{l:'Vařím doma',set:{}},{l:'Bez vaření',set:{nocook:true}}]}];
+  }
+}
+function applyDayAnswers(date,ans){ const d=dayObj(date);
+  ['train','dietv','satiety','simple','nocook','calCut','bigMeal','lunchSrc','dinnerSrc','kitchen','sickType','coachExtra'].forEach(k=>delete d[k]);
+  d.mode=ans.mode;
+  Object.keys(ans).forEach(k=>{ if(k==='mode'||k==='_tips')return; const v=ans[k]; if(v===null||v===undefined||v===false)return; d[k]=v; });
+  if(ans.mode==='sick_day')delete d.train;
+  if(ans._tips&&ans._tips.length)d.coachExtra=ans._tips.slice();
+  DB.save('kt_days',days); }
 function genVariantMeal(date,slot,excludeSet,budget){
   const cands=slotCandidates(date,slot).filter(i=>!excludeSet.has(i));
   if(!cands.length)return null;
@@ -3973,11 +4057,11 @@ function buildDayDraftData(date){
   let fixedK=0; SLOTS.forEach(s=>slotItems(date,s.k).filter(itemProtected).forEach(it=>{fixedK+=itemMacro(it).k||0;}));
   const remainK=Math.max(0,goalK-fixedK);
   const openSlots=PLAN_SLOTS.filter(slot=>!slotItems(date,slot).filter(itemProtected).length);
-  const wSum=openSlots.reduce((a,s)=>a+(SLOT_W[s]||0.2),0)||1;
+  const wSum=openSlots.reduce((a,s)=>a+slotWeight(date,s),0)||1;
   const sections=PLAN_SLOTS.map(slot=>{
     const fixed=slotItems(date,slot).filter(itemProtected);
     if(fixed.length)return {slot,fixed:JSON.parse(JSON.stringify(fixed)),variants:null};
-    const budget=remainK*((SLOT_W[slot]||0.2)/wSum);
+    const budget=remainK*(slotWeight(date,slot)/wSum);
     const v1=genVariantMeal(date,slot,usedDay,budget); if(v1){usedDay.add(v1.prepIdx);if(usesVeganProtein(PREP[v1.prepIdx]))_veganPlanUsed++;}
     const v2=genVariantMeal(date,slot,usedDay,budget); if(v2)usedDay.add(v2.prepIdx);
     const v3=genVariantMeal(date,slot,usedDay,budget); if(v3)usedDay.add(v3.prepIdx);
@@ -4059,6 +4143,7 @@ function renderDraftPopup(){
     <div class="muted" style="font-size:.74rem;margin-top:2px">Přidané jídlo se zafixuje jako snědené a návrh na zbytek dne se přepočítá.</div>`;
   if(!isWeekendDate(dayDraft.date)&&isWorkMode(dayDraft.date)){const n=lekkerayNumber(dayDraft.date);if(n){const lm=lekkerayMeals(n);head+=`<div class="muted" style="font-size:.8rem">Dnešní Lekkeray: ${pad3(n)} — ${lm.fleisch?lm.fleisch.p.n.replace(/^\d+ /,''):'?'}${lm.vege?' / '+lm.vege.p.n.replace(/^\d+ /,''):''}</div>`;}}
   if(dayPreorders(dayDraft.date).length)head+=`<div class="muted" style="font-size:.8rem">📦 Předobjednáno (Dean & David): ${dayPreorders(dayDraft.date).map(p=>p.n).join(', ')}</div>`;
+  const tips=coachTips(dayDraft.date); if(tips.length)head+=tips.map(t=>`<div class="muted" style="font-size:.78rem;margin-top:3px">💡 ${t}</div>`).join('');
   head+=`</div>`;
   const buttons=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px">
     <button class="btn" onclick="draftApply()">✅ Použít vybrané</button>
