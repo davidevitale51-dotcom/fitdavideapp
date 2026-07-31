@@ -2029,6 +2029,18 @@ function suggestMeals(slot){
   pool=pool.slice().sort((a,b)=>(b[key]||0)-(a[key]||0)).slice(0,3);
   return pool.length?{label,key,r,meals:pool}:null;
 }
+/* relevantní jídla pro danou část dne (respektuje režim, dietu, dotazník dne, vegan limit) */
+function slotRelevantMeals(slot,n){ n=n||6; const date=selDate;
+  const used=new Set(); SLOTS.forEach(s=>slotItems(date,s.k).forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)used.add(i);}));
+  let idxs=(typeof slotCandidates==='function'?slotCandidates(date,slot):[]).filter(i=>!used.has(i));
+  idxs.sort((a,b)=>(PREP[b].p||0)-(PREP[a].p||0)); // navrch vyšší bílkoviny (cíl ~160 g)
+  return idxs.slice(0,n);
+}
+function relevantAddBlock(slot){ const idxs=slotRelevantMeals(slot,6); if(!idxs.length)return ''; const sl=SLOTS.find(s=>s.k===slot)||{};
+  return `<div class="card" style="background:var(--green-soft);padding:12px;margin-bottom:8px"><b>🍽️ Doporučené na ${sl.l?sl.l.toLowerCase():'toto jídlo'}</b>
+    <div class="muted" style="font-size:.76rem;margin-bottom:4px">Jídla vhodná pro tuto část dne${dairyActive()?' · bez mléka':''}.</div>
+    ${idxs.map(idx=>{const p=PREP[idx];return `<div class="row"><div class="info" onclick="prepDetail(${idx})" style="cursor:pointer"><div class="n">${p.ic} ${p.n.replace(/^\d+ /,'')}</div><div class="m">${round(p.k)} kcal · B ${round(p.p)} · S ${round(p.c)} · T ${round(p.f)}</div></div><button class="add" onclick="addPrep(${idx})">＋</button></div>`;}).join('')}</div>`;
+}
 const round=x=>Math.round(x);
 function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('show');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('show'),1800);}
 /* zámek – dvě jasně odlišné ikony (tvarem, ne jen barvou) */
@@ -2362,6 +2374,7 @@ function fillAddList(){
       <div class="muted" style="font-size:.78rem;margin-bottom:6px">${anyLocal?'Nenašel jsi konkrétní produkt?':'V tvé databázi nic takového není.'}</div>
       <button class="btn sec block" onclick="offSearchAdd(document.getElementById('addSearch').value)">🔎 Dohledat „${(addQuery||'').replace(/"/g,'&quot;').slice(0,30)}" v Open Food Facts</button></div>`;
   } else if(addTab==='potraviny'){
+    if(!q&&addFilters.size===0)h+=relevantAddBlock(addSlot); // relevantní jídla pro daný slot navrch
     if(!q&&addFilters.size===0){
       const recent=topFreq(8).filter(nm=>findFood(nm));
       if(recent.length){h+=`<div class="muted" style="font-size:.74rem;padding:4px 0 2px">⭐ Nejčastější</div>`+
@@ -2384,7 +2397,8 @@ function fillAddList(){
         <div class="muted" style="font-size:.78rem">Do denního cíle ${sug.key==='p'?'bílkovin':sug.key==='fib'?'vlákniny':'kalorií'} chybí ${round(sug.key==='p'?sug.r.p:sug.key==='fib'?sug.r.fib:sug.r.k)} ${sug.key==='k'?'kcal':'g'}${sl?' · vhodné na '+sl.l.toLowerCase():''}. Doporučená hotová jídla:</div>
         ${sug.meals.map(p=>{const idx=PREP.indexOf(p);const v=sug.key==='p'?p.p+' g B':sug.key==='fib'?p.fib+' g vlákniny':p.k+' kcal';
           return `<div class="row"><div class="info"><div class="n">${p.ic} ${p.n}</div><div class="m">+${v} · ${round(p.k)} kcal</div></div><button class="add" onclick="addPrep(${idx})">＋</button></div>`;}).join('')}</div>`;
-      h=sh+h;}}
+      h=sh+h;}
+      h=relevantAddBlock(addSlot)+h;} // relevantní jídla pro daný slot navrch
   } else if(addTab==='znacky'){
     const items=FOODS.filter(f=>(f.source==='open_food_facts'||f.barcode)&&(!q||norm(f.n).includes(q))).slice(0,120);
     h=`<button class="btn sec block" style="margin-bottom:8px" onclick="openImport()">📦 Import produktů z Open Food Facts</button>`;
