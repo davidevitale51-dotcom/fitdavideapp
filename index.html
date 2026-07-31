@@ -2302,7 +2302,7 @@ function mealItemDetail(slot,i){const it=slotItems(selDate,slot)[i];if(!it)retur
 
 /* ====== SHEET (modal) ====== */
 const ovl=document.getElementById('ovl');
-function openSheet(title){document.getElementById('sheetTitle').textContent=title;ovl.classList.add('show');}
+function openSheet(title){document.getElementById('sheetTitle').textContent=title;ovl.classList.add('show');const sb=document.getElementById('sheetBody');if(sb)sb.scrollTop=0;}
 function closeSheet(){if(typeof stopScanner==='function')stopScanner();if(typeof _planAddReturn!=='undefined')_planAddReturn=null;ovl.classList.remove('show');document.getElementById('sheetTabs').innerHTML='';}
 document.getElementById('sheetClose').onclick=closeSheet;
 ovl.onclick=e=>{if(e.target===ovl)closeSheet();};
@@ -4198,7 +4198,9 @@ function renderDraftPopup(){
     <button class="btn sec" onclick="saveDraft()">💾 Uložit návrh</button>
     <button class="btn ghost" onclick="regenAllDraft()">↻ Přegenerovat den</button>
     <button class="btn ghost" onclick="closeDraftPopup()">Zavřít</button></div>`;
-  document.getElementById('sheetBody').innerHTML=head+draftBodyHTML()+buttons;}
+  const sb=document.getElementById('sheetBody');sb.innerHTML=head+draftBodyHTML()+buttons;
+  sb.scrollTop=0; if(typeof requestAnimationFrame==='function')requestAnimationFrame(()=>{sb.scrollTop=0;}); else setTimeout(()=>{sb.scrollTop=0;},0); // posun na první den a jídlo
+}
 function saveDraft(){ if(!dayDraft)return; dayDrafts[dayDraft.date]=JSON.parse(JSON.stringify(dayDraft)); DB.save('kt_drafts',dayDrafts); toast('💾 Návrh uložen jako koncept'); }
 /* „+" v návrhu dne: přidat už snědené jídlo, pak přepočítat zbytek dne */
 let _planAddReturn=null;
