@@ -3898,7 +3898,8 @@ function renderNakup(){
   document.getElementById('shopSum').innerHTML=
     `<span>${total} položek · ${done} koupeno</span>
      <button class="chip ${shopHideDone?'on':''}" onclick="shopTgl('hide')">Skrýt koupené</button>
-     ${done?`<button class="chip" onclick="shopClearDone()">Vyčistit koupené</button>`:''}`;
+     ${done?`<button class="chip" onclick="shopClearDone()">Vyčistit koupené</button>`:''}
+     ${total?`<button class="chip" style="color:#c0392b" onclick="shopClearAll()">🗑 Smazat vše</button>`:''}`;
   const list=document.getElementById('shopList');
   if(!shopState.length){list.innerHTML='<p class="muted" style="padding:14px 0">Seznam je prázdný. Vytvoř ho v záložce Plán → „Vytvořit nákupní seznam", nebo přidej položku ručně.</p>';return;}
   // řádek nekoupené položky (s checkboxem a menu)
@@ -3938,6 +3939,9 @@ window.shopDel=i=>{const it=shopState[i];if(it.locked&&!confirm('Tato položka j
 window.shopEditName=i=>{const it=shopState[i];const v=prompt('Název položky:', it.n.replace(/ \(.*?\)/,''));if(v===null)return;const nm=v.trim();if(!nm){toast('Název nesmí být prázdný');return;}it.n=nm;it.cat=shopCat(nm);if(it.source!=='manual')it.manual_override=true;it.updated_at=new Date().toISOString().slice(0,16).replace('T',' ');saveShop();renderNakup();toast('Uloženo');};
 window.shopEditQty=i=>{const it=shopState[i];const v=prompt('Množství (číslo):', it.q);if(v===null)return;const qn=parseFloat((''+v).replace(',','.'));it.q=isNaN(qn)?'':qn;const u=prompt('Jednotka (ks, g, kg, ml, l, balení…):', it.u||'ks');if(u!==null)it.u=u.trim();if(it.source!=='manual')it.manual_override=true;it.updated_at=new Date().toISOString().slice(0,16).replace('T',' ');saveShop();renderNakup();toast('Uloženo');};
 window.shopClearDone=()=>{shopState=shopState.filter(it=>!it.done);saveShop();renderNakup();};
+window.shopClearAll=()=>{if(!shopState.length)return;const locked=shopState.filter(it=>it.locked).length;
+  if(!confirm('Smazat všechny položky nákupního seznamu'+(locked?(' včetně '+locked+' zamčených'):'')+'? Nelze vrátit.'))return;
+  shopState=[];saveShop();renderNakup();toast('Nákupní seznam vymazán');};
 window.shopTgl=k=>{if(k==='uc')shopOnlyUnchecked=!shopOnlyUnchecked;else if(k==='cat')shopCats=!shopCats;else if(k==='hide')shopHideDone=!shopHideDone;refreshNakupChips();renderNakup();};
 function refreshNakupChips(){const u=document.getElementById('tglUnchecked'),c=document.getElementById('tglCats');if(u)u.classList.toggle('on',shopOnlyUnchecked);if(c)c.classList.toggle('on',shopCats);}
 function copyAnydo(){const t=shopExportText();if(!t){toast('Nic k exportu');return;}
