@@ -3261,6 +3261,17 @@ function planSingleDay(date){
 document.getElementById('autoPlanBtn').onclick=()=>{ planDayFlow(selDate); };
 /* ===== DOTAZNÍK PŘED PLÁNOVÁNÍM DNE: typ dne → 3–4 cílené otázky → návrh ===== */
 let _dqDate=null,_dqMode='',_dqList=[],_dqIdx=0,_dqAns={};
+let _dqMulti=null; // {dates:[...], i} – vícedenní návrh: ptá se na typ každého dne
+/* vícedenní návrh: nejdřív projdi typ dne pro každý den, pak sestav plán */
+function planMultiFlow(){ const fe=document.getElementById('planFrom'); const from=(fe&&fe.value)||todayISO; const n=planDaysN||3;
+  const dates=[]; for(let k=0;k<n;k++){const d=new Date(from);d.setDate(d.getDate()+k);dates.push(iso(d));}
+  _dqMulti={dates,i:0}; askNextMultiDay(); }
+function askNextMultiDay(){ if(!_dqMulti)return;
+  if(_dqMulti.i>=_dqMulti.dates.length){ const n=_dqMulti.dates.length; _dqMulti=null; genPlan(); closeSheet(); toast('✨ Návrh na '+n+' dní hotový'); return; }
+  const date=_dqMulti.dates[_dqMulti.i]; _dqDate=date;
+  openSheet('Den '+(_dqMulti.i+1)+' z '+_dqMulti.dates.length+' · '+date); document.getElementById('sheetTabs').innerHTML='';
+  renderModePick(); }
+function dqNextMulti(){ if(_dqMulti){_dqMulti.i++;askNextMultiDay();return true;} return false; }
 /* brána k plánování: když den ještě nebyl zodpovězen, nejdřív se zeptej; jinak rovnou otevři návrh */
 function planDayFlow(date){ selDate=date; const dp=document.getElementById('datePick'); if(dp)dp.value=date;
   if(localStorage.getItem('kt_dayintake_'+date)){ openDayPlanPopup(date); return; }
@@ -3278,10 +3289,10 @@ function renderModePick(){
     <button class="btn sec block" id="dipUniversal" style="margin-top:12px">⏭ Přeskočit — navrhnout běžný den</button>
     <button class="btn ghost block" id="dipSkip" style="margin-top:8px">Nechat zatím prázdné</button>`;
   document.getElementById('dipUniversal').onclick=skipDayQuestions;
-  document.getElementById('dipSkip').onclick=()=>{ if(_dqDate)localStorage.setItem('kt_dayintake_'+_dqDate,'skip'); closeSheet(); toast('Můžeš naplánovat kdykoli tlačítkem na přehledu.'); };
+  document.getElementById('dipSkip').onclick=()=>{ if(_dqMulti){dqNextMulti();return;} if(_dqDate)localStorage.setItem('kt_dayintake_'+_dqDate,'skip'); closeSheet(); toast('Můžeš naplánovat kdykoli tlačítkem na přehledu.'); };
 }
 /* přeskočit dotazník a navrhnout univerzální běžný den (bez speciálních filtrů) */
-function skipDayQuestions(){ const date=_dqDate; applyDayAnswers(date,{mode:'volno',_tips:[]}); localStorage.setItem('kt_dayintake_'+date,'volno'); renderDash(); openDayPlanPopup(date); }
+function skipDayQuestions(){ const date=_dqDate; applyDayAnswers(date,{mode:'volno',_tips:[]}); localStorage.setItem('kt_dayintake_'+date,'volno'); if(dqNextMulti())return; renderDash(); openDayPlanPopup(date); }
 function beginDayQuestions(mode){ _dqMode=mode; _dqList=dayQuestions(mode); _dqIdx=0; _dqAns={mode,_tips:[]}; renderDayQuestion(); }
 function renderDayQuestion(){
   if(_dqIdx>=_dqList.length){ finishDayQuestionnaire(); return; }
@@ -3299,7 +3310,8 @@ function answerDayQuestion(i){ const q=_dqList[_dqIdx]; const o=q.opts[i]; if(o)
 function dqBack(){ if(_dqIdx===0){ renderModePick(); return; } _dqIdx--; renderDayQuestion(); }
 function finishDayQuestionnaire(){
   const date=_dqDate; applyDayAnswers(date,_dqAns);
-  localStorage.setItem('kt_dayintake_'+date,_dqMode);
+  localStorage.setItem('kt_dayintake_'+date,_dqMode||(_dqAns&&_dqAns.mode)||'volno');
+  if(dqNextMulti())return; // vícedenní: pokračuj dalším dnem
   renderDash();
   openDayPlanPopup(date); // automatický návrh + 3 možnosti u každého jídla (editovatelné)
 }
@@ -3787,7 +3799,7 @@ function genPlan(){
   const from=document.getElementById('planFrom').value||todayISO;
   const out=[];const used=new Set();
   for(let d=0;d<planDaysN;d++){const dt=new Date(from);dt.setDate(dt.getDate()+d);const date=iso(dt);
-    const ctx=dayCtx(date);const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,target.kcal*(SLOT_W[s]||0.2),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(used.size>PREP.length-3)used.clear();}});
+    const ctx=dayCtx(date);const gK=effTarget(date).kcal;_veganPlanUsed=0;const slots={};PLAN_SLOTS.forEach(s=>{const idx=pickPrepB(s,used,gK*slotWeight(date,s),ctx);if(idx>=0){slots[s]=idx;used.add(idx);if(usesVeganProtein(PREP[idx]))_veganPlanUsed++;if(used.size>PREP.length-3)used.clear();}});
     const day={date,slots};day.factor=recalcFactor(day);balanceDay(day);out.push(day);}
   lastPlan={from,days:out};renderPlanOut();
 }
@@ -3984,7 +3996,7 @@ document.querySelectorAll('.bnav button').forEach(b=>b.onclick=()=>{
   const scr=b.dataset.scr;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id==='scr-'+scr));
   if(scr==='progres')renderProgres();if(scr==='jidla')renderMyMeals();if(scr==='plan'){initPlanScreen();if(lastPlan)renderPlanOut();}if(scr==='nakup'){refreshNakupChips();renderNakup();}if(scr==='vice'){if(typeof renderTech==='function')renderTech();if(typeof renderLekCfgBox==='function')renderLekCfgBox();if(typeof renderBuildInfo==='function')renderBuildInfo();if(typeof renderSuppSettings==='function')renderSuppSettings();if(typeof renderSupplog==='function')renderSupplog();}
 });
-document.getElementById('genPlan').onclick=genPlan;
+document.getElementById('genPlan').onclick=planMultiFlow;
 /* ===== NÁVRH NA DEN – 2 varianty na sekci ===== */
 let dayDraft=null;
 function mealItemFromPrep(p){ if(p.composite)return {n:p.n,u:'porce',q:1,meal:true,composite:true,components:JSON.parse(JSON.stringify(p.components)),ic:p.ic,labels:p.labels};
