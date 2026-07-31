@@ -3766,6 +3766,29 @@ function modePool(slot,mode){
   if(mode==='volno'||mode==='special'||mode==='vlastni'){const home=suitable.filter(p=>!p.work);return home.length?home:suitable;}
   return suitable;
 }
+/* optimalizace porcí: čisté násobky 0,5 (max 2×). Cíl: trefit kcal, dost bílkovin a vlákniny,
+   držet nízko cukr a tuk – vyváženě. Protein a vláknina mají přednost, cukr/tuk se penalizují. */
+function optimizePortions(meals,goals){ const n=meals.length; const f=meals.map(()=>1); if(!n)return f;
+  const g=goals||{}; const gK=g.k||0,gP=g.p||0,gFib=g.fib||0,gSug=g.sug||1e9,gFat=g.fat||1e9;
+  const tot=()=>{let o={k:0,p:0,fib:0,sug:0,f2:0};for(let i=0;i<n;i++){const m=meals[i];o.k+=(m.k||0)*f[i];o.p+=(m.p||0)*f[i];o.fib+=(m.fib||0)*f[i];o.sug+=(m.sug||0)*f[i];o.f2+=(m.f||0)*f[i];}return o;};
+  const kMax=gK*1.06;
+  for(let iter=0;iter<80;iter++){ const t=tot(); const needP=gP-t.p, needK=gK-t.k, needFib=gFib-t.fib;
+    if(needP<=6 && needK<=120 && needFib<=4) break; // vše splněno
+    let best=-1,bestScore=-1e9;
+    for(let i=0;i<n;i++){ if(f[i]>=2)continue; const m=meals[i]; const nk=t.k+(m.k||0)*0.5;
+      if(needP<=6 && needFib<=4 && nk>kMax)continue; // hlavní cíle OK → nepřekračuj kcal
+      const addP=(m.p||0)*0.5, addFib=(m.fib||0)*0.5, addK=(m.k||0)*0.5, addSug=(m.sug||0)*0.5, addFat=(m.f||0)*0.5;
+      let score=(needP>6?addP*3:0)+(needFib>4?addFib*1.6:0)+(needK>120?addK*0.02:0);
+      score-=addSug*0.5+addFat*0.3; // penalizuj cukr a tuk
+      if(t.sug>gSug)score-=addSug*0.7; if(t.f2>gFat)score-=addFat*0.5; // extra když už jsme nad limitem
+      score-=Math.max(0,nk-kMax)*0.05;
+      if(score>bestScore){bestScore=score;best=i;} }
+    if(best<0)break; f[best]+=0.5; }
+  // když kcal moc přestřelí, uber tomu nejméně vyváženému (málo B+vlákniny, hodně cukr+tuk)
+  for(let iter=0;iter<40;iter++){ const t=tot(); if(t.k<=gK*1.1)break; let w=-1,ws=-1e9;
+    for(let i=0;i<n;i++){ if(f[i]<=0.5)continue; const m=meals[i]; const s=(m.sug||0)+(m.f||0)-(m.p||0)-(m.fib||0); if(s>ws){ws=s;w=i;} }
+    if(w<0)break; f[w]-=0.5; }
+  return f; }
 function pickPrepB(slot,used,budget,ctx){
   ctx=ctx||{}; const mode=ctx.mode||'volno';
   let pool=modePool(slot,mode);
@@ -4150,11 +4173,25 @@ function buildDayDraftData(date){
     if(obFixed.length)sections.unshift({slot:'obed',fixed:JSON.parse(JSON.stringify(obFixed)),variants:null});
     else sections.unshift({slot:'obed',skipNote:'Přes den spíš — oběd nenavrhuji. Klepni na ＋ nahoře, kdybys přece jen chtěl něco přidat.'});
   }
-  return {date,plan_status:'draft',day_mode:dayMode(date),night,strength_training:!!dayOpt(date,'train'),sections};
+  const data={date,plan_status:'draft',day_mode:dayMode(date),night,strength_training:!!dayOpt(date,'train'),sections};
+  reoptimizeDraftData(data); // nastav porce tak, aby den trefil kcal i bílkoviny
+  return data;
 }
+/* nastaví porce (q) vybraných nekompozitních jídel, aby den seděl na kcal i bílkoviny; ruční a složená jídla nechá být */
+function reoptimizeDraftData(dd){ if(!dd||!dd.sections)return; const g=effTarget(dd.date);
+  let fixK=0,fixP=0,fixFib=0,fixSug=0,fixFat=0; const scal=[];
+  dd.sections.forEach(s=>{ if(s.skipNote)return;
+    if(s.fixed){s.fixed.forEach(it=>{const m=itemMacro(it);fixK+=m.k;fixP+=m.p;fixFib+=m.fib||0;fixSug+=m.sug||0;fixFat+=m.f||0;});return;}
+    const v=(s.variants||[]).find(x=>x.selected); if(!v)return; const meal=v.meal;
+    if(meal.composite||meal._manualQ){const m=itemMacro(meal);fixK+=m.k;fixP+=m.p;fixFib+=m.fib||0;fixSug+=m.sug||0;fixFat+=m.f||0;return;}
+    scal.push(meal); });
+  if(!scal.length)return;
+  const goals={k:Math.max(0,g.kcal-fixK),p:Math.max(0,g.prot-fixP),fib:Math.max(0,(g.fib||0)-fixFib),sug:Math.max(0,(g.sugar||0)-fixSug),fat:Math.max(0,(g.fat||0)-fixFat)};
+  const facs=optimizePortions(scal.map(m=>({k:m.k||0,p:m.p||0,fib:m.fib||0,sug:m.sug||0,f:m.f||0})),goals);
+  scal.forEach((m,i)=>{m.q=facs[i];}); }
 function buildDayDraft(date){ dayDraft=buildDayDraftData(date); draftInPopup=false; renderDayDraft(); }
 function regenAllDraft(){ if(!dayDraft)return; if(!confirm('Přegenerovat celý den? Zamčená a snědená jídla zůstanou.'))return; dayDraft=buildDayDraftData(dayDraft.date); renderDayDraft(); }
-function draftSelect(si,vi){const s=dayDraft.sections[si];if(!s.variants)return;s.variants.forEach((v,j)=>v.selected=(j===vi));renderDayDraft();}
+function draftSelect(si,vi){const s=dayDraft.sections[si];if(!s.variants)return;s.variants.forEach((v,j)=>v.selected=(j===vi));reoptimizeDraftData(dayDraft);renderDayDraft();}
 function draftUsedExcept(si,vi){const ex=new Set();
   (dayDraft.sections||[]).forEach((s,j)=>{ if(s.fixed){s.fixed.forEach(it=>{const i=PREP.findIndex(p=>p.n===it.n);if(i>=0)ex.add(i);});return;}
     (s.variants||[]).forEach((v,k)=>{ if(j===si&&k===vi)return; if(v.prepIdx!=null)ex.add(v.prepIdx); }); });
@@ -4164,7 +4201,7 @@ function draftRegen(si,vi){const s=dayDraft.sections[si];if(!s.variants||!s.vari
   _veganPlanUsed=(dayDraft.sections||[]).reduce((n,sec,j)=>{if(j===si)return n;const v=(sec.variants||[]).find(x=>x.selected);return n+(v&&v.prepIdx!=null&&usesVeganProtein(PREP[v.prepIdx])?1:0);},0);
   const budget=effTarget(dayDraft.date).kcal*(SLOT_W[s.slot]||0.2);
   const sel=s.variants[vi].selected; const nv=genVariantMeal(dayDraft.date,s.slot,ex,budget);
-  if(nv){nv.selected=sel;s.variants[vi]=nv;} renderDayDraft();}
+  if(nv){nv.selected=sel;s.variants[vi]=nv;} reoptimizeDraftData(dayDraft); renderDayDraft();}
 /* ===== OBECNÝ EDITOR JÍDLA (váha, komponenty %, výměna base, vyřazení ingredience) ===== */
 let _emMeal=null,_emTitle='',_emDone=null;
 function editMealSheet(meal,title,doneFn){ if(!meal)return; _emMeal=meal;_emTitle=title;_emDone=doneFn;
@@ -4187,7 +4224,7 @@ function editMealSheet(meal,title,doneFn){ if(!meal)return; _emMeal=meal;_emTitl
 function _emRe(){editMealSheet(_emMeal,_emTitle,_emDone);}
 function emCompPct(ci,p){_emMeal.components[ci].pct=Math.max(0,p||0);_emRe();}
 function emCompBase(ci,oi){const c=_emMeal.components[ci];if(!c.baseOptions)return;c.baseSel=oi;c.per=Object.assign({},c.baseOptions[oi].per);c.name=c.baseOptions[oi].name;_emRe();}
-function emFactor(x){_emMeal.q=x;_emRe();}
+function emFactor(x){_emMeal.q=x;_emMeal._manualQ=true;_emRe();}
 function emRemoveIngr(j){const meal=_emMeal;const ing=(meal.ingr||[])[j];if(!ing)return;const per=ingrMacro(ing[0],ing[1],ing[2]);['k','p','c','f','fib','sug','salt'].forEach(kk=>{if(meal[kk]!=null)meal[kk]=Math.max(0,+((meal[kk]-(per[kk]||0)).toFixed(2)));});meal.ingr=meal.ingr.slice(0,j).concat(meal.ingr.slice(j+1));_emRe();}
 function emDone(){const d=_emDone;_emMeal=null;_emDone=null;if(d)d();}
 function editDraftVariant(si,vi){const s=dayDraft.sections[si];if(!s||!s.variants||!s.variants[vi])return;const v=s.variants[vi];
@@ -4199,7 +4236,7 @@ function draftBodyHTML(){
   const night=!!(dayDraft&&dayDraft.night);
   const sl=k=>{const b=(SLOTS.find(s=>s.k===k)||{l:k,ic:''}); return night&&NIGHT_LABELS[k]?{ic:'',l:NIGHT_LABELS[k]}:b;};
   const vRow=(si,vi,v)=>{const m=itemMacro(v.meal);const pre=v.source==='restaurant_cycle'?'🍱 ':(v.meal.composite?'🍱 ':'');
-    return `<div class="row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${v.selected?'checked':''} onclick="draftSelect(${si},${vi})" style="width:auto"><span><div class="n">V${vi+1}: ${pre}${v.meal.n.replace(/^\d+ /,'')}</div><div class="m">${round(m.k)} kcal · B ${round(m.p)}</div></span></label><button class="add" title="recept" onclick="openRecipeVariant(${si},${vi})">📖</button><button class="add" title="upravit (váha, komponenty, ingredience)" onclick="editDraftVariant(${si},${vi})">✎</button><button class="add" title="nový návrh" onclick="draftRegen(${si},${vi})">↻</button></div>`;};
+    return `<div class="row"><label style="display:flex;align-items:center;gap:8px;flex:1;cursor:pointer"><input type="checkbox" ${v.selected?'checked':''} onclick="draftSelect(${si},${vi})" style="width:auto"><span><div class="n">V${vi+1}: ${pre}${v.meal.n.replace(/^\d+ /,'')}${(!v.meal.composite&&v.meal.q&&v.meal.q!==1)?` <b style="color:var(--green-d)">${(''+v.meal.q).replace('.',',')}×</b>`:''}</div><div class="m">${round(m.k)} kcal · B ${round(m.p)} · vlák ${round(m.fib||0)} · cuk ${round(m.sug||0)}</div></span></label><button class="add" title="recept" onclick="openRecipeVariant(${si},${vi})">📖</button><button class="add" title="upravit (váha, komponenty, ingredience)" onclick="editDraftVariant(${si},${vi})">✎</button><button class="add" title="nový návrh" onclick="draftRegen(${si},${vi})">↻</button></div>`;};
   let h=dayDraft.sections.map((s,si)=>{
     if(s.skipNote)return `<div class="card" style="background:#f3f3f3;padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted" style="font-size:.78rem">${s.skipNote}</div></div>`;
     if(s.fixed)return `<div class="card" style="background:#f3f3f3;padding:10px"><b>${sl(s.slot).ic} ${sl(s.slot).l}</b><div class="muted" style="font-size:.76rem">Sekce obsahuje zamčené/snědené jídlo. Nebude automaticky měněna.</div>${s.fixed.map(it=>`<div class="li"><span>${it.eaten?'✅ ':''}${it.locked?lockIcon(true,14)+' ':''}${it.n.replace(/ \(.*?\)/,'')}</span><span>${round(itemMacro(it).k)} kcal</span></div>`).join('')}</div>`;
