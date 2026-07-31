@@ -3799,9 +3799,10 @@ function renderPlanOut(){
       <div class="muted" style="font-size:.78rem;margin-bottom:6px">cíl ${target.kcal} ±10 % · porce ×${fac} · B ${round(t.p)} · S ${round(t.c)} · T ${round(t.f)} · vláknina ${round(t.fib)} g</div>
       ${PLAN_SLOTS.map(s=>{const idx=day.slots[s];const sl=SLOTS.find(x=>x.k===s);const it=planSlotItem(day,s);const edited=day.items&&day.items[s];
         return `<div class="meal" style="padding:8px 2px"><div class="mi">${sl.ic}</div><div class="body"><div class="t"><span style="font-size:.82rem${it?'':';color:var(--muted)'}">${sl.l}: ${it?it.n.replace(/^\d+ /,''):'— bez vhodného návrhu —'}${it?` <span class="muted">· ${round(itemMacro(it).k)} kcal${edited?' ✎':''}</span>`:''}</span></div></div>
-        ${it?`<button class="plus" title="upravit" onclick="editPlanMeal(${di},'${s}')">✎</button>`:''}<button class="plus" onclick="swapMeal(${di},'${s}')">🔄</button></div>`;}).join('')}
+        ${it?`<button class="plus" title="recept" onclick="openRecipePlan(${di},'${s}')">📖</button>`:''}${it?`<button class="plus" title="upravit" onclick="editPlanMeal(${di},'${s}')">✎</button>`:''}<button class="plus" onclick="swapMeal(${di},'${s}')">🔄</button></div>`;}).join('')}
       ${warn}
       ${planDayChanged(di)?`<div class="muted" style="font-size:.74rem;color:#c9534a;margin-top:4px">Návrh upraven — potvrď tlačítkem, ať se propíše do přehledu.</div>`:''}
+      <button class="btn block" style="margin-top:8px" onclick="planEditDay(${di})">✎ Upravit jídla (varianty & recepty)</button>
       <button class="btn sec block" style="margin-top:8px" onclick="acceptDay(${di})">✓ Potvrdit a zapsat do přehledu</button>
       <div style="margin-top:8px;border-top:1px dashed var(--line);padding-top:6px">
         <div class="muted" style="font-size:.74rem;margin-bottom:2px">✓ V přehledu (${day.date}):</div>
@@ -3824,6 +3825,13 @@ function planDayChanged(di){const day=lastPlan.days[di];
 }
 function swapMeal(di,slot){const day=lastPlan.days[di];const used=new Set(Object.values(day.slots));const idx=pickPrepB(slot,used,target.kcal*(SLOT_W[slot]||0.2),dayCtx(day.date));if(idx>=0)day.slots[slot]=idx;if(day.items)delete day.items[slot];day.factor=recalcFactor(day);renderPlanOut();}
 function acceptDay(di){const day=lastPlan.days[di];const snap=protectedSnapshot(day.date);const d=dayObj(day.date);PLAN_SLOTS.forEach(s=>{if(snap[s])return;const it=planSlotItem(day,s);if(!it){delete d[s];return;}d[s]=[JSON.parse(JSON.stringify(it))];});restoreProtected(day.date,snap);DB.save('kt_days',days);toast('✓ Den '+(di+1)+' zapsán do přehledu');renderPlanOut();renderDash();}
+/* stejné úpravy jako u jednodenního plánu: zapíše návrh dne do přehledu a otevře editační popup (3 varianty, ✎, ↻, 📖) */
+function planEditDay(di){const day=lastPlan.days[di];const snap=protectedSnapshot(day.date);const d=dayObj(day.date);
+  PLAN_SLOTS.forEach(s=>{if(snap[s])return;const it=planSlotItem(day,s);if(!it){delete d[s];return;}d[s]=[JSON.parse(JSON.stringify(it))];});
+  restoreProtected(day.date,snap);DB.save('kt_days',days);
+  if(dayDrafts[day.date]){delete dayDrafts[day.date];DB.save('kt_drafts',dayDrafts);} // ať se popup sestaví z aktuálních jídel
+  openDayPlanPopup(day.date);}
+function openRecipePlan(di,slot){const it=planSlotItem(lastPlan.days[di],slot);if(it){_recipeMeal=it;renderRecipeSheet();}}
 
 /* ====== NÁKUPNÍ SEZNAM (samostatná záložka, perzistentní) ====== */
 let shopState=DB.load('kt_shop',[]);     // [{n,u,q,done,cat,range?}]
@@ -4204,7 +4212,7 @@ function draftApply(){if(!dayDraft)return;const date=dayDraft.date;const d=dayOb
   if(dayDrafts[date]){delete dayDrafts[date];DB.save('kt_drafts',dayDrafts);} // koncept použit
   dayDraft=null;draftInPopup=false;
   if(wasPopup)closeSheet(); else {const o=document.getElementById('draftOut');if(o)o.innerHTML='';}
-  renderDash();if(typeof renderWeekOverview==='function')renderWeekOverview();
+  renderDash();if(typeof renderWeekOverview==='function')renderWeekOverview();if(lastPlan&&typeof renderPlanOut==='function')renderPlanOut();
   toast('✅ Vybrané varianty zapsány: '+round(t.k)+' kcal');}
 document.getElementById('genDraft').onclick=()=>{const dt=document.getElementById('draftDate').value||todayISO;buildDayDraft(dt);};
 document.getElementById('datePick').onclick=function(){this.showPicker&&this.showPicker();};
